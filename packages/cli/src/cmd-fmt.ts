@@ -1,0 +1,40 @@
+/**
+ * a0 fmt - canonical formatter command
+ */
+import * as fs from "node:fs";
+import { parse, format, formatDiagnostics } from "@a0/core";
+
+export async function runFmt(
+  file: string,
+  opts: { write?: boolean }
+): Promise<number> {
+  let source: string;
+  try {
+    source = fs.readFileSync(file, "utf-8");
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`Error reading file: ${msg}`);
+    return 2;
+  }
+
+  const parseResult = parse(source, file);
+  if (parseResult.diagnostics.length > 0) {
+    console.error(formatDiagnostics(parseResult.diagnostics, true));
+    return 2;
+  }
+
+  if (!parseResult.program) {
+    console.error("Parse produced no program.");
+    return 2;
+  }
+
+  const formatted = format(parseResult.program);
+
+  if (opts.write) {
+    fs.writeFileSync(file, formatted, "utf-8");
+  } else {
+    process.stdout.write(formatted);
+  }
+
+  return 0;
+}

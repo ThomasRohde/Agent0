@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.a0policy.json
+*.log
+coverage/
+.nyc_output/

@@ -1,0 +1,13 @@
+# patch-demo.a0 - Demonstrate JSON Patch operations
+let doc = { name: "Alice", age: 30, tags: ["dev"] }
+
+let patched = patch {
+  in: doc,
+  ops: [
+    { op: "replace", path: "/name", value: "Bob" },
+    { op: "add", path: "/email", value: "bob@example.com" },
+    { op: "replace", path: "/age", value: 31 }
+  ]
+}
+
+return { original: doc, patched: patched }

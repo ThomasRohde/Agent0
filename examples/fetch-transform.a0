@@ -1,0 +1,10 @@
+# fetch-transform.a0 - Fetch JSON from HTTP, transform it, write to file
+cap { http.get: true, fs.write: true }
+
+call? http.get { url: "https://jsonplaceholder.typicode.com/todos/1" } -> response
+let body = parse.json { in: response.body }
+let title = get { in: body, path: "title" }
+let output = { fetched_title: title, status: response.status }
+do fs.write { path: "output.json", data: output, format: "json" } -> artifact
+
+return { artifact: artifact, output: output }

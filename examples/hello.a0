@@ -1,0 +1,4 @@
+# hello.a0 - A minimal A0 example
+let greeting = "Hello, A0!"
+let data = { name: "world", version: 1 }
+return { greeting: greeting, data: data }

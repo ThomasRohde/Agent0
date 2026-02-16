@@ -1,0 +1,17 @@
+{
+  "name": "@a0/core",
+  "version": "0.1.0",
+  "description": "A0 language core: AST, parser, diagnostics, formatter, evaluator",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "dependencies": {
+    "chevrotain": "^11.0.3"
+  },
+  "license": "MIT"
+}

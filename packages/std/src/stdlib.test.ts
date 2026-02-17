@@ -19,14 +19,18 @@ describe("parse.json", () => {
     assert.deepEqual(result, [1, 2, 3]);
   });
 
-  it("returns error for invalid JSON", () => {
-    const result = parseJsonFn.execute({ in: "{invalid" }) as A0Record;
-    assert.ok(result["err"]);
+  it("throws for invalid JSON", () => {
+    assert.throws(
+      () => parseJsonFn.execute({ in: "{invalid" }),
+      (err: Error) => err.message.length > 0
+    );
   });
 
-  it("returns error for non-string input", () => {
-    const result = parseJsonFn.execute({ in: 42 as unknown as string }) as A0Record;
-    assert.ok(result["err"]);
+  it("throws for non-string input", () => {
+    assert.throws(
+      () => parseJsonFn.execute({ in: 42 as unknown as string }),
+      (err: Error) => err.message.includes("string")
+    );
   });
 });
 
@@ -113,9 +117,11 @@ describe("patch", () => {
     assert.equal(result["email"], "bob@example.com");
   });
 
-  it("returns error for invalid ops", () => {
-    const result = patchFn.execute({ in: {}, ops: "not an array" as unknown as A0Value }) as A0Record;
-    assert.ok(result["err"]);
+  it("throws for invalid ops", () => {
+    assert.throws(
+      () => patchFn.execute({ in: {}, ops: "not an array" as unknown as A0Value }),
+      (err: Error) => err.message.includes("list")
+    );
   });
 
   it("applies test operation (success)", () => {
@@ -126,12 +132,14 @@ describe("patch", () => {
     assert.equal(result["name"], "Alice");
   });
 
-  it("applies test operation (failure)", () => {
-    const result = patchFn.execute({
-      in: { name: "Alice" },
-      ops: [{ op: "test", path: "/name", value: "Bob" }],
-    }) as A0Record;
-    assert.ok(result["err"]);
+  it("throws on test operation failure", () => {
+    assert.throws(
+      () => patchFn.execute({
+        in: { name: "Alice" },
+        ops: [{ op: "test", path: "/name", value: "Bob" }],
+      }),
+      (err: Error) => err.message.includes("Test failed")
+    );
   });
 
   it("applies move operation", () => {
@@ -152,20 +160,24 @@ describe("patch", () => {
     assert.equal(result["backup"], "Alice");
   });
 
-  it("returns error for unknown op", () => {
-    const result = patchFn.execute({
-      in: {},
-      ops: [{ op: "unknown_op", path: "/x", value: 1 }],
-    }) as A0Record;
-    assert.ok(result["err"]);
+  it("throws for unknown op", () => {
+    assert.throws(
+      () => patchFn.execute({
+        in: {},
+        ops: [{ op: "unknown_op", path: "/x", value: 1 }],
+      }),
+      (err: Error) => err.message.includes("Unknown patch op")
+    );
   });
 
-  it("returns error for non-object op", () => {
-    const result = patchFn.execute({
-      in: {},
-      ops: [42 as unknown as A0Value],
-    }) as A0Record;
-    assert.ok(result["err"]);
+  it("throws for non-object op", () => {
+    assert.throws(
+      () => patchFn.execute({
+        in: {},
+        ops: [42 as unknown as A0Value],
+      }),
+      (err: Error) => err.message.includes("Invalid op")
+    );
   });
 
   it("applies nested path operations", () => {
@@ -221,9 +233,11 @@ describe("get (additional)", () => {
     assert.equal(result, null);
   });
 
-  it("returns error for non-string path", () => {
-    const result = getFn.execute({ in: { x: 1 }, path: 42 as unknown as string }) as A0Record;
-    assert.ok(result["err"]);
+  it("throws for non-string path", () => {
+    assert.throws(
+      () => getFn.execute({ in: { x: 1 }, path: 42 as unknown as string }),
+      (err: Error) => err.message.includes("string")
+    );
   });
 
   it("gets from array at top level", () => {
@@ -241,9 +255,11 @@ describe("get (additional)", () => {
 });
 
 describe("put (additional)", () => {
-  it("returns error for non-string path", () => {
-    const result = putFn.execute({ in: {}, path: 42 as unknown as string, value: 1 }) as A0Record;
-    assert.ok(result["err"]);
+  it("throws for non-string path", () => {
+    assert.throws(
+      () => putFn.execute({ in: {}, path: 42 as unknown as string, value: 1 }),
+      (err: Error) => err.message.includes("string")
+    );
   });
 
   it("puts into array index", () => {

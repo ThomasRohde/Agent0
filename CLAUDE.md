@@ -56,6 +56,8 @@ Key interfaces defined in the evaluator that tools/stdlib implement:
 - `ToolDef`: `{ name, mode: "read"|"effect", capabilityId, execute(args, signal?), inputSchema?, outputSchema? }`
 - `StdlibFn`: `{ name, execute(args) }`
 
+**Stdlib error model:** Stdlib functions throw on errors (never return `{err:...}` records). The evaluator's try/catch wraps thrown errors as `E_FN` (exit 4). This ensures consistent, documented error behavior — programs that need to handle failures should validate inputs before calling stdlib functions.
+
 ## Language Contribution Rules
 
 When adding language features, you must update all of: lexer tokens, parser rules, AST node types (`ast.ts`), the evaluator's `evalExpr` switch, the validator, and the formatter. Add tests (golden where possible). Trace impact must be specified.
@@ -73,6 +75,8 @@ Stable string codes: `E_LEX`, `E_PARSE`, `E_AST`, `E_NO_RETURN`, `E_RETURN_NOT_L
 Reserved keywords (lexer tokens): `cap`, `budget`, `import`, `as`, `let`, `return`, `call?`, `do`, `assert`, `check`, `true`, `false`, `null`, `if`, `for`, `fn`, `match`.
 
 Note: `ok`, `err`, `in`, `cond`, `then`, `else` are NOT keywords — they are parsed as identifiers or record keys.
+
+**Diagnostic phase notes:** `E_CALL_EFFECT` is a compile-time error (caught by `a0 check`, exit 2). `E_TOOL_ARGS` is a runtime error (exit 4) — tool arg schemas are validated at execution time, not statically.
 
 ## Trace Events
 

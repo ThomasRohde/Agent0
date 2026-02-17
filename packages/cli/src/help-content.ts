@@ -65,9 +65,9 @@ A0 SYNTAX REFERENCE
 ====================
 
 COMMENTS
-  # single-line comment (must be on its own line)
+  # single-line comment (own line or end of line)
 
-PROGRAM HEADERS (must appear before any statements, in this order)
+PROGRAM HEADERS (must appear before any statements, any order)
   cap { capability.name: true, ... }     # declare required capabilities
   budget { field: value, ... }           # declare resource limits
 
@@ -99,8 +99,8 @@ RESERVED KEYWORDS (cannot be used as variable names)
   cap  budget  import  as  let  return  call?  do
   assert  check  true  false  null  if  for  fn  match
 
-LINE-ORIENTED RULES
-  - One statement per line
+LINE RULES
+  - Statements are typically one per line; multiple per line work
   - Records/lists may span lines (braces/brackets keep context open)
   - No semicolons, no statement separators
   - Strings are double-quoted only, with JSON escapes: \\" \\\\ \\n \\t
@@ -201,10 +201,14 @@ sh.exec — Execute shell command
     do sh.exec { cmd: "ls -la", timeoutMs: 10000 } -> result
 
 KEYWORD RULES
-  call? on effect tool -> E_CALL_EFFECT (exit 4)
+  call? on effect tool -> E_CALL_EFFECT (exit 2, caught at check time)
   do on read tool     -> allowed but unconventional (prefer call?)
-  Invalid tool args   -> E_TOOL_ARGS (exit 2)
+  Invalid tool args   -> E_TOOL_ARGS (exit 4, runtime schema validation)
   Unknown tool name   -> E_UNKNOWN_TOOL (exit 4)
+
+PATH RESOLUTION
+  File paths (fs.read, fs.write) resolve relative to the process
+  working directory (cwd), not the script file's directory.
 `.trimStart(),
 
 // ─── STDLIB ─────────────────────────────────────────────────────────────────
@@ -328,7 +332,7 @@ RULES
   - Only declare fields the program needs
   - Unknown fields produce E_UNKNOWN_BUDGET at validation time (exit 2)
   - Budget is enforced at runtime — checked after each tool call / iteration
-  - budget must appear after cap, before statements
+  - budget can appear before or after cap, but both must precede statements
 
 EXAMPLE
   cap { http.get: true, fs.write: true }
@@ -421,14 +425,14 @@ COMPILE-TIME ERRORS (exit 2) — caught by a0 check
   E_UNKNOWN_BUDGET  Invalid budget field             Use: timeMs maxToolCalls maxBytesWritten maxIterations
   E_DUP_BINDING     Duplicate let name               Rename one binding
   E_UNBOUND         Undefined variable               Bind with let or -> first
-  E_TOOL_ARGS       Invalid tool arguments           Check tool signature
+  E_CALL_EFFECT     call? on effect tool              Use do for fs.write, sh.exec
   E_FN_DUP          Duplicate fn name                Rename one function
 
 RUNTIME ERRORS (exit 3/4/5)
   Code              Exit  Cause                      Fix
   E_CAP_DENIED      3     Policy denies capability   Update cap {} or policy file
   E_UNKNOWN_TOOL    4     Unknown tool name           Check spelling: fs.read fs.write http.get sh.exec
-  E_CALL_EFFECT     4     call? on effect tool       Use do for fs.write, sh.exec
+  E_TOOL_ARGS       4     Invalid tool arguments     Check args match tool schema
   E_TOOL            4     Tool execution failed       Check args, paths, URLs, perms
   E_BUDGET          4     Budget limit exceeded       Increase limit or reduce usage
   E_UNKNOWN_FN      4     Unknown stdlib function     Check: parse.json get put patch eq contains not and or

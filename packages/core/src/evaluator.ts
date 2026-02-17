@@ -58,6 +58,7 @@ export class A0RuntimeError extends Error {
   code: string;
   span?: Span;
   details?: A0Record;
+  evidence?: Evidence[];
 
   constructor(code: string, message: string, span?: Span, details?: A0Record) {
     super(message);
@@ -206,9 +207,25 @@ export async function execute(
   });
 
   const userFns = new Map<string, AST.FnDecl>();
-  const result = await executeBlock(program.statements, env, options, evidence, emitTrace, budget, tracker, userFns);
-
-  emitTrace("run_end", program.span, { durationMs: Date.now() - runStartMs });
+  let result: A0Value = null;
+  try {
+    result = await executeBlock(program.statements, env, options, evidence, emitTrace, budget, tracker, userFns);
+    emitTrace("run_end", program.span, { durationMs: Date.now() - runStartMs });
+  } catch (e) {
+    const errorData: A0Record = { durationMs: Date.now() - runStartMs };
+    if (e instanceof A0RuntimeError) {
+      errorData["error"] = e.code;
+      errorData["message"] = e.message;
+      if (evidence.length > 0) {
+        e.evidence = evidence;
+      }
+    } else {
+      errorData["error"] = "E_RUNTIME";
+      errorData["message"] = e instanceof Error ? e.message : String(e);
+    }
+    emitTrace("run_end", program.span, errorData);
+    throw e;
+  }
 
   return { value: result, evidence, diagnostics };
 }

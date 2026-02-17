@@ -28,6 +28,15 @@ export async function runFmt(
     return 2;
   }
 
+  // Warn if source contains comments (which will be stripped by formatting)
+  const hasComments = source.split("\n").some((line) => {
+    const withoutStrings = line.replace(/"(?:[^"\\]|\\.)*"/g, '""');
+    return withoutStrings.includes("#");
+  });
+  if (hasComments) {
+    console.error("warning: formatting will remove comments from the output.");
+  }
+
   const formatted = format(parseResult.program);
 
   if (opts.write) {

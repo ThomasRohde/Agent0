@@ -53,7 +53,7 @@ Map exit codes to error categories:
 | `E_UNKNOWN_BUDGET` | Invalid budget field name | Use valid fields: `timeMs`, `maxToolCalls`, `maxBytesWritten`, `maxIterations` |
 | `E_DUP_BINDING` | Duplicate `let` name | Rename one of the bindings |
 | `E_UNBOUND` | Undefined variable | Bind with `let` or `->` before use |
-| `E_TOOL_ARGS` | Invalid tool arguments | Check required fields in tool signature |
+| `E_CALL_EFFECT` | Wrong keyword for tool mode | Use `call?` for read tools, `do` for effect tools |
 | `E_FN_DUP` | Duplicate function name | Rename one of the `fn` definitions |
 
 ### Runtime Errors (exit 3, 4, 5)
@@ -62,7 +62,7 @@ Map exit codes to error categories:
 |------|-------|-----|
 | `E_CAP_DENIED` | Capability not allowed by policy | Add to `cap {}` or update `.a0policy.json` |
 | `E_UNKNOWN_TOOL` | Tool name not recognized | Check spelling: `fs.read`, `fs.write`, `http.get`, `sh.exec` |
-| `E_CALL_EFFECT` | Wrong keyword for tool mode | Use `call?` for read tools, `do` for effect tools |
+| `E_TOOL_ARGS` | Invalid tool arguments | Check required fields in tool signature |
 | `E_TOOL` | Tool execution failed | Check tool args, file paths, URLs, permissions |
 | `E_BUDGET` | Budget limit exceeded | Increase budget limit or reduce resource usage |
 | `E_UNKNOWN_FN` | Stdlib function not found | Check spelling: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or` |
@@ -86,7 +86,7 @@ Start with static validation — catches most errors without executing anything:
 a0 check file.a0
 ```
 
-This catches: `E_LEX`, `E_PARSE`, `E_AST`, `E_NO_RETURN`, `E_RETURN_NOT_LAST`, `E_UNKNOWN_CAP`, `E_DUP_BINDING`, `E_UNBOUND`, `E_TOOL_ARGS`, `E_UNDECLARED_CAP`, `E_UNKNOWN_BUDGET`, `E_FN_DUP`.
+This catches: `E_LEX`, `E_PARSE`, `E_AST`, `E_NO_RETURN`, `E_RETURN_NOT_LAST`, `E_UNKNOWN_CAP`, `E_DUP_BINDING`, `E_UNBOUND`, `E_CALL_EFFECT`, `E_UNDECLARED_CAP`, `E_UNKNOWN_BUDGET`, `E_FN_DUP`.
 
 ### Step 2: Read the Diagnostic
 

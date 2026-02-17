@@ -108,6 +108,11 @@ export async function runRun(
     return 0;
   } catch (e) {
     if (e instanceof A0RuntimeError) {
+      // Write evidence from error if available (assert/check failures)
+      if (opts.evidence && e.evidence && e.evidence.length > 0) {
+        fs.writeFileSync(opts.evidence, JSON.stringify(e.evidence, null, 2));
+      }
+
       if (pretty) {
         console.error(formatDiagnostic({ code: e.code, message: e.message, span: e.span }, true));
       } else {

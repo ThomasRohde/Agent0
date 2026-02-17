@@ -175,8 +175,12 @@ describe("Trace Golden Tests", () => {
     // Should still have run_start
     assert.ok(events.some((e) => e.event === "run_start"));
 
-    // run_end should NOT be emitted because the error interrupted execution
-    assert.ok(!events.some((e) => e.event === "run_end"));
+    // run_end SHOULD be emitted even on failure, with error info
+    const runEnd = events.find((e) => e.event === "run_end");
+    assert.ok(runEnd, "run_end should be emitted even on failure");
+    assert.ok(runEnd!.data);
+    assert.equal((runEnd!.data as A0Record)["error"], "E_ASSERT");
+    assert.equal(typeof (runEnd!.data as A0Record)["durationMs"], "number");
   });
 
   it("run_start includes declared capabilities", async () => {

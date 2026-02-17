@@ -79,7 +79,7 @@ do sh.exec { cmd: "ls -la", cwd: "/tmp", timeoutMs: 10000 } -> result
 # result.exitCode, result.stdout, result.stderr, result.durationMs available
 ```
 
-**Note**: All tool inputs are validated at runtime against Zod schemas. Invalid arguments produce `E_TOOL_ARGS` with field-level error details.
+**Note**: All tool inputs are validated at runtime against Zod schemas. Invalid arguments produce `E_TOOL_ARGS` (exit 4) with field-level error details.
 
 ## Stdlib Functions
 
@@ -105,7 +105,7 @@ Read a value at a nested path using dot/bracket notation.
 - **Args**: `{ in: rec, path: str }`
   - `path` — Dot-separated path with optional bracket indexing: `"a.b[0].c"`
 - **Returns**: The value at the path, or `null` if not found
-- **Error**: `E_PATH` for malformed paths
+- **Error**: `E_FN` if `path` is not a string
 
 ```
 let val = get { in: { a: { b: [10, 20] } }, path: "a.b[1]" }

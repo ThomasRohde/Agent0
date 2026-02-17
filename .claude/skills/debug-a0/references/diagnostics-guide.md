@@ -197,8 +197,8 @@ return { content: content }
 
 ## E_TOOL_ARGS — Invalid Tool Arguments
 
-**Phase**: Validation
-**Exit code**: 2
+**Phase**: Runtime
+**Exit code**: 4
 
 Tool arguments don't match the expected schema.
 
@@ -261,8 +261,8 @@ call? fs.read { path: "data.json" } -> content
 
 ## E_CALL_EFFECT — Wrong Tool Invocation Mode
 
-**Phase**: Runtime
-**Exit code**: 4
+**Phase**: Validation
+**Exit code**: 2
 
 `call?` was used on an effect-mode tool. Note: using `do` on a read-mode tool is allowed but unconventional — prefer `call?` for read tools to signal read-only intent.
 
@@ -446,7 +446,7 @@ return { a: a, b: b }
 
 A field in the `budget { ... }` block is not a recognized budget field name.
 
-**Valid fields**: `timeMs`, `maxToolCalls`, `maxBytesWritten`
+**Valid fields**: `timeMs`, `maxToolCalls`, `maxBytesWritten`, `maxIterations`
 
 **Before** (broken):
 ```

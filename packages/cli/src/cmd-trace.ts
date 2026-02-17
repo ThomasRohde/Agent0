@@ -78,8 +78,14 @@ export async function runTrace(
     if (ev.event === "tool_end" && ev.data?.["outcome"] === "err") {
       summary.failures++;
     }
+    if (ev.event === "run_end" && ev.data?.["error"]) {
+      summary.failures++;
+    }
     if (ev.event === "evidence") {
       summary.evidenceCount++;
+      if (ev.data?.["ok"] === false) {
+        summary.failures++;
+      }
     }
     if (ev.event === "budget_exceeded") {
       summary.budgetExceeded++;

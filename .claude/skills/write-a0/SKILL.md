@@ -41,7 +41,7 @@ Only declare capabilities the program actually uses.
 
 ## Tools — Read vs Effect
 
-Read-only tools use `call?`. Effectful tools use `do`. Using `call?` on an effect tool is a runtime error (`E_CALL_EFFECT`).
+Read-only tools use `call?`. Effectful tools use `do`. Using `call?` on an effect tool is a validation error (`E_CALL_EFFECT`, exit 2) caught by `a0 check`.
 
 | Tool | Mode | Keyword | Capability |
 |------|------|---------|------------|
@@ -162,7 +162,7 @@ Subject must be a record with `ok` or `err` key. The inner value is bound to the
 
 ## Budget
 
-Declare resource limits with `budget { ... }` at the top of the file (after `cap`). Exceeding a limit stops execution with `E_BUDGET` (exit 4).
+Declare resource limits with `budget { ... }` at the top of the file (before or after `cap`). Exceeding a limit stops execution with `E_BUDGET` (exit 4).
 
 ```
 budget { timeMs: 30000, maxToolCalls: 10, maxBytesWritten: 1048576, maxIterations: 100 }

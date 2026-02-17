@@ -136,21 +136,16 @@ export const patchFn: StdlibFn = {
     let doc = args["in"] ?? null;
     const ops = args["ops"];
     if (!Array.isArray(ops)) {
-      return { err: { code: "E_TYPE", message: "patch requires 'ops' to be a list." } };
+      throw new Error("patch requires 'ops' to be a list.");
     }
 
     for (let i = 0; i < ops.length; i++) {
       const raw = ops[i];
       if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
-        return { err: { code: "E_PATCH", message: `Invalid op at index ${i}.`, index: i } };
+        throw new Error(`Invalid op at index ${i}.`);
       }
       const op = raw as unknown as PatchOp;
-      try {
-        doc = applyOp(doc, op);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
-        return { err: { code: "E_PATCH", message: msg, index: i } };
-      }
+      doc = applyOp(doc, op);
     }
 
     return doc;

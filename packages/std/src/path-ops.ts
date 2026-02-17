@@ -67,7 +67,7 @@ export const getFn: StdlibFn = {
     const input = args["in"];
     const pathStr = args["path"];
     if (typeof pathStr !== "string") {
-      return { err: { code: "E_TYPE", message: "get requires 'path' to be a string." } };
+      throw new Error("get requires 'path' to be a string.");
     }
     const segments = parsePath(pathStr);
     return getByPath(input ?? null, segments);
@@ -81,7 +81,7 @@ export const putFn: StdlibFn = {
     const pathStr = args["path"];
     const value = args["value"] ?? null;
     if (typeof pathStr !== "string") {
-      return { err: { code: "E_TYPE", message: "put requires 'path' to be a string." } };
+      throw new Error("put requires 'path' to be a string.");
     }
     const segments = parsePath(pathStr);
     return putByPath(input ?? null, segments, value);

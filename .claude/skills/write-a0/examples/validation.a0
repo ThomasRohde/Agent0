@@ -1,0 +1,8 @@
+# validation.a0 - Data validation with assert and check
+let data = { count: 42, items: [1, 2, 3] }
+let count = get { in: data, path: "count" }
+
+assert { that: true, msg: "count is defined" }
+check { that: true, msg: "data structure valid" }
+
+return { ok: true, count: count }

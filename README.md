@@ -1,374 +1,321 @@
-# A0 — Agent-Native CLI Language (v0.1)
+# Agent0 / A0 — Agent-Optimized CLI Language (v0.1)
 
-A0 is a general-purpose programming language and CLI runner designed for agents first, humans second.
+A0 is a small, structured, general-purpose scripting language with a CLI runner designed to be generated and repaired reliably by autonomous agents. It favors structured values over strings, explicit effects, capability gating, and machine-readable traces/evidence.
 
-It’s built around a simple idea: an agent can only be reliable if the language makes reliability the default.
-So A0 is structured, capability-governed, evidence-producing, and designed to run in repeatable execution loops with minimal retries.
+If you’re a coding agent reading this repo: optimize for “valid program on first try” and “minimal reruns”. Prefer small, checkable edits. Don’t be clever—be inspectable.
 
-If you’re a coding agent reading this: optimize for “valid program on first try” and “minimal reruns”. Don’t be clever. Be checkable.
+## Philosophy (the mindset)
 
----
+A0 is trying to make agent-written automation safer and more repeatable by default:
 
-## Philosophy
+- Structured by default: records and lists, not ad-hoc text pipelines.
+- Explicit effects: read-only vs effectful actions are spelled differently (`call?` vs `do`).
+- Capability governed: execution is deny-by-default unless a host policy allows the requested capabilities.
+- Repair-loop friendly: stable formatting, stable error codes, and run artifacts (trace/evidence) that make failures cheap to diagnose.
 
-A0 programs are meant to be:
+Token efficiency (in A0 terms) is fewer failed generations and fewer reruns—not “shortest possible syntax”.
 
-1. **Structured by default**
-   Values are records/lists/tables/artifacts — not ad-hoc strings. Pipelines pass structured data, not text blobs.
+## What’s implemented in v0.1 (this repo)
 
-2. **Explicit about effects**
-   Side effects are not “just function calls”. They are explicit (`do`) and gated by declared capabilities (`cap { ... }`).
-   This makes programs auditable and sandbox-friendly.
+Language surface:
+- Literals: `null`, `bool`, `number`, `string`
+- Data: records `{ k: v }`, lists `[a, b, c]`
+- Bindings: `let name = expr`
+- Access: `ident.path` (record field access)
+- Tool calls:
+  - `call? tool.name { ... }` (read-only tools)
+  - `do tool.name { ... }` (effectful tools)
+- Evidence:
+  - `assert { that: ..., msg: "...", details: {...}? } -> ev`
+  - `check  { that: ..., msg: "...", details: {...}? } -> ev`
+  - `that` is coerced to boolean (so non-empty strings become “true”, etc.)
+- Stdlib function calls (pure):
+  - `parse.json { in: "..." }`
+  - `get { in: <value>, path: "a.b[0].c" }`
+  - `put { in: <value>, path: "...", value: <value> }`
+  - `patch { in: <value>, ops: [ ... ] }`
+- Program must end with `return { ... }` (record return is required).
 
-3. **Evidence-driven**
-   Assertions and checks produce structured evidence objects. Evidence is returned, traced, and can be used for governance and repair.
+Runtime / CLI:
+- `a0 run <file|->` executes and prints JSON to stdout
+- `a0 check <file>` parses + validates (no execution)
+- `a0 fmt <file>` canonical-ish formatter (prints; `--write` overwrites)
+- `a0 trace <trace.jsonl>` summarizes a JSONL trace
+- Capability policy loader:
+  - `./.a0policy.json` (project) overrides `~/.a0/policy.json` (user)
+  - default policy is deny-all
 
-4. **Deterministic-by-default**
-   Pure evaluation is cacheable and replayable. When effects are used, they should be isolated, minimized, and optionally cacheable with explicit policy.
+Built-in tools shipped in `@a0/tools`:
+- `fs.read` (read)
+- `fs.write` (effect)
+- `http.get` (read)
+- `sh.exec` (effect)
 
-5. **Token-efficient in the only way that matters**
-   “Token efficient” means fewer failed generations and fewer reruns, not just shorter syntax. A0’s grammar is intentionally small so it can be learned from a short “language card” and generated under constraints.
+## Quickstart (from source)
 
----
+Requirements: Node.js >= 18
 
-## Status
+Clone and build:
 
-- **v0.1 implemented**: core language + capability gating + basic stdlib + CLI commands.
-- Roadmap below covers **v0.2 → v0.4**, plus what’s needed to become a fully functional, general-purpose scripting/runtime environment.
-
----
-
-## Quick start
-
-### Run an example
 ```bash
-a0 run examples/spec_fetch.a0
+git clone https://github.com/ThomasRohde/Agent0.git
+cd Agent0
+npm install
+npm run build
 ````
 
-### Validate (parse/type/capability checks + lints)
+Run the minimal example:
 
 ```bash
-a0 check examples/spec_fetch.a0
+node packages/cli/dist/main.js run examples/hello.a0
 ```
 
-### Canonical formatting
+Validate:
 
 ```bash
-a0 fmt examples/spec_fetch.a0
+node packages/cli/dist/main.js check examples/hello.a0
 ```
 
-### Trace execution (DAG + evidence)
+Format:
 
 ```bash
-a0 trace examples/spec_fetch.a0 --json
+node packages/cli/dist/main.js fmt examples/hello.a0
 ```
 
----
+Install the CLI globally (optional, for local dev):
 
-## A0 in 60 seconds
+```bash
+# after build
+npm install -g ./packages/cli
+a0 run examples/hello.a0
+```
 
-A0 is line-oriented and record-first. Arguments are key/value records to avoid positional ambiguity.
+## Capabilities and policy (how “safe-by-default” works)
 
-Effects are explicit:
+A0 enforces capabilities in two places:
 
-* `call?` = read-only/tool query (still requires capability)
-* `do`    = effectful action
+1. At start of execution: if you declared `cap { ... }`, those requested capabilities must be allowed by the host policy.
+2. At tool invocation time: the tool’s `capabilityId` must be allowed (even if you forgot to declare `cap { ... }`).
 
-Evidence is explicit:
+Policy file precedence:
 
-* `assert` and `check` emit evidence objects
-* programs should `return { artifacts:[...], evidence:[...] }`
+* `./.a0policy.json`
+* `~/.a0/policy.json`
+* default: deny all
 
-Example:
+Minimal policy example (project-local):
+
+```json
+{
+  "version": 1,
+  "allow": ["http.get", "fs.write"]
+}
+```
+
+Minimal script using those capabilities:
 
 ```text
-cap { http.read, fs.write, sh.exec(test) }
-budget { time:"120s" }
+cap { http.get: true, fs.write: true }
 
-let spec_txt = call? http.get { url:"https://example.com/spec" }
-let spec     = parse.json { in:spec_txt }
+let resp = call? http.get { url: "https://example.com" }
 
-assert { eq:get(spec,"version"), to:"1.2", msg:"spec version" } -> ev.version
+# evidence is intentionally simple in v0.1 (no operators yet):
+check { that: resp.body, msg: "non-empty body" } -> ev.body
 
-do fs.write { path:"./spec.json", data:spec } -> art.spec
+let out = do fs.write { path: "./out.txt", data: resp.body }
 
-do sh.exec { kind:"test", cmd:"pytest -q" } -> log.tests
-check { tests.pass:log.tests } -> ev.tests
-
-return { artifacts:[art.spec], evidence:[ev.version, ev.tests] }
+return { response: resp, out: out, evidence: [ev.body] }
 ```
 
----
+Notes:
 
-## Language overview (v0.1)
+* `call?` cannot be used with tools marked `mode:"effect"` (it will fail).
+* `do` currently does not forbid read-mode tools (that tightening is a v0.2 item).
+* Tool args must be a record `{ ... }` (never positional).
 
-### Core types
+## Evidence and trace artifacts
 
-* primitives: `int`, `float`, `bool`, `str`, `bytes`
-* structural: `list[T]`, `rec{...}`, `table` (list of records), `stream` (lazy)
-* special: `artifact`, `evidence`, `result[T] = ok(T) | err(rec)`
+Evidence:
 
-### Core forms
+* `assert` and `check` emit an evidence object and write a trace event.
+* A failing `assert/check` stops the program with exit code 5.
 
-* bindings: `let`
-* control flow: `if`, `match`
-* functions: `fn` (v0.1 exists; see roadmap for “fully usable” function system)
-* pipelines: `|` over values
-* effects: `call?`, `do`
-* verification: `assert`, `check`
-* exit: `return`, `fail`
+Trace:
 
-### CLI
+* `a0 run --trace <file.jsonl>` writes JSONL events (one JSON object per line).
+* `a0 trace <file.jsonl>` summarizes counts, tools used, failures, and duration.
 
-* `a0 run <file> [--json]`
-* `a0 check <file>`
-* `a0 fmt <file>`
-* `a0 pack <file>` / `a0 unpack <file>` (if enabled in v0.1; expanded in v0.4)
-* `a0 trace <file>`
+## Exit codes
 
----
+* 0: success
+* 2: parse/validation failure
+* 3: capability denied
+* 4: runtime/tool error
+* 5: assertion/check failed (or evidence failure)
 
-## Capability model
+## Repo layout
 
-A0 programs must declare capabilities upfront:
+Monorepo (npm workspaces):
 
-```text
-cap { fs.read, fs.write, http.read, sh.exec(test) }
-```
+* `packages/core` — AST, parser, diagnostics, formatter, evaluator, capability policy
+* `packages/std` — pure stdlib functions (parse.json, get/put, patch)
+* `packages/tools` — built-in tools (fs/http/sh)
+* `packages/cli` — the `a0` command (run/check/fmt/trace)
+* `examples/` — small A0 programs
 
-Interpreter rules:
+## “Language card” (paste into an agent prompt)
 
-* Any `call?` or `do` requires an allowed capability.
-* Capabilities should be granular (e.g., `fs.write` vs `fs.*`).
-* The runtime may enforce a policy file (recommended) that further restricts allowed paths/hosts/commands.
+A0 is line-oriented and record-first.
 
-Recommended shape for policy (host-side):
+Statements:
 
-* filesystem allowlist (paths + read/write)
-* network allowlist (hosts + methods)
-* process allowlist (commands + args patterns)
-* time/memory limits (budget enforcement)
-* optional “deny by default” mode for CI
+* `let name = expr`
+* `expr -> name` (bind result of an expression statement)
+* `return { ... }` must be last
 
-This is the backbone of running agent-generated code safely.
+Expressions:
 
----
+* literals: `null`, `true/false`, numbers, `"strings"`
+* record: `{ k: expr, ... }`
+* list: `[ expr, ... ]`
+* path: `name.foo.bar`
+* tools:
 
-## Evidence and trace
+  * `call? tool.name { k: expr, ... }`   # read-only tool
+  * `do tool.name { k: expr, ... }`      # effect tool
+* evidence:
 
-A0 assumes programs will be inspected and repaired. The runtime should emit:
+  * `assert { that: expr, msg: "..." } -> ev`
+  * `check  { that: expr, msg: "..." } -> ev`
+* stdlib:
 
-1. **Structured evidence**
+  * `parse.json { in: expr }`
+  * `get { in: expr, path: "a.b[0]" }`
+  * `put { in: expr, path: "...", value: expr }`
+  * `patch { in: expr, ops: [ ... ] }`
 
-   * assertions/checks produce machine-readable objects
-   * evidence includes: id, predicate, inputs, result, message, and optional attachments/log refs
+Capabilities:
 
-2. **Execution trace**
-
-   * node id, op name, normalized args, input hashes, output hashes
-   * start/end timestamps
-   * tool invocation metadata
-   * caching decisions (hit/miss + reason)
-
-A good trace makes repair cheap: “node 5 failed, here’s the exact inputs and logs”.
-
----
-
-## Project layout (typical)
-
-Your repo may differ, but keep the intent:
-
-* `examples/` — small, canonical programs that demonstrate features
-* `docs/` — language card, capability docs, trace schema
-* `tests/` — parser + evaluator + capability + golden traces
-* `src/` or `crates/` — interpreter implementation
-* `stdlib/` — builtins and tool adapters
-
----
-
-## Recommended tech stack
-
-If you’re evolving this toward production-grade execution, the safest long-term stack is:
-
-1. **Rust interpreter + capability gate (recommended)**
-
-* CLI: `clap`
-* Parsing: `pest` (fast to iterate) or `nom` (more control)
-* Data model: `serde` + `serde_json`
-* Tracing: `tracing` + OpenTelemetry exporter
-* Cache: SQLite keyed by (op, normalized args, content hash)
-* Optional sandbox: Wasmtime/WASI for running effect plugins safely
-
-2. **TypeScript/Node prototype (fast iteration)**
-
-* CLI: `commander` or `yargs`
-* Parser: `chevrotain`
-* Trace/evidence: JSONL + optional OTEL
-* Later: port stabilized semantics to Rust
-
-If this repo already has an implementation, treat the above as guidance for where to take it next.
-
----
+* Policy allowlist gates tools. Policy file: `./.a0policy.json` then `~/.a0/policy.json`.
+* Tools in v0.1: `fs.read`, `fs.write`, `http.get`, `sh.exec`.
 
 ## Roadmap
 
-### v0.2 — Make runs reproducible and repairs cheap
+### v0.2 — Make runs reproducible and failures cheaper
 
-Primary theme: **canonicalization + caching + better diagnostics**.
+Theme: “tighten invariants + better contracts”.
 
-Deliverables:
+Language/runtime:
 
-* `a0 fmt` is fully canonical and stable (idempotent)
-* Normalized argument encoding (so semantically identical programs cache identically)
-* Automatic caching for pure nodes (safe, on by default)
-* Trace schema v1 (JSON) with node ids, inputs/outputs, cache hits, logs
-* Improved error messages:
+* Add a small set of boolean/predicate helpers in stdlib (e.g. `eq`, `contains`, `and/or/not`) so `assert/check` becomes genuinely useful.
+* Enforce “declared caps match used tools”:
 
-  * “expected record key `url`” instead of “parse error”
-  * node-local failure reporting: include node id + snippet + suggested fixes
-
-Capability improvements:
-
-* Host-side policy file (deny-by-default optional)
-* Path/host/command constraints:
-
-  * `fs.write` restricted to specific directories
-  * `http.read` restricted to host allowlist
-  * `sh.exec` restricted to command allowlist
-
-Acceptance checks:
-
-* Golden tests: same program + same inputs => same outputs and trace hashes
-* Cache tests: modify one node input => only downstream nodes rerun
-
----
-
-### v0.3 — Make it a real programming language (not just a workflow DSL)
-
-Primary theme: **composition**.
-
-Language features to make A0 “fully usable”:
-
-* Modules:
-
-  * `import "path" as m`
-  * `export { ... }`
-* Functions (finish the story):
-
-  * explicit params and return values
-  * recursion allowed
-  * closures/higher-order functions (at least `map/filter/reduce` friendliness)
-  * small standard functional helpers
-* Iteration:
-
-  * `for` (over list/table/stream)
-  * `while` (guarded; budget-aware)
-  * comprehensions OR a disciplined `pipe`-first iteration style
-* Table ops expanded and consistent:
-
-  * `select`, `filter`, `sort`, `group`, `join`
-* Error handling becomes ergonomic:
-
-  * `result[T]` helpers: `is_ok`, `unwrap`, `unwrap_or`, `map_ok`, `map_err`
-  * pattern matching on `ok/err` is idiomatic
+  * fail `a0 check` if a tool is used without declaring its capability in `cap { ... }`.
+* Unify/clean up capability naming (today there are remnants like `http.read` vs `http.get`).
+* Budgets (first cut): parse `budget { ... }` and enforce `timeMs`, `maxToolCalls`, `maxBytesWritten` (start with runtime-only enforcement).
 
 Tooling:
 
-* `a0 repl` (optional but very helpful)
-* richer lints: “effect in loop without evidence”, “unused binding”, “uncached nondeterministic call”
+* Tool contracts:
 
-Acceptance checks:
+  * add Zod schemas for tool input/output
+  * validate at runtime (clear errors with spans)
+* Trace schema v1:
 
-* Standard library examples cover: parse → transform → join → write → verify
-* Module import/export tested with stable formatting and caching
+  * stable event names/fields
+  * include tool args (normalized), durations, and outcomes consistently
+* CLI polish:
 
----
+  * fix option/help ergonomics (`--trace <file>`, `--evidence <file>`, better arg placeholders)
+  * `a0 run --unsafe-allow-all` remains dev-only and clearly labeled
 
-### v0.4 — Secure extensibility + packed mode
+Tests:
 
-Primary theme: **plugins + sandbox + density (without fragility)**.
+* Golden tests for formatter idempotence
+* Golden traces for tool calls + evidence
+* Capability-policy precedence tests
 
-Deliverables:
+### v0.3 — Make it a real programming language (composition)
 
-* Tool/plugin system:
+Theme: “control flow + user-defined reuse”.
 
-  * registry of tools with schemas (args/returns)
-  * versioning and capability mapping
-  * “tool contracts” used by checker and trace
-* Optional WASI execution for effect plugins (sandboxed tools)
+Language:
 
-  * capabilities map to host grants
-  * consistent log and trace capture
-* Packed mode:
+* User-defined functions:
 
-  * `a0 pack` / `a0 unpack` becomes first-class
-  * dictionary/codebook support for compact transport
-  * packed form is reversible and validated against the same AST
+  * `fn name { params:{...}, body:[...] }` (exact syntax up to you, but keep it record-first)
+  * recursion allowed, no closures until needed
+* Control flow:
 
-Acceptance checks:
+  * `if` (expression form)
+  * `match` on `{ ok: ... } / { err: ... }` conventions
+* Iteration:
 
-* A plugin can be added without changing interpreter core
-* Sandbox policy prevents unauthorized fs/net/proc access
-* Packed programs unpack to identical canonical AST and identical behavior
+  * `for` over lists (budget-aware)
+  * no unbounded loops without explicit budgets
 
----
+Runtime:
 
-## What’s still needed for “fully functional” A0 (beyond v0.4)
+* Deterministic evaluation guarantees documented (what is pure, what is effectful)
+* Better error model for stdlib (structured `{ err: { code, message, ... } }` conventions)
 
-If you want A0 to be a general-purpose agent scripting environment, plan for these additions (some can land earlier):
+### v0.4 — Extensibility without losing safety
 
-1. **Standard library breadth**
+Theme: “plugins + sandbox-shaped boundaries”.
 
-* YAML (optional), XML (optional)
-* robust path/query: jsonpath-lite, record path utilities
-* patch/merge primitives optimized for “minimal edits” workflows
+Tools/plugins:
 
-2. **Concurrency (carefully)**
+* External tool registry:
 
-* `spawn` / `await` only if traceability remains strong
-* deterministic scheduling modes (or explicitly nondeterministic with clear trace markers)
+  * discover tools via a manifest (JSON)
+  * map tool -> capabilityId -> schema
+* Optional sandbox strategy for effectful tools:
 
-3. **Resource governance**
+  * start with process isolation + strict policy
+  * explore WASI (Wasm) for untrusted tools (keeps host safe)
 
-* budgets for time, memory, network calls, file writes
-* per-capability quotas
-* “effect in loop” policies
+Packaging:
 
-4. **Developer ergonomics**
+* `a0 pack/unpack` (optional) only if it stays reversible and debuggable:
 
-* stable error codes
-* better source mapping in errors/traces
-* optional language server later (only after grammar stabilizes)
+  * packed form must round-trip to identical canonical AST
+  * traces still reference source spans meaningfully
 
----
+## “Fully functional GP runtime” checklist (beyond v0.4)
 
-## Contribution guidelines (for coding agents)
+If you want A0 to stand on its own as a general-purpose agent runtime, these are the big missing chunks:
 
-* Preserve the philosophy: structured data, explicit effects, evidence, reproducibility.
-* Prefer small, checkable changes over sweeping refactors.
-* Never add a feature without:
+* A minimal expression system (comparisons, boolean logic) or a disciplined stdlib that covers it.
+* Modules/imports that actually execute (today “import” is only a header shape).
+* A coherent error/value convention (`{ ok: ... }` / `{ err: ... }`) and helpers to work with it.
+* A real resource governance model (timeouts, quotas, per-capability constraints, “effects in loops” policies).
+* First-class testing story for A0 scripts (fixture inputs + golden outputs + golden traces).
 
-  * formatter support (canonical output)
-  * trace impact defined
-  * tests (golden files where possible)
-* If you add nondeterminism, mark it explicitly in the trace and require opt-in.
+## Recommended tech direction
 
----
+Current stack (good for fast iteration):
+
+* TypeScript + Node.js
+* Commander (CLI), Chevrotain (parser)
+* Node’s built-in test runner for tests
+
+If you push toward running agent-generated code in more hostile environments:
+
+* Keep the language semantics stable in TS for v0.2–v0.3
+* Consider a hardened runtime in Rust later (capability gate + sandbox), while keeping the language front-end compatible
+
+## Contribution rules (for agents)
+
+* Preserve the philosophy: structured data, explicit effects, capability gating, evidence/trace outputs.
+* Never add a language feature without:
+
+  * formatter support
+  * trace impact specified
+  * tests (golden where possible)
+* Prefer small PRs with one invariant change at a time.
+* If you add nondeterminism, it must be opt-in and explicitly marked in trace output.
 
 ## License
 
-(TODO: choose a license and fill this section.)
-
----
-
-## Appendix: “Mindset” checklist (agents)
-
-Before you commit code or generate A0:
-
-* Did you declare only the capabilities you need?
-* Are effects isolated and minimized?
-* Did you produce evidence for anything that can fail?
-* Can the runtime rerun only the failing node?
-* Will formatting be stable and diff-friendly?
-
+MIT
 

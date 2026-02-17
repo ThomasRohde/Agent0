@@ -133,4 +133,147 @@ describe("patch", () => {
     }) as A0Record;
     assert.ok(result["err"]);
   });
+
+  it("applies move operation", () => {
+    const result = patchFn.execute({
+      in: { first: "Alice", last: "Smith" },
+      ops: [{ op: "move", from: "/first", path: "/name" }],
+    }) as A0Record;
+    assert.equal(result["name"], "Alice");
+    assert.equal(result["first"], undefined);
+  });
+
+  it("applies copy operation", () => {
+    const result = patchFn.execute({
+      in: { name: "Alice" },
+      ops: [{ op: "copy", from: "/name", path: "/backup" }],
+    }) as A0Record;
+    assert.equal(result["name"], "Alice");
+    assert.equal(result["backup"], "Alice");
+  });
+
+  it("returns error for unknown op", () => {
+    const result = patchFn.execute({
+      in: {},
+      ops: [{ op: "unknown_op", path: "/x", value: 1 }],
+    }) as A0Record;
+    assert.ok(result["err"]);
+  });
+
+  it("returns error for non-object op", () => {
+    const result = patchFn.execute({
+      in: {},
+      ops: [42 as unknown as A0Value],
+    }) as A0Record;
+    assert.ok(result["err"]);
+  });
+
+  it("applies nested path operations", () => {
+    const result = patchFn.execute({
+      in: { a: { b: 1 } },
+      ops: [{ op: "replace", path: "/a/b", value: 99 }],
+    }) as A0Record;
+    assert.equal((result["a"] as A0Record)["b"], 99);
+  });
+
+  it("handles null input doc", () => {
+    const result = patchFn.execute({
+      in: null,
+      ops: [{ op: "add", path: "/key", value: "val" }],
+    }) as A0Record;
+    assert.equal(result["key"], "val");
+  });
+});
+
+describe("parse.json (additional)", () => {
+  it("parses JSON number", () => {
+    const result = parseJsonFn.execute({ in: "42" });
+    assert.equal(result, 42);
+  });
+
+  it("parses JSON boolean", () => {
+    assert.equal(parseJsonFn.execute({ in: "true" }), true);
+    assert.equal(parseJsonFn.execute({ in: "false" }), false);
+  });
+
+  it("parses JSON null", () => {
+    assert.equal(parseJsonFn.execute({ in: "null" }), null);
+  });
+
+  it("parses JSON string", () => {
+    assert.equal(parseJsonFn.execute({ in: '"hello"' }), "hello");
+  });
+
+  it("parses nested JSON", () => {
+    const result = parseJsonFn.execute({ in: '{"a":{"b":[1,2,3]}}' }) as A0Record;
+    assert.deepEqual((result["a"] as A0Record)["b"], [1, 2, 3]);
+  });
+});
+
+describe("get (additional)", () => {
+  it("returns null for null input", () => {
+    const result = getFn.execute({ in: null, path: "x" });
+    assert.equal(result, null);
+  });
+
+  it("returns null for primitive input", () => {
+    const result = getFn.execute({ in: 42, path: "x" });
+    assert.equal(result, null);
+  });
+
+  it("returns error for non-string path", () => {
+    const result = getFn.execute({ in: { x: 1 }, path: 42 as unknown as string }) as A0Record;
+    assert.ok(result["err"]);
+  });
+
+  it("gets from array at top level", () => {
+    const result = getFn.execute({ in: { items: [10, 20, 30] }, path: "items[0]" });
+    assert.equal(result, 10);
+  });
+
+  it("handles deeply nested path", () => {
+    const result = getFn.execute({
+      in: { a: { b: { c: { d: 42 } } } },
+      path: "a.b.c.d",
+    });
+    assert.equal(result, 42);
+  });
+});
+
+describe("put (additional)", () => {
+  it("returns error for non-string path", () => {
+    const result = putFn.execute({ in: {}, path: 42 as unknown as string, value: 1 }) as A0Record;
+    assert.ok(result["err"]);
+  });
+
+  it("puts into array index", () => {
+    const result = putFn.execute({
+      in: { items: [1, 2, 3] },
+      path: "items[1]",
+      value: 99,
+    }) as A0Record;
+    assert.deepEqual((result["items"] as A0Value[])[1], 99);
+  });
+
+  it("uses null as default when value not provided", () => {
+    const result = putFn.execute({ in: {}, path: "x" }) as A0Record;
+    assert.equal(result["x"], null);
+  });
+
+  it("handles null input", () => {
+    const result = putFn.execute({ in: null, path: "x", value: 1 }) as A0Record;
+    assert.equal(result["x"], 1);
+  });
+});
+
+describe("getStdlibFns", () => {
+  it("returns all stdlib functions", async () => {
+    const { getStdlibFns } = await import("./index.js");
+    const fns = getStdlibFns();
+    assert.ok(fns.has("parse.json"));
+    assert.ok(fns.has("get"));
+    assert.ok(fns.has("put"));
+    assert.ok(fns.has("patch"));
+    assert.equal(fns.size, 4);
+  });
 });

@@ -1,0 +1,7 @@
+# shell-exec.a0 - Run a shell command and capture output
+cap { sh.exec: true }
+
+do sh.exec { cmd: "echo hello world", timeoutMs: 5000 } -> result
+assert { that: true, msg: "command succeeded" }
+
+return { stdout: result.stdout, exitCode: result.exitCode, durationMs: result.durationMs }

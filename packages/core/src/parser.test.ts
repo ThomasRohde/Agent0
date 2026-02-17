@@ -123,4 +123,177 @@ describe("A0 Parser", () => {
     assert.equal(result.diagnostics.length, 0);
     assert.ok(result.program);
   });
+
+  it("parses do expression", () => {
+    const src = `do fs.write { path: "out.txt", data: "hello" }\nreturn {}`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const stmt = result.program.statements[0];
+    assert.equal(stmt.kind, "ExprStmt");
+    if (stmt.kind === "ExprStmt") {
+      assert.equal(stmt.expr.kind, "DoExpr");
+    }
+  });
+
+  it("parses budget header", () => {
+    const src = `budget { timeMs: 5000, maxToolCalls: 10 }\nreturn {}`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    assert.equal(result.program.headers.length, 1);
+    assert.equal(result.program.headers[0].kind, "BudgetDecl");
+  });
+
+  it("parses multiple headers", () => {
+    const src = `cap { fs.read: true }\nbudget { timeMs: 5000 }\nimport "utils" as u\nreturn {}`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    assert.equal(result.program.headers.length, 3);
+    assert.equal(result.program.headers[0].kind, "CapDecl");
+    assert.equal(result.program.headers[1].kind, "BudgetDecl");
+    assert.equal(result.program.headers[2].kind, "ImportDecl");
+  });
+
+  it("parses trailing commas in records", () => {
+    const src = `return { x: 1, y: 2, }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+  });
+
+  it("parses trailing commas in lists", () => {
+    const src = `let items = [1, 2, 3,]\nreturn { items: items }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+  });
+
+  it("parses empty record", () => {
+    const src = `return {}`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const ret = result.program.statements[0];
+    if (ret.kind === "ReturnStmt") {
+      assert.equal(ret.value.pairs.length, 0);
+    }
+  });
+
+  it("parses empty list", () => {
+    const src = `let items = []\nreturn { items: items }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const letStmt = result.program.statements[0];
+    if (letStmt.kind === "LetStmt" && letStmt.value.kind === "ListExpr") {
+      assert.equal(letStmt.value.elements.length, 0);
+    }
+  });
+
+  it("parses negative numbers", () => {
+    const src = `let x = -42\nlet y = -3.14\nreturn { x: x, y: y }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    if (result.program.statements[0].kind === "LetStmt") {
+      assert.equal(result.program.statements[0].value.kind, "IntLiteral");
+      if (result.program.statements[0].value.kind === "IntLiteral") {
+        assert.equal(result.program.statements[0].value.value, -42);
+      }
+    }
+  });
+
+  it("parses arrow target with do expression", () => {
+    const src = `do fs.write { path: "out.txt", data: "hi" } -> result\nreturn { result: result }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const stmt = result.program.statements[0];
+    if (stmt.kind === "ExprStmt") {
+      assert.ok(stmt.target);
+      assert.equal(stmt.target!.parts[0], "result");
+    }
+  });
+
+  it("parses dotted record keys", () => {
+    const src = `cap { fs.read: true, http.get: true }\nreturn {}`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    if (result.program.headers[0].kind === "CapDecl") {
+      assert.equal(result.program.headers[0].capabilities.pairs[0].key, "fs.read");
+      assert.equal(result.program.headers[0].capabilities.pairs[1].key, "http.get");
+    }
+  });
+
+  it("parses deeply nested path access", () => {
+    const src = `let data = { a: { b: { c: 1 } } }\nreturn { val: data.a.b.c }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+  });
+
+  it("parses mixed list elements", () => {
+    const src = `let items = [1, "two", true, null, 3.14]\nreturn { items: items }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+  });
+
+  it("returns diagnostics for unclosed string", () => {
+    const result = parse('let x = "unclosed', "test.a0");
+    assert.ok(result.diagnostics.length > 0);
+  });
+
+  it("parses check with arrow target", () => {
+    const src = `check { that: true, msg: "ok" } -> ev\nreturn { ev: ev }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const stmt = result.program.statements[0];
+    if (stmt.kind === "ExprStmt") {
+      assert.equal(stmt.expr.kind, "CheckExpr");
+      assert.ok(stmt.target);
+    }
+  });
+
+  it("parses assert with arrow target", () => {
+    const src = `assert { that: true, msg: "ok" } -> ev\nreturn { ev: ev }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+  });
+
+  it("parses string with escape sequences", () => {
+    const src = `let s = "line1\\nline2\\ttab"\nreturn { s: s }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    if (result.program.statements[0].kind === "LetStmt") {
+      const val = result.program.statements[0].value;
+      if (val.kind === "StrLiteral") {
+        assert.equal(val.value, "line1\nline2\ttab");
+      }
+    }
+  });
+
+  it("provides span information on AST nodes", () => {
+    const src = `let x = 42\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    assert.equal(result.program.span.file, "test.a0");
+    assert.equal(result.program.span.startLine, 1);
+    const letStmt = result.program.statements[0];
+    assert.ok(letStmt.span);
+    assert.equal(letStmt.span.startLine, 1);
+  });
+
+  it("uses default file name for stdin", () => {
+    const result = parse("return {}");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    assert.equal(result.program.span.file, "<stdin>");
+  });
 });

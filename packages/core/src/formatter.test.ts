@@ -52,4 +52,152 @@ describe("A0 Formatter", () => {
     assert.equal(r2.diagnostics.length, 0, "Formatted output should parse without errors");
     assert.ok(r2.program);
   });
+
+  it("formats do expressions", () => {
+    const src = `do fs.write { path: "out.txt", data: "hello" }\nreturn {}`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes('do fs.write { path: "out.txt", data: "hello" }'));
+  });
+
+  it("formats call? expressions", () => {
+    const src = `call? fs.read { path: "test.txt" }\nreturn {}`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes('call? fs.read { path: "test.txt" }'));
+  });
+
+  it("formats assert expressions", () => {
+    const src = `assert { that: true, msg: "ok" }\nreturn {}`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes('assert { that: true, msg: "ok" }'));
+  });
+
+  it("formats check expressions", () => {
+    const src = `check { that: true, msg: "ok" }\nreturn {}`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes('check { that: true, msg: "ok" }'));
+  });
+
+  it("formats lists", () => {
+    const src = `let items = [1, 2, 3]\nreturn { items: items }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("[1, 2, 3]"));
+  });
+
+  it("formats empty record", () => {
+    const src = `return {}`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("return {}"));
+  });
+
+  it("formats empty list", () => {
+    const src = `let items = []\nreturn { items: items }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("[]"));
+  });
+
+  it("formats import header", () => {
+    const src = `import "utils" as u\nreturn {}`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes('import "utils" as u'));
+  });
+
+  it("formats budget header", () => {
+    const src = `budget { timeMs: 5000 }\nreturn {}`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("budget { timeMs: 5000 }"));
+  });
+
+  it("formats null literal", () => {
+    const src = `let x = null\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("let x = null"));
+  });
+
+  it("formats boolean literals", () => {
+    const src = `let a = true\nlet b = false\nreturn { a: a, b: b }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("let a = true"));
+    assert.ok(formatted.includes("let b = false"));
+  });
+
+  it("formats float literals", () => {
+    const src = `let pi = 3.14\nreturn { pi: pi }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("let pi = 3.14"));
+  });
+
+  it("formats expression with arrow target", () => {
+    const src = `{ x: 1 } -> data\nreturn { data: data }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("-> data"));
+  });
+
+  it("formats function call expressions", () => {
+    const src = `let x = parse.json { in: "{}" }\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes('parse.json { in: "{}" }'));
+  });
+
+  it("adds blank line between headers and statements", () => {
+    const src = `cap { fs.read: true }\nlet x = 1\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    const lines = formatted.split("\n");
+    // After cap header there should be a blank line
+    assert.equal(lines[1], "");
+  });
+
+  it("formats output ending with newline", () => {
+    const src = `return {}`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.endsWith("\n"));
+  });
+
+  it("is idempotent for complex programs", () => {
+    const src = `cap { fs.read: true, http.get: true }
+budget { timeMs: 5000 }
+import "utils" as u
+let data = { a: 1, b: [2, 3], c: { d: true } }
+assert { that: true, msg: "ok" }
+call? fs.read { path: "test.txt" } -> content
+return { data: data, content: content }`;
+    const r1 = parse(src, "test.a0");
+    assert.ok(r1.program);
+    const fmt1 = format(r1.program);
+    const r2 = parse(fmt1, "test.a0");
+    assert.ok(r2.program);
+    const fmt2 = format(r2.program);
+    assert.equal(fmt1, fmt2, "Complex program formatting should be idempotent");
+  });
 });

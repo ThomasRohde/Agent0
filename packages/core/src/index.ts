@@ -5,7 +5,7 @@ export * from "./ast.js";
 export * from "./diagnostics.js";
 export { parse } from "./parser.js";
 export type { ParseResult } from "./parser.js";
-export { validate } from "./validator.js";
+export { validate, KNOWN_CAPABILITIES } from "./validator.js";
 export { format } from "./formatter.js";
 export {
   execute,
@@ -16,6 +16,7 @@ export type {
   A0Record,
   Evidence,
   TraceEvent,
+  TraceEventType,
   ToolDef,
   StdlibFn,
   ExecOptions,

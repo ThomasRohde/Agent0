@@ -18,6 +18,7 @@ interface TraceSummary {
   toolsByName: Record<string, number>;
   evidenceCount: number;
   failures: number;
+  budgetExceeded: number;
   startTime?: string;
   endTime?: string;
   durationMs?: number;
@@ -59,6 +60,7 @@ export async function runTrace(
     toolsByName: {},
     evidenceCount: 0,
     failures: 0,
+    budgetExceeded: 0,
   };
 
   for (const ev of events) {
@@ -78,6 +80,9 @@ export async function runTrace(
     }
     if (ev.event === "evidence") {
       summary.evidenceCount++;
+    }
+    if (ev.event === "budget_exceeded") {
+      summary.budgetExceeded++;
     }
   }
 
@@ -101,6 +106,7 @@ export async function runTrace(
     }
     console.log(`  Evidence events:  ${summary.evidenceCount}`);
     console.log(`  Failures:         ${summary.failures}`);
+    console.log(`  Budget exceeded:  ${summary.budgetExceeded}`);
     if (summary.durationMs !== undefined) {
       console.log(`  Duration:         ${summary.durationMs}ms`);
     }

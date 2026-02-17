@@ -493,4 +493,256 @@ describe("A0 Evaluator", () => {
       }
     );
   });
+
+  // --- Budget enforcement tests ---
+
+  it("enforces maxToolCalls budget", async () => {
+    const mockTool: import("./evaluator.js").ToolDef = {
+      name: "test.read",
+      mode: "read",
+      capabilityId: "test.read",
+      async execute(): Promise<A0Value> { return "data"; },
+    };
+    const tools = new Map([["test.read", mockTool]]);
+    const caps = new Set(["test.read"]);
+
+    const src = `budget { maxToolCalls: 1 }\ncap { test.read: true }\nlet a = call? test.read { key: "1" }\nlet b = call? test.read { key: "2" }\nreturn { a: a, b: b }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions({ tools, allowedCapabilities: caps })),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_BUDGET");
+        assert.ok(err.message.includes("maxToolCalls"));
+        return true;
+      }
+    );
+  });
+
+  it("does not exceed maxToolCalls when within budget", async () => {
+    const mockTool: import("./evaluator.js").ToolDef = {
+      name: "test.read",
+      mode: "read",
+      capabilityId: "test.read",
+      async execute(): Promise<A0Value> { return "data"; },
+    };
+    const tools = new Map([["test.read", mockTool]]);
+    const caps = new Set(["test.read"]);
+
+    const src = `budget { maxToolCalls: 2 }\ncap { test.read: true }\nlet a = call? test.read { key: "1" }\nreturn { a: a }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions({ tools, allowedCapabilities: caps }));
+    const val = result.value as A0Record;
+    assert.equal(val["a"], "data");
+  });
+
+  it("enforces maxBytesWritten budget", async () => {
+    const mockTool: import("./evaluator.js").ToolDef = {
+      name: "test.write",
+      mode: "effect",
+      capabilityId: "test.write",
+      async execute(): Promise<A0Value> { return { bytes: 100 }; },
+    };
+    const tools = new Map([["test.write", mockTool]]);
+    const caps = new Set(["test.write"]);
+
+    const src = `budget { maxBytesWritten: 50 }\ncap { test.write: true }\ndo test.write { data: "hello" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions({ tools, allowedCapabilities: caps })),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_BUDGET");
+        assert.ok(err.message.includes("maxBytesWritten"));
+        return true;
+      }
+    );
+  });
+
+  it("budget not declared - runs unlimited", async () => {
+    const mockTool: import("./evaluator.js").ToolDef = {
+      name: "test.read",
+      mode: "read",
+      capabilityId: "test.read",
+      async execute(): Promise<A0Value> { return "data"; },
+    };
+    const tools = new Map([["test.read", mockTool]]);
+    const caps = new Set(["test.read"]);
+
+    const src = `cap { test.read: true }\nlet a = call? test.read { key: "1" }\nlet b = call? test.read { key: "2" }\nlet c = call? test.read { key: "3" }\nreturn { a: a, b: b, c: c }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions({ tools, allowedCapabilities: caps }));
+    const val = result.value as A0Record;
+    assert.equal(val["a"], "data");
+    assert.equal(val["b"], "data");
+    assert.equal(val["c"], "data");
+  });
+
+  it("budget values included in run_start trace", async () => {
+    const events: import("./evaluator.js").TraceEvent[] = [];
+    const src = `budget { timeMs: 5000, maxToolCalls: 10 }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await execute(pr.program, makeOptions({ trace: (ev) => events.push(ev) }));
+
+    const runStart = events.find((e) => e.event === "run_start");
+    assert.ok(runStart);
+    assert.ok(runStart!.data);
+    const budgetData = runStart!.data!["budget"] as A0Record;
+    assert.ok(budgetData);
+    assert.equal(budgetData["timeMs"], 5000);
+    assert.equal(budgetData["maxToolCalls"], 10);
+  });
+
+  it("enforces timeMs budget", async () => {
+    const mockTool: import("./evaluator.js").ToolDef = {
+      name: "test.slow",
+      mode: "read",
+      capabilityId: "test.slow",
+      async execute(): Promise<A0Value> {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return "done";
+      },
+    };
+    const tools = new Map([["test.slow", mockTool]]);
+    const caps = new Set(["test.slow"]);
+
+    const src = `budget { timeMs: 1 }\ncap { test.slow: true }\nlet a = call? test.slow { key: "1" }\nlet b = call? test.slow { key: "2" }\nreturn { a: a, b: b }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions({ tools, allowedCapabilities: caps })),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_BUDGET");
+        assert.ok(err.message.includes("timeMs"));
+        return true;
+      }
+    );
+  });
+
+  // --- Schema validation tests ---
+
+  it("tool with inputSchema rejects invalid args with E_TOOL_ARGS", async () => {
+    const mockSchema = {
+      parse(data: unknown) {
+        const rec = data as Record<string, unknown>;
+        if (typeof rec["key"] !== "string") {
+          throw { issues: [{ path: ["key"], message: "Expected string, received number" }] };
+        }
+        return data;
+      }
+    };
+    const mockTool: import("./evaluator.js").ToolDef = {
+      name: "test.schema",
+      mode: "read",
+      capabilityId: "test.schema",
+      inputSchema: mockSchema,
+      async execute(args: A0Record): Promise<A0Value> {
+        return { key: args["key"] };
+      },
+    };
+    const tools = new Map([["test.schema", mockTool]]);
+    const caps = new Set(["test.schema"]);
+
+    const src = `let result = call? test.schema { key: 42 }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions({ tools, allowedCapabilities: caps })),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TOOL_ARGS");
+        assert.ok(err.message.includes("test.schema"));
+        assert.ok(err.message.includes("key"));
+        return true;
+      }
+    );
+  });
+
+  it("tool with inputSchema accepts valid args", async () => {
+    const mockSchema = {
+      parse(data: unknown) {
+        const rec = data as Record<string, unknown>;
+        if (typeof rec["key"] !== "string") {
+          throw { issues: [{ path: ["key"], message: "Expected string, received number" }] };
+        }
+        return data;
+      }
+    };
+    const mockTool: import("./evaluator.js").ToolDef = {
+      name: "test.schema",
+      mode: "read",
+      capabilityId: "test.schema",
+      inputSchema: mockSchema,
+      async execute(args: A0Record): Promise<A0Value> {
+        return { key: args["key"] };
+      },
+    };
+    const tools = new Map([["test.schema", mockTool]]);
+    const caps = new Set(["test.schema"]);
+
+    const src = `let result = call? test.schema { key: "hello" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions({ tools, allowedCapabilities: caps }));
+    const val = result.value as A0Record;
+    const inner = val["result"] as A0Record;
+    assert.equal(inner["key"], "hello");
+  });
+
+  // --- Trace enrichment tests ---
+
+  it("run_start trace includes capabilities list", async () => {
+    const events: import("./evaluator.js").TraceEvent[] = [];
+    const src = `cap { fs.read: true, http.get: true }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const caps = new Set(["fs.read", "http.get"]);
+    await execute(pr.program, makeOptions({ allowedCapabilities: caps, trace: (ev) => events.push(ev) }));
+
+    const runStart = events.find((e) => e.event === "run_start");
+    assert.ok(runStart);
+    assert.ok(runStart!.data);
+    const capabilities = runStart!.data!["capabilities"] as string[];
+    assert.ok(Array.isArray(capabilities));
+    assert.ok(capabilities.includes("fs.read"));
+    assert.ok(capabilities.includes("http.get"));
+  });
+
+  it("run_end trace includes durationMs", async () => {
+    const events: import("./evaluator.js").TraceEvent[] = [];
+    const src = `return {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await execute(pr.program, makeOptions({ trace: (ev) => events.push(ev) }));
+
+    const runEnd = events.find((e) => e.event === "run_end");
+    assert.ok(runEnd);
+    assert.ok(runEnd!.data);
+    assert.equal(typeof runEnd!.data!["durationMs"], "number");
+    assert.ok((runEnd!.data!["durationMs"] as number) >= 0);
+  });
+
+  it("tool_start trace includes mode", async () => {
+    const mockTool: import("./evaluator.js").ToolDef = {
+      name: "test.read",
+      mode: "read",
+      capabilityId: "test.read",
+      async execute(): Promise<A0Value> { return "data"; },
+    };
+    const tools = new Map([["test.read", mockTool]]);
+    const caps = new Set(["test.read"]);
+    const events: import("./evaluator.js").TraceEvent[] = [];
+
+    const src = `let x = call? test.read { key: "val" }\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await execute(pr.program, makeOptions({ tools, allowedCapabilities: caps, trace: (ev) => events.push(ev) }));
+
+    const toolStart = events.find((e) => e.event === "tool_start");
+    assert.ok(toolStart);
+    assert.ok(toolStart!.data);
+    assert.equal(toolStart!.data!["mode"], "read");
+  });
 });

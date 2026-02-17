@@ -137,6 +137,46 @@ let data = parse.json { in: resp.body }
 return { status: resp.status, data: data }
 ```
 
+## Pattern 9: Predicate-Based Validation
+
+Use predicate functions with assert/check for meaningful runtime checks.
+
+```
+# validate-data.a0
+cap { fs.read: true }
+
+call? fs.read { path: "config.json" } -> raw
+let config = parse.json { in: raw }
+
+let has_name = contains { in: config, value: "name" }
+assert { that: has_name, msg: "config must have name field" }
+
+let name = get { in: config, path: "name" }
+let not_empty = not { in: eq { a: name, b: "" } }
+assert { that: not_empty, msg: "name must not be empty" }
+
+return { valid: true, name: name }
+```
+
+## Pattern 10: Budget-Constrained Execution
+
+Limit resource usage with budget declarations.
+
+```
+# bounded-fetch.a0
+cap { http.get: true, fs.write: true }
+budget { timeMs: 10000, maxToolCalls: 3, maxBytesWritten: 65536 }
+
+call? http.get { url: "https://api.example.com/data" } -> resp
+let body = parse.json { in: resp.body }
+let ok = eq { a: resp.status, b: 200 }
+assert { that: ok, msg: "HTTP request succeeded" }
+
+do fs.write { path: "result.json", data: body, format: "json" } -> artifact
+
+return { artifact: artifact }
+```
+
 ## Anti-Patterns to Avoid
 
 ### Missing return

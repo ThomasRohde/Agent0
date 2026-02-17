@@ -1,4 +1,4 @@
-# Agent0 / A0 — Agent-Optimized CLI Language (v0.1)
+# Agent0 / A0 — Agent-Optimized CLI Language (v0.2)
 
 A0 is a small, structured, general-purpose scripting language with a CLI runner designed to be generated and repaired reliably by autonomous agents. It favors structured values over strings, explicit effects, capability gating, and machine-readable traces/evidence.
 
@@ -15,7 +15,7 @@ A0 is trying to make agent-written automation safer and more repeatable by defau
 
 Token efficiency (in A0 terms) is fewer failed generations and fewer reruns—not “shortest possible syntax”.
 
-## What’s implemented in v0.1 (this repo)
+## What's implemented (this repo)
 
 Language surface:
 - Literals: `null`, `bool`, `number`, `string`
@@ -28,12 +28,12 @@ Language surface:
 - Evidence:
   - `assert { that: ..., msg: "...", details: {...}? } -> ev`
   - `check  { that: ..., msg: "...", details: {...}? } -> ev`
-  - `that` is coerced to boolean (so non-empty strings become “true”, etc.)
+  - `that` is coerced to boolean (so non-empty strings become "true", etc.)
 - Stdlib function calls (pure):
-  - `parse.json { in: "..." }`
-  - `get { in: <value>, path: "a.b[0].c" }`
-  - `put { in: <value>, path: "...", value: <value> }`
-  - `patch { in: <value>, ops: [ ... ] }`
+  - Data: `parse.json`, `get`, `put`, `patch`
+  - Predicates (v0.2): `eq`, `contains`, `not`, `and`, `or`
+- Capabilities: `cap { ... }` — declare required capabilities; validated against used tools at check time
+- Budgets (v0.2): `budget { timeMs, maxToolCalls, maxBytesWritten }` — resource limits enforced at runtime
 - Program must end with `return { ... }` (record return is required).
 
 Runtime / CLI:
@@ -130,8 +130,9 @@ return { response: resp, out: out, evidence: [ev.body] }
 Notes:
 
 * `call?` cannot be used with tools marked `mode:"effect"` (it will fail).
-* `do` currently does not forbid read-mode tools (that tightening is a v0.2 item).
+* `do` on a read-mode tool is allowed but unconventional — prefer `call?` to signal read-only intent.
 * Tool args must be a record `{ ... }` (never positional).
+* Tool inputs are validated against Zod schemas at runtime.
 
 ## Evidence and trace artifacts
 
@@ -193,47 +194,35 @@ Expressions:
   * `get { in: expr, path: "a.b[0]" }`
   * `put { in: expr, path: "...", value: expr }`
   * `patch { in: expr, ops: [ ... ] }`
+  * `eq { a: expr, b: expr }`, `contains { in: expr, value: expr }`
+  * `not { in: expr }`, `and { a: expr, b: expr }`, `or { a: expr, b: expr }`
 
 Capabilities:
 
 * Policy allowlist gates tools. Policy file: `./.a0policy.json` then `~/.a0/policy.json`.
-* Tools in v0.1: `fs.read`, `fs.write`, `http.get`, `sh.exec`.
+* Tools: `fs.read`, `fs.write`, `http.get`, `sh.exec`.
+* Capabilities must be declared in `cap { ... }` for each tool used (enforced at `a0 check` time).
+
+Budgets:
+
+* `budget { timeMs: N, maxToolCalls: N, maxBytesWritten: N }` — enforced at runtime.
 
 ## Roadmap
 
-### v0.2 — Make runs reproducible and failures cheaper
+### v0.2 — Make runs reproducible and failures cheaper ✓
 
-Theme: “tighten invariants + better contracts”.
+Theme: "tighten invariants + better contracts". **Implemented.**
 
-Language/runtime:
+What shipped in v0.2:
 
-* Add a small set of boolean/predicate helpers in stdlib (e.g. `eq`, `contains`, `and/or/not`) so `assert/check` becomes genuinely useful.
-* Enforce “declared caps match used tools”:
-
-  * fail `a0 check` if a tool is used without declaring its capability in `cap { ... }`.
-* Unify/clean up capability naming (today there are remnants like `http.read` vs `http.get`).
-* Budgets (first cut): parse `budget { ... }` and enforce `timeMs`, `maxToolCalls`, `maxBytesWritten` (start with runtime-only enforcement).
-
-Tooling:
-
-* Tool contracts:
-
-  * add Zod schemas for tool input/output
-  * validate at runtime (clear errors with spans)
-* Trace schema v1:
-
-  * stable event names/fields
-  * include tool args (normalized), durations, and outcomes consistently
-* CLI polish:
-
-  * fix option/help ergonomics (`--trace <file>`, `--evidence <file>`, better arg placeholders)
-  * `a0 run --unsafe-allow-all` remains dev-only and clearly labeled
-
-Tests:
-
-* Golden tests for formatter idempotence
-* Golden traces for tool calls + evidence
-* Capability-policy precedence tests
+* **Stdlib predicates**: `eq`, `contains`, `not`, `and`, `or` — makes `assert`/`check` genuinely useful
+* **Capability enforcement**: `a0 check` rejects programs that use tools without declaring the capability in `cap { ... }` (`E_UNDECLARED_CAP`)
+* **Capability naming cleanup**: removed `http.read` remnant; canonical set is `fs.read`, `fs.write`, `http.get`, `sh.exec`
+* **Budget enforcement**: `budget { timeMs, maxToolCalls, maxBytesWritten }` enforced at runtime (`E_BUDGET`)
+* **Tool contracts**: Zod schemas validate tool inputs at runtime (`E_TOOL_ARGS` with field-level details)
+* **Trace schema v1**: stable event names (`run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `tool_end`, `evidence`, `budget_exceeded`), enriched with capabilities, budget, mode, and durations
+* **CLI polish**: `--pretty` flag for human-readable errors, improved `--unsafe-allow-all` labeling
+* **Golden tests**: formatter idempotence, trace event sequences, capability-policy precedence
 
 ### v0.3 — Make it a real programming language (composition)
 
@@ -281,15 +270,15 @@ Packaging:
   * packed form must round-trip to identical canonical AST
   * traces still reference source spans meaningfully
 
-## “Fully functional GP runtime” checklist (beyond v0.4)
+## "Fully functional GP runtime" checklist (beyond v0.4)
 
 If you want A0 to stand on its own as a general-purpose agent runtime, these are the big missing chunks:
 
-* A minimal expression system (comparisons, boolean logic) or a disciplined stdlib that covers it.
-* Modules/imports that actually execute (today “import” is only a header shape).
+* ~~A minimal expression system (comparisons, boolean logic) or a disciplined stdlib that covers it.~~ → **v0.2**: stdlib predicates (`eq`, `contains`, `not`, `and`, `or`)
+* Modules/imports that actually execute (today "import" is only a header shape).
 * A coherent error/value convention (`{ ok: ... }` / `{ err: ... }`) and helpers to work with it.
-* A real resource governance model (timeouts, quotas, per-capability constraints, “effects in loops” policies).
-* First-class testing story for A0 scripts (fixture inputs + golden outputs + golden traces).
+* ~~A real resource governance model (timeouts, quotas, per-capability constraints, "effects in loops" policies).~~ → **v0.2**: budget enforcement (`timeMs`, `maxToolCalls`, `maxBytesWritten`)
+* ~~First-class testing story for A0 scripts (fixture inputs + golden outputs + golden traces).~~ → **v0.2**: golden tests for formatter, traces, and capability-policy precedence
 
 ## Recommended tech direction
 

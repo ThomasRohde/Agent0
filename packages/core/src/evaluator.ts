@@ -27,10 +27,12 @@ export interface Evidence {
 }
 
 // --- Trace events ---
+export type TraceEventType = "run_start" | "run_end" | "stmt_start" | "stmt_end" | "tool_start" | "tool_end" | "evidence" | "budget_exceeded";
+
 export interface TraceEvent {
   ts: string;
   runId: string;
-  event: string;
+  event: TraceEventType;
   span?: Span;
   data?: A0Record;
 }
@@ -40,6 +42,8 @@ export interface ToolDef {
   name: string;
   mode: "read" | "effect";
   capabilityId: string;
+  inputSchema?: unknown;   // ZodSchema at runtime, core doesn't depend on zod
+  outputSchema?: unknown;
   execute(args: A0Record, signal?: AbortSignal): Promise<A0Value>;
 }
 
@@ -80,6 +84,40 @@ export interface ExecResult {
   diagnostics: Diagnostic[];
 }
 
+// --- Budget ---
+interface Budget {
+  timeMs?: number;
+  maxToolCalls?: number;
+  maxBytesWritten?: number;
+}
+
+interface BudgetTracker {
+  toolCalls: number;
+  bytesWritten: number;
+  startMs: number;
+}
+
+function extractBudget(program: AST.Program): Budget {
+  for (const h of program.headers) {
+    if (h.kind === "BudgetDecl") {
+      const budget: Budget = {};
+      for (const p of h.budget.pairs) {
+        if (p.key === "timeMs" && p.value.kind === "IntLiteral") {
+          budget.timeMs = p.value.value;
+        }
+        if (p.key === "maxToolCalls" && p.value.kind === "IntLiteral") {
+          budget.maxToolCalls = p.value.value;
+        }
+        if (p.key === "maxBytesWritten" && p.value.kind === "IntLiteral") {
+          budget.maxBytesWritten = p.value.value;
+        }
+      }
+      return budget;
+    }
+  }
+  return {};
+}
+
 // --- Environment ---
 class Env {
   private bindings = new Map<string, A0Value>();
@@ -106,7 +144,9 @@ export async function execute(
   const evidence: Evidence[] = [];
   const diagnostics: Diagnostic[] = [];
 
-  const emitTrace = (event: string, span?: Span, data?: A0Record) => {
+  const runStartMs = Date.now();
+
+  const emitTrace = (event: TraceEventType, span?: Span, data?: A0Record) => {
     if (options.trace) {
       options.trace({
         ts: new Date().toISOString(),
@@ -131,23 +171,42 @@ export async function execute(
     }
   }
 
-  emitTrace("run_start", program.span, { file: program.span.file });
+  const budget = extractBudget(program);
+  const tracker: BudgetTracker = { toolCalls: 0, bytesWritten: 0, startMs: Date.now() };
+
+  emitTrace("run_start", program.span, {
+    file: program.span.file,
+    capabilities: requestedCaps as unknown as A0Value,
+    ...(Object.keys(budget).length > 0 ? { budget: budget as unknown as A0Record } : {}),
+  });
 
   let result: A0Value = null;
 
   for (const stmt of program.statements) {
+    if (budget.timeMs !== undefined) {
+      const elapsed = Date.now() - tracker.startMs;
+      if (elapsed > budget.timeMs) {
+        throw new A0RuntimeError(
+          "E_BUDGET",
+          `Budget exceeded: timeMs limit of ${budget.timeMs}ms exceeded (${elapsed}ms elapsed).`,
+          stmt.span,
+          { budget: "timeMs", limit: budget.timeMs, actual: elapsed }
+        );
+      }
+    }
+
     emitTrace("stmt_start", stmt.span);
 
     if (stmt.kind === "LetStmt") {
-      const val = await evalExpr(stmt.value, env, options, evidence, emitTrace);
+      const val = await evalExpr(stmt.value, env, options, evidence, emitTrace, budget, tracker);
       env.set(stmt.name, val);
     } else if (stmt.kind === "ExprStmt") {
-      const val = await evalExpr(stmt.expr, env, options, evidence, emitTrace);
+      const val = await evalExpr(stmt.expr, env, options, evidence, emitTrace, budget, tracker);
       if (stmt.target) {
         env.set(stmt.target.parts[0], val);
       }
     } else if (stmt.kind === "ReturnStmt") {
-      result = await evalExpr(stmt.value, env, options, evidence, emitTrace);
+      result = await evalExpr(stmt.value, env, options, evidence, emitTrace, budget, tracker);
       emitTrace("stmt_end", stmt.span);
       break;
     }
@@ -155,7 +214,7 @@ export async function execute(
     emitTrace("stmt_end", stmt.span);
   }
 
-  emitTrace("run_end", program.span);
+  emitTrace("run_end", program.span, { durationMs: Date.now() - runStartMs });
 
   return { value: result, evidence, diagnostics };
 }
@@ -177,7 +236,9 @@ async function evalExpr(
   env: Env,
   options: ExecOptions,
   evidence: Evidence[],
-  emitTrace: (event: string, span?: Span, data?: A0Record) => void
+  emitTrace: (event: TraceEventType, span?: Span, data?: A0Record) => void,
+  budget: Budget,
+  tracker: BudgetTracker
 ): Promise<A0Value> {
   switch (expr.kind) {
     case "IntLiteral":
@@ -218,7 +279,7 @@ async function evalExpr(
     case "RecordExpr": {
       const rec: A0Record = {};
       for (const p of expr.pairs) {
-        rec[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace);
+        rec[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker);
       }
       return rec;
     }
@@ -226,7 +287,7 @@ async function evalExpr(
     case "ListExpr": {
       const arr: A0Value[] = [];
       for (const e of expr.elements) {
-        arr.push(await evalExpr(e, env, options, evidence, emitTrace));
+        arr.push(await evalExpr(e, env, options, evidence, emitTrace, budget, tracker));
       }
       return arr;
     }
@@ -265,10 +326,39 @@ async function evalExpr(
       // Evaluate args
       const args: A0Record = {};
       for (const p of expr.args.pairs) {
-        args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace);
+        args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker);
       }
 
-      emitTrace("tool_start", expr.span, { tool: toolName, args });
+      // Validate input schema if present
+      if (tool.inputSchema) {
+        try {
+          const schema = tool.inputSchema as { parse: (data: unknown) => unknown };
+          schema.parse(args);
+        } catch (e: unknown) {
+          const zodError = e as { issues?: Array<{ path: (string|number)[]; message: string }> };
+          const issues = zodError.issues ?? [];
+          const msg = issues.map((i: { path: (string|number)[]; message: string }) => `${i.path.join(".")}: ${i.message}`).join("; ");
+          throw new A0RuntimeError(
+            "E_TOOL_ARGS",
+            `Invalid arguments for tool '${toolName}': ${msg || (e instanceof Error ? e.message : String(e))}`,
+            expr.args.span,
+            { tool: toolName }
+          );
+        }
+      }
+
+      // Budget: maxToolCalls check
+      tracker.toolCalls++;
+      if (budget.maxToolCalls !== undefined && tracker.toolCalls > budget.maxToolCalls) {
+        throw new A0RuntimeError(
+          "E_BUDGET",
+          `Budget exceeded: maxToolCalls limit of ${budget.maxToolCalls} reached.`,
+          expr.span,
+          { budget: "maxToolCalls", limit: budget.maxToolCalls, actual: tracker.toolCalls }
+        );
+      }
+
+      emitTrace("tool_start", expr.span, { tool: toolName, args, mode: tool.mode });
       const startMs = Date.now();
 
       try {
@@ -279,8 +369,28 @@ async function evalExpr(
           outcome: "ok",
           durationMs,
         });
+
+        // Budget: maxBytesWritten check
+        if (typeof result === "object" && result !== null && !Array.isArray(result)) {
+          const rec = result as A0Record;
+          if (typeof rec["bytes"] === "number") {
+            tracker.bytesWritten += rec["bytes"] as number;
+            if (budget.maxBytesWritten !== undefined && tracker.bytesWritten > budget.maxBytesWritten) {
+              throw new A0RuntimeError(
+                "E_BUDGET",
+                `Budget exceeded: maxBytesWritten limit of ${budget.maxBytesWritten} bytes exceeded (${tracker.bytesWritten} bytes written).`,
+                expr.span,
+                { budget: "maxBytesWritten", limit: budget.maxBytesWritten, actual: tracker.bytesWritten }
+              );
+            }
+          }
+        }
+
         return result;
       } catch (e) {
+        if (e instanceof A0RuntimeError) {
+          throw e;
+        }
         const durationMs = Date.now() - startMs;
         const errMsg = e instanceof Error ? e.message : String(e);
         emitTrace("tool_end", expr.span, {
@@ -302,7 +412,7 @@ async function evalExpr(
     case "CheckExpr": {
       const args: A0Record = {};
       for (const p of expr.args.pairs) {
-        args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace);
+        args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker);
       }
 
       const ok = Boolean(args["that"]);
@@ -345,7 +455,7 @@ async function evalExpr(
 
       const args: A0Record = {};
       for (const p of expr.args.pairs) {
-        args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace);
+        args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker);
       }
 
       try {

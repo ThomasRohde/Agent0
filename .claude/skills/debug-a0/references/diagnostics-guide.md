@@ -124,7 +124,7 @@ return { value: 1 }
 
 A capability declared in `cap { ... }` is not a recognized capability name.
 
-**Valid capabilities**: `fs.read`, `fs.write`, `http.read`, `http.get`, `sh.exec`
+**Valid capabilities**: `fs.read`, `fs.write`, `http.get`, `sh.exec`
 
 **Before** (broken):
 ```
@@ -307,7 +307,7 @@ The tool ran but threw an error.
 
 The function name is not a recognized stdlib function.
 
-**Valid functions**: `parse.json`, `get`, `put`, `patch`
+**Valid functions**: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or`
 
 **Before** (broken):
 ```
@@ -382,3 +382,78 @@ An `assert { that: <expr>, msg: "..." }` evaluated to false.
 A `check { that: <expr>, msg: "..." }` evaluated to false.
 
 Same debugging approach as `E_ASSERT`.
+
+---
+
+## E_UNDECLARED_CAP — Undeclared Capability
+
+**Phase**: Validation
+**Exit code**: 2
+
+A tool is used in the program but its corresponding capability is not declared in the `cap { ... }` block. Since v0.2, `a0 check` enforces that every tool call has a matching capability declaration.
+
+**Before** (broken):
+```
+call? fs.read { path: "data.json" } -> content
+return { content: content }
+```
+
+**After** (fixed):
+```
+cap { fs.read: true }
+call? fs.read { path: "data.json" } -> content
+return { content: content }
+```
+
+---
+
+## E_BUDGET — Budget Exceeded
+
+**Phase**: Runtime
+**Exit code**: 4
+
+A budget limit declared in `budget { ... }` was exceeded during execution.
+
+**Budget fields**:
+- `timeMs` — wall-clock time limit
+- `maxToolCalls` — maximum number of tool invocations
+- `maxBytesWritten` — maximum bytes written via `fs.write`
+
+**Before** (broken — too many tool calls):
+```
+cap { fs.read: true }
+budget { maxToolCalls: 1 }
+call? fs.read { path: "a.json" } -> a
+call? fs.read { path: "b.json" } -> b
+return { a: a, b: b }
+```
+
+**After** (fixed):
+```
+cap { fs.read: true }
+budget { maxToolCalls: 2 }
+call? fs.read { path: "a.json" } -> a
+call? fs.read { path: "b.json" } -> b
+return { a: a, b: b }
+```
+
+---
+
+## E_UNKNOWN_BUDGET — Unknown Budget Field
+
+**Phase**: Validation
+**Exit code**: 2
+
+A field in the `budget { ... }` block is not a recognized budget field name.
+
+**Valid fields**: `timeMs`, `maxToolCalls`, `maxBytesWritten`
+
+**Before** (broken):
+```
+budget { timeout: 5000 }
+```
+
+**After** (fixed):
+```
+budget { timeMs: 5000 }
+```

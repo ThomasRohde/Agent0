@@ -1,0 +1,3 @@
+assert {that: true,msg: "test passes"}  -> ev
+check { that: true, msg: "all good", details: {key: "val"} } -> ev2
+return {evidence: [ev, ev2]}

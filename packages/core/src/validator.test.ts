@@ -64,7 +64,7 @@ describe("A0 Validator", () => {
   });
 
   it("accepts all known capabilities", () => {
-    const src = `cap { fs.read: true, fs.write: true, http.read: true, http.get: true, sh.exec: true }\nreturn {}`;
+    const src = `cap { fs.read: true, fs.write: true, http.get: true, sh.exec: true }\nreturn {}`;
     const pr = parse(src, "test.a0");
     assert.ok(pr.program);
     const diags = validate(pr.program);
@@ -169,5 +169,81 @@ describe("A0 Validator", () => {
     assert.ok(diags.some((d) => d.code === "E_UNKNOWN_CAP"));
     assert.ok(diags.some((d) => d.code === "E_DUP_BINDING"));
     assert.ok(diags.some((d) => d.code === "E_UNBOUND"));
+  });
+
+  // --- E_UNDECLARED_CAP tests ---
+
+  it("reports undeclared capability for call?", () => {
+    const src = `call? fs.read { path: "test" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_UNDECLARED_CAP"));
+  });
+
+  it("reports undeclared capability for do", () => {
+    const src = `do fs.write { path: "out", data: "hi" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_UNDECLARED_CAP"));
+  });
+
+  it("accepts tool usage when cap is declared", () => {
+    const src = `cap { fs.read: true }\ncall? fs.read { path: "test" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    const undeclaredDiags = diags.filter((d) => d.code === "E_UNDECLARED_CAP");
+    assert.equal(undeclaredDiags.length, 0);
+  });
+
+  it("reports multiple undeclared capabilities", () => {
+    const src = `call? fs.read { path: "test" }\ndo fs.write { path: "out", data: "hi" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    const undeclaredDiags = diags.filter((d) => d.code === "E_UNDECLARED_CAP");
+    assert.equal(undeclaredDiags.length, 2);
+  });
+
+  it("no diagnostic when no tools are used", () => {
+    const src = `return { ok: true }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    const undeclaredDiags = diags.filter((d) => d.code === "E_UNDECLARED_CAP");
+    assert.equal(undeclaredDiags.length, 0);
+  });
+
+  it("reports undeclared for one but not another", () => {
+    const src = `cap { fs.read: true }\ncall? fs.read { path: "x" }\ndo fs.write { path: "y", data: "z" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    const undeclaredDiags = diags.filter((d) => d.code === "E_UNDECLARED_CAP");
+    assert.equal(undeclaredDiags.length, 1);
+    assert.ok(undeclaredDiags[0].message.includes("fs.write"));
+  });
+
+  // --- Budget validation tests ---
+
+  it("reports unknown budget field", () => {
+    const src = `budget { unknownField: 100 }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_UNKNOWN_BUDGET"));
+    const budgetDiag = diags.find((d) => d.code === "E_UNKNOWN_BUDGET")!;
+    assert.ok(budgetDiag.message.includes("unknownField"));
+  });
+
+  it("accepts known budget fields", () => {
+    const src = `budget { timeMs: 5000, maxToolCalls: 10, maxBytesWritten: 1024 }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    const budgetDiags = diags.filter((d) => d.code === "E_UNKNOWN_BUDGET");
+    assert.equal(budgetDiags.length, 0);
   });
 });

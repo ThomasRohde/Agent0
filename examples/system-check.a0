@@ -1,0 +1,23 @@
+# system-check.a0 — Gather system info and validate expectations
+cap { sh.exec: true, fs.write: true }
+budget { timeMs: 15000, maxToolCalls: 4, maxBytesWritten: 8192 }
+
+do sh.exec { cmd: "node --version", timeoutMs: 5000 } -> node_ver
+let has_output = not { in: eq { a: node_ver.stdout, b: "" } }
+assert { that: has_output, msg: "node version returned output" }
+
+do sh.exec { cmd: "npm --version", timeoutMs: 5000 } -> npm_ver
+let npm_ok = eq { a: npm_ver.exitCode, b: 0 }
+assert { that: npm_ok, msg: "npm exited with code 0" }
+
+let report = {
+  node: node_ver.stdout,
+  npm: npm_ver.stdout,
+  nodeExit: node_ver.exitCode,
+  npmExit: npm_ver.exitCode
+}
+
+do fs.write { path: "system-check.json", data: report, format: "json" } -> artifact
+check { that: true, msg: "report written" }
+
+return { report: report, artifact: artifact }

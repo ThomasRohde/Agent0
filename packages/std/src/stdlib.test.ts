@@ -274,6 +274,11 @@ describe("getStdlibFns", () => {
     assert.ok(fns.has("get"));
     assert.ok(fns.has("put"));
     assert.ok(fns.has("patch"));
-    assert.equal(fns.size, 4);
+    assert.ok(fns.has("eq"));
+    assert.ok(fns.has("contains"));
+    assert.ok(fns.has("not"));
+    assert.ok(fns.has("and"));
+    assert.ok(fns.has("or"));
+    assert.equal(fns.size, 9);
   });
 });

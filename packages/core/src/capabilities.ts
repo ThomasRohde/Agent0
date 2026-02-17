@@ -4,6 +4,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import { KNOWN_CAPABILITIES } from "./validator.js";
 
 export interface Policy {
   version: number;
@@ -73,13 +74,7 @@ export function buildAllowedCaps(
   unsafeAllowAll: boolean
 ): Set<string> {
   if (unsafeAllowAll) {
-    return new Set([
-      "fs.read",
-      "fs.write",
-      "http.read",
-      "http.get",
-      "sh.exec",
-    ]);
+    return new Set(KNOWN_CAPABILITIES);
   }
   return new Set(policy.allow);
 }

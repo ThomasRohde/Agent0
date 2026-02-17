@@ -110,10 +110,9 @@ describe("A0 Capabilities", () => {
       const caps = buildAllowedCaps(policy, true);
       assert.ok(caps.has("fs.read"));
       assert.ok(caps.has("fs.write"));
-      assert.ok(caps.has("http.read"));
       assert.ok(caps.has("http.get"));
       assert.ok(caps.has("sh.exec"));
-      assert.equal(caps.size, 5);
+      assert.equal(caps.size, 4);
     });
 
     it("returns empty set for deny-all policy", () => {

@@ -1,0 +1,10 @@
+let a = null
+let b  = true
+let c = false
+let d = 42
+let e = 3.14
+let f = "hello world"
+let g = [1, 2, 3]
+let h = []
+let i = {}
+return { a: a, b: b, c: c, d: d, e: e, f: f, g: g, h: h, i: i }

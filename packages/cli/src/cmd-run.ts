@@ -18,7 +18,7 @@ import { getStdlibFns } from "@a0/std";
 
 export async function runRun(
   file: string,
-  opts: { trace?: string; evidence?: string; unsafeAllowAll?: boolean }
+  opts: { trace?: string; evidence?: string; pretty?: boolean; unsafeAllowAll?: boolean }
 ): Promise<number> {
   // Read source
   let source: string;
@@ -36,20 +36,24 @@ export async function runRun(
 
   // Parse
   const parseResult = parse(source, file);
+  const pretty = !!opts.pretty;
+
   if (parseResult.diagnostics.length > 0) {
-    console.error(formatDiagnostics(parseResult.diagnostics, false));
+    console.error(formatDiagnostics(parseResult.diagnostics, pretty));
     return 2;
   }
 
   if (!parseResult.program) {
-    console.error(JSON.stringify({ err: { code: "E_PARSE", message: "Parse produced no program." } }));
+    console.error(pretty
+      ? "error: Parse produced no program."
+      : JSON.stringify({ err: { code: "E_PARSE", message: "Parse produced no program." } }));
     return 2;
   }
 
   // Validate
   const validationDiags = validate(parseResult.program);
   if (validationDiags.length > 0) {
-    console.error(formatDiagnostics(validationDiags, false));
+    console.error(formatDiagnostics(validationDiags, pretty));
     return 2;
   }
 

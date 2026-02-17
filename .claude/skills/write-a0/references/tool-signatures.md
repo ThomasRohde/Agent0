@@ -79,6 +79,8 @@ do sh.exec { cmd: "ls -la", cwd: "/tmp", timeoutMs: 10000 } -> result
 # result.exitCode, result.stdout, result.stderr, result.durationMs available
 ```
 
+**Note**: All tool inputs are validated at runtime against Zod schemas. Invalid arguments produce `E_TOOL_ARGS` with field-level error details.
+
 ## Stdlib Functions
 
 These are pure functions (no capability needed). Call with `name { args }`.
@@ -140,4 +142,80 @@ let result = patch {
   ]
 }
 # result is { name: "Bob", age: 30, email: "bob@example.com" }
+```
+
+### eq
+
+Deep equality comparison using JSON serialization.
+
+- **Args**: `{ a: any, b: any }`
+- **Returns**: `bool` — `true` if `a` and `b` are deeply equal
+
+```
+let same = eq { a: 1, b: 1 }
+# same is true
+let diff = eq { a: { x: 1 }, b: { x: 2 } }
+# diff is false
+```
+
+### contains
+
+Check for substring, element membership, or key existence.
+
+- **Args**: `{ in: str|list|record, value: any }`
+- **Returns**: `bool`
+  - **string** `in`: `true` if `value` (coerced to string) is a substring
+  - **list** `in`: `true` if any element deeply equals `value`
+  - **record** `in`: `true` if `value` (coerced to string) is a key
+
+```
+let has = contains { in: "hello world", value: "world" }
+# has is true
+let found = contains { in: [1, 2, 3], value: 2 }
+# found is true
+let exists = contains { in: { name: "Alice" }, value: "name" }
+# exists is true
+```
+
+### not
+
+Boolean negation with A0 truthiness coercion.
+
+- **Args**: `{ in: any }`
+- **Returns**: `bool` — negation of the truthy value of `in`
+- **Falsy values**: `false`, `null`, `0`, `""`
+
+```
+let neg = not { in: false }
+# neg is true
+let neg2 = not { in: "hello" }
+# neg2 is false
+```
+
+### and
+
+Logical AND with A0 truthiness coercion.
+
+- **Args**: `{ a: any, b: any }`
+- **Returns**: `bool` — `true` if both `a` and `b` are truthy
+
+```
+let both = and { a: true, b: 1 }
+# both is true
+let nope = and { a: true, b: 0 }
+# nope is false
+```
+
+### or
+
+Logical OR with A0 truthiness coercion.
+
+- **Args**: `{ a: any, b: any }`
+- **Returns**: `bool` — `true` if either `a` or `b` is truthy
+
+```
+let either = or { a: false, b: 1 }
+# either is true
+let neither = or { a: false, b: null }
+# neither is false
 ```

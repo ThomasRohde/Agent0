@@ -184,6 +184,24 @@ describe("http.get", () => {
   });
 });
 
+describe("tool inputSchema", () => {
+  it("fs.read has inputSchema", () => {
+    assert.ok(fsReadTool.inputSchema, "fsReadTool should have an inputSchema");
+  });
+
+  it("fs.write has inputSchema", () => {
+    assert.ok(fsWriteTool.inputSchema, "fsWriteTool should have an inputSchema");
+  });
+
+  it("http.get has inputSchema", () => {
+    assert.ok(httpGetTool.inputSchema, "httpGetTool should have an inputSchema");
+  });
+
+  it("sh.exec has inputSchema", () => {
+    assert.ok(shExecTool.inputSchema, "shExecTool should have an inputSchema");
+  });
+});
+
 describe("registerBuiltinTools", () => {
   it("registers all four built-in tools", () => {
     registerBuiltinTools();

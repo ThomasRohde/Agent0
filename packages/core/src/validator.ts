@@ -6,12 +6,17 @@ import type * as AST from "./ast.js";
 import type { Diagnostic } from "./diagnostics.js";
 import { makeDiag } from "./diagnostics.js";
 
-const KNOWN_CAPABILITIES = new Set([
+export const KNOWN_CAPABILITIES = new Set([
   "fs.read",
   "fs.write",
-  "http.read",
   "http.get",
   "sh.exec",
+]);
+
+export const KNOWN_BUDGET_FIELDS = new Set([
+  "timeMs",
+  "maxToolCalls",
+  "maxBytesWritten",
 ]);
 
 export function validate(program: AST.Program): Diagnostic[] {
@@ -56,6 +61,24 @@ export function validate(program: AST.Program): Diagnostic[] {
               `Unknown capability '${pair.key}'.`,
               pair.span,
               `Valid capabilities: ${[...KNOWN_CAPABILITIES].join(", ")}`
+            )
+          );
+        }
+      }
+    }
+  }
+
+  // Validate budget field names
+  for (const h of program.headers) {
+    if (h.kind === "BudgetDecl") {
+      for (const pair of h.budget.pairs) {
+        if (!KNOWN_BUDGET_FIELDS.has(pair.key)) {
+          diags.push(
+            makeDiag(
+              "E_UNKNOWN_BUDGET",
+              `Unknown budget field '${pair.key}'.`,
+              pair.span,
+              `Valid budget fields: ${[...KNOWN_BUDGET_FIELDS].join(", ")}`
             )
           );
         }
@@ -108,7 +131,44 @@ export function validate(program: AST.Program): Diagnostic[] {
     });
   }
 
+  // Validate declared caps match used tools
+  validateCapUsage(program, diags);
+
   return diags;
+}
+
+function validateCapUsage(
+  program: AST.Program,
+  diags: Diagnostic[]
+): void {
+  // Collect all capabilities declared in cap { ... } headers
+  const declaredCaps = new Set<string>();
+  for (const h of program.headers) {
+    if (h.kind === "CapDecl") {
+      for (const p of h.capabilities.pairs) {
+        declaredCaps.add(p.key);
+      }
+    }
+  }
+
+  // Walk all statements and check tool calls against declared caps
+  for (const stmt of program.statements) {
+    visitExprInStmt(stmt, (expr) => {
+      if (expr.kind === "CallExpr" || expr.kind === "DoExpr") {
+        const toolName = expr.tool.parts.join(".");
+        if (!declaredCaps.has(toolName)) {
+          diags.push(
+            makeDiag(
+              "E_UNDECLARED_CAP",
+              `Tool '${toolName}' is used but its capability is not declared in a 'cap { ... }' header.`,
+              expr.tool.span,
+              `Add '${toolName}: true' to your cap { ... } declaration.`
+            )
+          );
+        }
+      }
+    });
+  }
 }
 
 function validateExprBindings(

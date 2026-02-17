@@ -5,11 +5,13 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
 import type { ToolDef, A0Record, A0Value } from "@a0/core";
+import { fsReadInputSchema, fsWriteInputSchema } from "./schemas.js";
 
 export const fsReadTool: ToolDef = {
   name: "fs.read",
   mode: "read",
   capabilityId: "fs.read",
+  inputSchema: fsReadInputSchema,
   async execute(args: A0Record): Promise<A0Value> {
     const filePath = args["path"];
     if (typeof filePath !== "string") {
@@ -29,6 +31,7 @@ export const fsWriteTool: ToolDef = {
   name: "fs.write",
   mode: "effect",
   capabilityId: "fs.write",
+  inputSchema: fsWriteInputSchema,
   async execute(args: A0Record): Promise<A0Value> {
     const filePath = args["path"];
     if (typeof filePath !== "string") {

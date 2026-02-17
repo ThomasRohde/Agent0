@@ -1,0 +1,5 @@
+cap { fs.read: true, http.get: true }
+budget { timeMs: 5000, maxToolCalls: 10 }
+
+let x = 1
+return { x: x }

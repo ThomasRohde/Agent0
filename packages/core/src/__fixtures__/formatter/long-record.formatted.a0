@@ -1,0 +1,5 @@
+return {
+  very_long_key_one: "very long value one",
+  very_long_key_two: "very long value two",
+  very_long_key_three: "very long value three"
+}

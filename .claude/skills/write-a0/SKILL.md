@@ -35,7 +35,7 @@ Declare required capabilities at the top of the file. Execution fails before any
 cap { fs.read: true, http.get: true }
 ```
 
-Valid capabilities: `fs.read`, `fs.write`, `http.read` (reserved, no built-in tool yet), `http.get`, `sh.exec`
+Valid capabilities: `fs.read`, `fs.write`, `http.get`, `sh.exec`
 
 Only declare capabilities the program actually uses.
 
@@ -61,6 +61,8 @@ do fs.write { path: "out.json", data: result, format: "json" } -> artifact
 
 Pure functions called like `name { args }`. No capability needed.
 
+### Data Functions
+
 | Function | Purpose | Key Args |
 |----------|---------|----------|
 | `parse.json` | Parse JSON string | `{ in: str }` |
@@ -68,21 +70,56 @@ Pure functions called like `name { args }`. No capability needed.
 | `put` | Set nested path | `{ in: record, path: "a.b", value: x }` |
 | `patch` | JSON Patch (RFC 6902) | `{ in: record, ops: [...] }` |
 
+### Predicate Functions
+
+| Function | Purpose | Key Args |
+|----------|---------|----------|
+| `eq` | Deep equality | `{ a: val, b: val }` → `bool` |
+| `contains` | Substring / element / key check | `{ in: str\|list\|record, value: val }` → `bool` |
+| `not` | Boolean negation | `{ in: val }` → `bool` |
+| `and` | Logical AND | `{ a: val, b: val }` → `bool` |
+| `or` | Logical OR | `{ a: val, b: val }` → `bool` |
+
+Predicates use A0 truthiness: `false`, `null`, `0`, and `""` are falsy; everything else is truthy.
+
 ```
 let parsed = parse.json { in: raw_string }
 let val = get { in: record, path: "nested.key[0]" }
+let same = eq { a: 1, b: 1 }
+let has_key = contains { in: record, value: "name" }
 ```
 
 ## Evidence — assert & check
 
 Both take `{ that: bool, msg: str }`. A failed assertion stops execution (exit 5).
 
-A0 v0.1 lacks comparison operators, so `that:` currently takes a literal boolean. Use `assert { that: true, msg: "..." }` as an evidence marker to document that a step completed.
+Use predicate functions to produce meaningful boolean values for assertions:
 
 ```
-assert { that: true, msg: "file was written" }
-check { that: true, msg: "status 200" }
+let same = eq { a: actual, b: expected }
+assert { that: same, msg: "values match" }
+
+let has_name = contains { in: record, value: "name" }
+check { that: has_name, msg: "record has name field" }
 ```
+
+You can also use `assert { that: true, msg: "..." }` as an evidence marker to document that a step completed.
+
+## Budget
+
+Declare resource limits with `budget { ... }` at the top of the file (after `cap`). Exceeding a limit stops execution with `E_BUDGET` (exit 4).
+
+```
+budget { timeMs: 30000, maxToolCalls: 10, maxBytesWritten: 1048576 }
+```
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `timeMs` | int | Maximum wall-clock time in milliseconds |
+| `maxToolCalls` | int | Maximum number of tool invocations |
+| `maxBytesWritten` | int | Maximum bytes written via `fs.write` |
+
+Only declare budget fields the program needs. Unknown fields produce `E_UNKNOWN_BUDGET` at validation time.
 
 ## Property Access
 
@@ -105,7 +142,10 @@ Avoid these frequent errors:
 - **`return` not last** → `E_RETURN_NOT_LAST`. No statements after return.
 - **Using `call?` for an effect tool** → `E_CALL_EFFECT`. Use `do` for `fs.write` and `sh.exec`.
 - **Using `do` for a read tool** — allowed but unconventional. Prefer `call?` for `fs.read` and `http.get` to signal read-only intent.
-- **Undeclared capability** → `E_CAP_DENIED`. Add the capability to `cap { ... }`.
+- **Undeclared capability** → `E_UNDECLARED_CAP`. Declare the capability in `cap { ... }` for each tool used.
+- **Capability denied by policy** → `E_CAP_DENIED`. Update the policy file or use `--unsafe-allow-all`.
+- **Budget exceeded** → `E_BUDGET`. Increase the budget limit or reduce resource usage.
+- **Unknown budget field** → `E_UNKNOWN_BUDGET`. Valid fields: `timeMs`, `maxToolCalls`, `maxBytesWritten`.
 - **Reusing a variable name** → `E_DUP_BINDING`. Each `let` name must be unique.
 - **Using a variable before binding** → `E_UNBOUND`. Bind with `let` or `->` first.
 - **Positional arguments** → Parse error. Always use record syntax `{ key: value }`.
@@ -148,6 +188,7 @@ a0 check file.a0                     # validate syntax + semantics
 a0 run file.a0                       # execute (deny-by-default)
 a0 run file.a0 --unsafe-allow-all    # allow all caps (dev only)
 a0 run file.a0 --trace t.jsonl       # emit JSONL trace
+a0 run file.a0 --pretty              # human-readable error output
 a0 fmt file.a0                       # canonical format to stdout
 a0 fmt file.a0 --write               # format in place
 ```

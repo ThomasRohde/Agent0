@@ -48,7 +48,9 @@ Map exit codes to error categories:
 | `E_AST` | AST construction failed | Usually an internal error; simplify the expression |
 | `E_NO_RETURN` | Missing `return` | Add `return { ... }` as last statement |
 | `E_RETURN_NOT_LAST` | Statements after `return` | Move `return` to end of program |
-| `E_UNKNOWN_CAP` | Invalid capability name | Use valid caps: `fs.read`, `fs.write`, `http.read`, `http.get`, `sh.exec` |
+| `E_UNKNOWN_CAP` | Invalid capability name | Use valid caps: `fs.read`, `fs.write`, `http.get`, `sh.exec` |
+| `E_UNDECLARED_CAP` | Tool used without declaring capability | Add the tool's capability to `cap { ... }` |
+| `E_UNKNOWN_BUDGET` | Invalid budget field name | Use valid fields: `timeMs`, `maxToolCalls`, `maxBytesWritten` |
 | `E_DUP_BINDING` | Duplicate `let` name | Rename one of the bindings |
 | `E_UNBOUND` | Undefined variable | Bind with `let` or `->` before use |
 | `E_TOOL_ARGS` | Invalid tool arguments | Check required fields in tool signature |
@@ -61,7 +63,8 @@ Map exit codes to error categories:
 | `E_UNKNOWN_TOOL` | Tool name not recognized | Check spelling: `fs.read`, `fs.write`, `http.get`, `sh.exec` |
 | `E_CALL_EFFECT` | Wrong keyword for tool mode | Use `call?` for read tools, `do` for effect tools |
 | `E_TOOL` | Tool execution failed | Check tool args, file paths, URLs, permissions |
-| `E_UNKNOWN_FN` | Stdlib function not found | Check spelling: `parse.json`, `get`, `put`, `patch` |
+| `E_BUDGET` | Budget limit exceeded | Increase budget limit or reduce resource usage |
+| `E_UNKNOWN_FN` | Stdlib function not found | Check spelling: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or` |
 | `E_FN` | Stdlib function threw | Check function args (e.g., invalid JSON to `parse.json`) |
 | `E_PATH` | Property access on non-record | Verify the variable holds a record before dot access |
 | `E_ASSERT` | `assert` condition is false | Fix the condition or the data producing it |
@@ -79,7 +82,7 @@ Start with static validation — catches most errors without executing anything:
 a0 check file.a0
 ```
 
-This catches: `E_LEX`, `E_PARSE`, `E_AST`, `E_NO_RETURN`, `E_RETURN_NOT_LAST`, `E_UNKNOWN_CAP`, `E_DUP_BINDING`, `E_UNBOUND`, `E_TOOL_ARGS`.
+This catches: `E_LEX`, `E_PARSE`, `E_AST`, `E_NO_RETURN`, `E_RETURN_NOT_LAST`, `E_UNKNOWN_CAP`, `E_DUP_BINDING`, `E_UNBOUND`, `E_TOOL_ARGS`, `E_UNDECLARED_CAP`, `E_UNKNOWN_BUDGET`.
 
 ### Step 2: Read the Diagnostic
 

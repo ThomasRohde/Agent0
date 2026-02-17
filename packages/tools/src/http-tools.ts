@@ -2,11 +2,13 @@
  * A0 Built-in tool: http.get
  */
 import type { ToolDef, A0Record, A0Value } from "@a0/core";
+import { httpGetInputSchema } from "./schemas.js";
 
 export const httpGetTool: ToolDef = {
   name: "http.get",
   mode: "read",
   capabilityId: "http.get",
+  inputSchema: httpGetInputSchema,
   async execute(args: A0Record, signal?: AbortSignal): Promise<A0Value> {
     const url = args["url"];
     if (typeof url !== "string") {

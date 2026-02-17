@@ -1,0 +1,5 @@
+cap {fs.read: true, fs.write: true}
+
+let data = call?  fs.read  { path: "input.txt" }
+do  fs.write  { path: "output.txt", data: data }
+return {data: data}

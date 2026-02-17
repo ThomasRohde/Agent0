@@ -3,11 +3,13 @@
  */
 import { execSync } from "node:child_process";
 import type { ToolDef, A0Record, A0Value } from "@a0/core";
+import { shExecInputSchema } from "./schemas.js";
 
 export const shExecTool: ToolDef = {
   name: "sh.exec",
   mode: "effect",
   capabilityId: "sh.exec",
+  inputSchema: shExecInputSchema,
   async execute(args: A0Record): Promise<A0Value> {
     const cmd = args["cmd"];
     if (typeof cmd !== "string") {

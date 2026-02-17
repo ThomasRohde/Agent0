@@ -13,7 +13,7 @@ const program = new Command();
 program
   .name("a0")
   .description("A0: Agent-Optimized General-Purpose CLI Interpreter")
-  .version("0.1.0");
+  .version("0.2.0");
 
 program
   .command("check")
@@ -32,8 +32,9 @@ program
   .argument("<file>", "A0 source file to run (or - for stdin)")
   .option("--trace <path>", "Write JSONL trace to file")
   .option("--evidence <path>", "Write evidence JSON to file")
-  .option("--unsafe-allow-all", "Allow all capabilities (dev only)", false)
-  .action(async (file: string, opts: { trace?: string; evidence?: string; unsafeAllowAll?: boolean }) => {
+  .option("--pretty", "Human-readable error output", false)
+  .option("--unsafe-allow-all", "[DEV ONLY] Bypass all capability restrictions", false)
+  .action(async (file: string, opts: { trace?: string; evidence?: string; pretty?: boolean; unsafeAllowAll?: boolean }) => {
     const code = await runRun(file, opts);
     process.exit(code);
   });

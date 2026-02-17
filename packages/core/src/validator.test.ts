@@ -246,4 +246,56 @@ describe("A0 Validator", () => {
     const budgetDiags = diags.filter((d) => d.code === "E_UNKNOWN_BUDGET");
     assert.equal(budgetDiags.length, 0);
   });
+
+  // --- E_CALL_EFFECT static check tests ---
+
+  it("reports E_CALL_EFFECT for call? on fs.write", () => {
+    const src = `cap { fs.write: true }\ncall? fs.write { path: "out.txt", data: "hi" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_CALL_EFFECT"));
+    const callEffectDiag = diags.find((d) => d.code === "E_CALL_EFFECT")!;
+    assert.ok(callEffectDiag.message.includes("fs.write"));
+  });
+
+  it("reports E_CALL_EFFECT for call? on sh.exec", () => {
+    const src = `cap { sh.exec: true }\ncall? sh.exec { cmd: "echo hi" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_CALL_EFFECT"));
+  });
+
+  it("does not report E_CALL_EFFECT for call? on fs.read", () => {
+    const src = `cap { fs.read: true }\ncall? fs.read { path: "test.txt" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(!diags.some((d) => d.code === "E_CALL_EFFECT"));
+  });
+
+  it("does not report E_CALL_EFFECT for call? on http.get", () => {
+    const src = `cap { http.get: true }\ncall? http.get { url: "https://example.com" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(!diags.some((d) => d.code === "E_CALL_EFFECT"));
+  });
+
+  it("does not report E_CALL_EFFECT for do on fs.write", () => {
+    const src = `cap { fs.write: true }\ndo fs.write { path: "out.txt", data: "hi" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(!diags.some((d) => d.code === "E_CALL_EFFECT"));
+  });
+
+  it("does not report E_CALL_EFFECT for unknown tools", () => {
+    const src = `cap { custom.tool: true }\ncall? custom.tool { key: "val" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(!diags.some((d) => d.code === "E_CALL_EFFECT"));
+  });
 });

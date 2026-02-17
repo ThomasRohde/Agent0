@@ -13,6 +13,13 @@ export const KNOWN_CAPABILITIES = new Set([
   "sh.exec",
 ]);
 
+export const KNOWN_TOOL_MODES: ReadonlyMap<string, "read" | "effect"> = new Map([
+  ["fs.read", "read"],
+  ["fs.write", "effect"],
+  ["http.get", "read"],
+  ["sh.exec", "effect"],
+]);
+
 export const KNOWN_BUDGET_FIELDS = new Set([
   "timeMs",
   "maxToolCalls",
@@ -263,6 +270,21 @@ function validateCapUsage(
               `Add '${toolName}: true' to your cap { ... } declaration.`
             )
           );
+        }
+
+        // Static check: call? on known effect tools
+        if (expr.kind === "CallExpr") {
+          const mode = KNOWN_TOOL_MODES.get(toolName);
+          if (mode === "effect") {
+            diags.push(
+              makeDiag(
+                "E_CALL_EFFECT",
+                `Cannot use 'call?' with effectful tool '${toolName}'. Use 'do' instead.`,
+                expr.span,
+                `Replace 'call? ${toolName}' with 'do ${toolName}'.`
+              )
+            );
+          }
         }
       }
     });

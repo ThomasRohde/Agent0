@@ -9,6 +9,7 @@ import {
   execute,
   A0RuntimeError,
   formatDiagnostics,
+  formatDiagnostic,
   loadPolicy,
   buildAllowedCaps,
 } from "@a0/core";
@@ -107,31 +108,25 @@ export async function runRun(
     return 0;
   } catch (e) {
     if (e instanceof A0RuntimeError) {
-      if (e.code === "E_CAP_DENIED") {
+      if (pretty) {
+        console.error(formatDiagnostic({ code: e.code, message: e.message, span: e.span }, true));
+      } else {
         console.error(
           JSON.stringify({
             err: { code: e.code, message: e.message, span: e.span, details: e.details },
           })
         );
-        return 3;
       }
-      if (e.code === "E_ASSERT" || e.code === "E_CHECK") {
-        console.error(
-          JSON.stringify({
-            err: { code: e.code, message: e.message, span: e.span, details: e.details },
-          })
-        );
-        return 5;
-      }
-      console.error(
-        JSON.stringify({
-          err: { code: e.code, message: e.message, span: e.span, details: e.details },
-        })
-      );
+      if (e.code === "E_CAP_DENIED") return 3;
+      if (e.code === "E_ASSERT" || e.code === "E_CHECK") return 5;
       return 4;
     }
     const msg = e instanceof Error ? e.message : String(e);
-    console.error(JSON.stringify({ err: { code: "E_RUNTIME", message: msg } }));
+    if (pretty) {
+      console.error(formatDiagnostic({ code: "E_RUNTIME", message: msg }, true));
+    } else {
+      console.error(JSON.stringify({ err: { code: "E_RUNTIME", message: msg } }));
+    }
     return 4;
   } finally {
     if (traceFd !== null) {

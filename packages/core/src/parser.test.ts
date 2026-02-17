@@ -296,4 +296,42 @@ describe("A0 Parser", () => {
     assert.ok(result.program);
     assert.equal(result.program.span.file, "<stdin>");
   });
+
+  it("provides accurate span positions for multi-line programs", () => {
+    const src = `let x = 42\nlet y = "hello"\nreturn { x: x, y: y }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+
+    // Program spans the entire source
+    assert.equal(result.program.span.startLine, 1);
+    assert.equal(result.program.span.endLine, 3);
+
+    // First let statement on line 1
+    const let1 = result.program.statements[0];
+    assert.equal(let1.span.startLine, 1);
+    assert.equal(let1.span.startCol, 1);
+
+    // Second let statement on line 2
+    const let2 = result.program.statements[1];
+    assert.equal(let2.span.startLine, 2);
+    assert.equal(let2.span.startCol, 1);
+
+    // Return statement on line 3
+    const ret = result.program.statements[2];
+    assert.equal(ret.span.startLine, 3);
+    assert.equal(ret.span.startCol, 1);
+  });
+
+  it("provides accurate span for call? expression on line 2", () => {
+    const src = `cap { fs.read: true }\ncall? fs.read { path: "/tmp" } -> res\nreturn { res: res }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+
+    // call? is on line 2
+    const exprStmt = result.program.statements[0];
+    assert.equal(exprStmt.span.startLine, 2);
+    if (exprStmt.kind === "ExprStmt" && exprStmt.expr.kind === "CallExpr") {
+      assert.equal(exprStmt.expr.span.startLine, 2);
+    }
+  });
 });

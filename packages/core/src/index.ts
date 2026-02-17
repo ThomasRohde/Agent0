@@ -5,7 +5,7 @@ export * from "./ast.js";
 export * from "./diagnostics.js";
 export { parse } from "./parser.js";
 export type { ParseResult } from "./parser.js";
-export { validate, KNOWN_CAPABILITIES } from "./validator.js";
+export { validate, KNOWN_CAPABILITIES, KNOWN_TOOL_MODES } from "./validator.js";
 export { format } from "./formatter.js";
 export {
   execute,

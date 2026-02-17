@@ -44,7 +44,7 @@ import { makeDiag } from "./diagnostics.js";
 
 class A0CstParser extends CstParser {
   constructor() {
-    super(allTokens, { recoveryEnabled: false });
+    super(allTokens, { recoveryEnabled: false, nodeLocationTracking: "full" });
     this.performSelfAnalysis();
   }
 

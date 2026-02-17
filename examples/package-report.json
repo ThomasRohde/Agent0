@@ -1,0 +1,17 @@
+{
+  "project": "a0-lang",
+  "version": "0.1.0",
+  "description": "A0: Agent-Optimized General-Purpose CLI Interpreter",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w packages/core && npm run build -w packages/std -w packages/tools && npm run build -w packages/cli",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "meta": {
+    "generatedBy": "examples/package-report.a0",
+    "sourceFile": "package.json",
+    "purpose": "Emit a structured report for automation"
+  }
+}

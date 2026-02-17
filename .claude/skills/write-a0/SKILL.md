@@ -1,7 +1,6 @@
 ---
-name: Write A0 Programs
+name: write-a0
 description: This skill should be used when the user asks to "write an A0 program", "create an A0 script", "generate A0 code", "write a .a0 file", "A0 syntax", "A0 example", "how to write A0", "A0 language", or needs to produce any new A0 source code. Provides the complete syntax, type system, tool signatures, stdlib, and idiomatic patterns needed to author correct A0 programs.
-version: 0.1.0
 ---
 
 # Writing A0 Programs

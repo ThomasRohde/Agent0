@@ -1,7 +1,6 @@
 ---
-name: Debug A0 Programs
+name: debug-a0
 description: This skill should be used when the user asks to "debug an A0 program", "fix A0 error", "understand A0 error", "A0 diagnostic", "A0 exit code", "read A0 trace", "why does my A0 program fail", "A0 parse error", "A0 capability denied", "A0 runtime error", or needs to diagnose, understand, or fix issues in existing A0 source code.
-version: 0.1.0
 ---
 
 # Debugging A0 Programs

@@ -1,0 +1,34 @@
+# package-report.a0 - Build a small project report from package.json
+cap { fs.read: true, fs.write: true }
+
+call? fs.read { path: "package.json" } -> raw
+let pkg = parse.json { in: raw }
+
+let name = get { in: pkg, path: "name" }
+let version = get { in: pkg, path: "version" }
+let description = get { in: pkg, path: "description" }
+let workspaces = get { in: pkg, path: "workspaces" }
+let build_cmd = get { in: pkg, path: "scripts.build" }
+let test_cmd = get { in: pkg, path: "scripts.test" }
+
+let report0 = {
+  project: name,
+  version: version,
+  description: description,
+  workspaces: workspaces,
+  scripts: { build: build_cmd, test: test_cmd }
+}
+
+let report1 = put { in: report0, path: "meta.generatedBy", value: "examples/package-report.a0" }
+let report = patch {
+  in: report1,
+  ops: [
+    { op: "add", path: "/meta/sourceFile", value: "package.json" },
+    { op: "add", path: "/meta/purpose", value: "Emit a structured report for automation" }
+  ]
+}
+
+do fs.write { path: "examples/package-report.json", data: report, format: "json" } -> artifact
+assert { that: true, msg: "project report generated" }
+
+return { artifact: artifact, report: report }

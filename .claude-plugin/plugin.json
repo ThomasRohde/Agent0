@@ -1,9 +1,0 @@
-{
-  "name": "a0-language",
-  "version": "0.1.0",
-  "description": "Skills for writing and debugging A0 programs — the agent-optimized scripting language",
-  "author": {
-    "name": "Agent0 Team"
-  },
-  "keywords": ["a0", "language", "scripting", "agents", "automation"]
-}

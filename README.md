@@ -1,114 +1,209 @@
-# Agent0 / A0 — Agent-Optimized CLI Language (v0.3)
+<p align="center">
+  <h1 align="center">A0</h1>
+  <p align="center">A scripting language designed for autonomous agents</p>
+</p>
 
-A0 is a small, structured, general-purpose scripting language with a CLI runner designed to be generated and repaired reliably by autonomous agents. It favors structured values over strings, explicit effects, capability gating, and machine-readable traces/evidence.
+<p align="center">
+  <a href="#quickstart">Quickstart</a> &middot;
+  <a href="#language-overview">Language</a> &middot;
+  <a href="#examples">Examples</a> &middot;
+  <a href="#built-in-tools">Tools</a> &middot;
+  <a href="#capabilities-and-policy">Capabilities</a> &middot;
+  <a href="FUTURE.md">Roadmap</a>
+</p>
 
-If you’re a coding agent reading this repo: optimize for “valid program on first try” and “minimal reruns”. Prefer small, checkable edits. Don’t be clever—be inspectable.
+---
 
-## Philosophy (the mindset)
+A0 is a small, structured scripting language with a CLI interpreter built for code-generating agents. It trades expressiveness for reliability: structured values instead of string pipelines, explicit side effects, deny-by-default capability gating, and machine-readable traces that make failures cheap to diagnose.
 
-A0 is trying to make agent-written automation safer and more repeatable by default:
+**Why another language?** LLM agents that generate shell scripts or Python hit a wall: implicit side effects, no capability boundaries, and opaque failures that require expensive re-generation. A0 is designed so that an agent's first attempt is more likely to be correct — and when it isn't, the trace output tells you exactly where and why.
 
-- Structured by default: records and lists, not ad-hoc text pipelines.
-- Explicit effects: read-only vs effectful actions are spelled differently (`call?` vs `do`).
-- Capability governed: execution is deny-by-default unless a host policy allows the requested capabilities.
-- Repair-loop friendly: stable formatting, stable error codes, and run artifacts (trace/evidence) that make failures cheap to diagnose.
+## Quickstart
 
-Token efficiency (in A0 terms) is fewer failed generations and fewer reruns—not “shortest possible syntax”.
-
-## What's implemented (this repo)
-
-Language surface:
-- Literals: `null`, `bool`, `number`, `string`
-- Data: records `{ k: v }`, lists `[a, b, c]`
-- Bindings: `let name = expr`
-- Access: `ident.path` (record field access)
-- Tool calls:
-  - `call? tool.name { ... }` (read-only tools)
-  - `do tool.name { ... }` (effectful tools)
-- Evidence:
-  - `assert { that: ..., msg: "...", details: {...}? } -> ev`
-  - `check  { that: ..., msg: "...", details: {...}? } -> ev`
-  - `that` is coerced to boolean (so non-empty strings become "true", etc.)
-- Stdlib function calls (pure):
-  - Data: `parse.json`, `get`, `put`, `patch`
-  - Predicates (v0.2): `eq`, `contains`, `not`, `and`, `or`
-- Capabilities: `cap { ... }` — declare required capabilities; validated against used tools at check time
-- Budgets (v0.2): `budget { timeMs, maxToolCalls, maxBytesWritten, maxIterations }` — resource limits enforced at runtime
-- Control flow (v0.3):
-  - `if { cond: expr, then: expr, else: expr }` — conditional expression (lazy, only taken branch evaluates)
-  - `for { in: list, as: "binding" } { body }` — list iteration, produces list of results, budget-aware via `maxIterations`
-  - `fn name { params } { body }` — user-defined functions, define-before-use, direct recursion allowed
-  - `match subject { ok { val } { body } err { e } { body } }` — ok/err discrimination on records
-- Program must end with `return { ... }` (record return is required).
-
-Runtime / CLI:
-- `a0 run <file|->` executes and prints JSON to stdout
-- `a0 check <file>` parses + validates (no execution)
-- `a0 fmt <file>` canonical-ish formatter (prints; `--write` overwrites)
-- `a0 trace <trace.jsonl>` summarizes a JSONL trace
-- Capability policy loader:
-  - `./.a0policy.json` (project) overrides `~/.a0/policy.json` (user)
-  - default policy is deny-all
-
-Built-in tools shipped in `@a0/tools`:
-- `fs.read` (read)
-- `fs.write` (effect)
-- `http.get` (read)
-- `sh.exec` (effect)
-
-## Quickstart (from source)
-
-Requirements: Node.js >= 18
-
-Clone and build:
+**Requirements:** Node.js >= 18
 
 ```bash
 git clone https://github.com/ThomasRohde/Agent0.git
 cd Agent0
 npm install
 npm run build
-````
-
-Run the minimal example:
-
-```bash
-node packages/cli/dist/main.js run examples/hello.a0
 ```
 
-Validate:
+Run a program:
 
 ```bash
-node packages/cli/dist/main.js check examples/hello.a0
+npx a0 run examples/hello.a0
 ```
 
-Format:
+Or install the CLI globally:
 
 ```bash
-node packages/cli/dist/main.js fmt examples/hello.a0
-```
-
-Install the CLI globally (optional, for local dev):
-
-```bash
-# after build
 npm install -g ./packages/cli
 a0 run examples/hello.a0
 ```
 
-## Capabilities and policy (how “safe-by-default” works)
+## CLI Commands
 
-A0 enforces capabilities in two places:
+| Command | Description |
+|---------|-------------|
+| `a0 run <file>` | Execute a program, print JSON result to stdout |
+| `a0 check <file>` | Parse and validate without executing |
+| `a0 fmt <file>` | Canonical formatter (`--write` to overwrite) |
+| `a0 trace <file.jsonl>` | Summarize a JSONL trace file |
 
-1. At start of execution: if you declared `cap { ... }`, those requested capabilities must be allowed by the host policy.
-2. At tool invocation time: the tool’s `capabilityId` must be allowed (even if you forgot to declare `cap { ... }`).
+Flags: `--trace <file.jsonl>` on `run` to emit execution traces. `--pretty` for human-readable error output. `--unsafe-allow-all` to bypass capability checks during development.
 
-Policy file precedence:
+## Language Overview
 
-* `./.a0policy.json`
-* `~/.a0/policy.json`
-* default: deny all
+A0 is line-oriented and record-first. Programs are sequences of statements ending with a `return` that produces a record.
 
-Minimal policy example (project-local):
+### Data Types
+
+```text
+null
+true
+42
+3.14
+"hello"
+{ name: "world", version: 1 }
+[1, 2, 3]
+```
+
+### Bindings and Access
+
+```text
+let name = "A0"
+let config = { host: "localhost", port: 8080 }
+let host = config.host
+```
+
+### Tool Calls
+
+Tools are external functions with declared side-effect modes. `call?` is for read-only tools; `do` is for effectful tools.
+
+```text
+call? http.get { url: "https://api.example.com/data" } -> response
+do fs.write { path: "out.json", data: response.body, format: "json" } -> result
+```
+
+### Evidence
+
+`assert` and `check` produce evidence records and emit trace events. A failing assertion stops the program (exit code 5).
+
+```text
+assert { that: response.status, msg: "got response" } -> ev.status
+check { that: result.ok, msg: "file written" } -> ev.write
+```
+
+### Control Flow
+
+```text
+# Conditional (lazy — only the taken branch evaluates)
+if { cond: eq { a: x, b: 0 }, then: "zero", else: "nonzero" }
+
+# Iteration (produces a list of results)
+for { in: items, as: "item" } {
+  let upper = get { in: item, path: "name" }
+  return { name: upper }
+}
+
+# Pattern matching on ok/err records
+match result {
+  ok { val } { return { success: val } }
+  err { e } { return { failure: e } }
+}
+```
+
+### User-Defined Functions
+
+```text
+fn greet { name } {
+  let msg = "hello"
+  return { greeting: msg, to: name }
+}
+
+let result = greet { name: "world" }
+```
+
+### Stdlib (Pure Functions)
+
+| Function | Purpose |
+|----------|---------|
+| `parse.json { in }` | Parse a JSON string into a value |
+| `get { in, path }` | Extract a value by dot/bracket path |
+| `put { in, path, value }` | Set a value at a path (returns new record) |
+| `patch { in, ops }` | Apply JSON Patch operations |
+| `eq { a, b }` | Deep equality |
+| `contains { in, value }` | Check if a list/string contains a value |
+| `not { in }` | Boolean negation |
+| `and { a, b }` / `or { a, b }` | Boolean combinators |
+
+## Examples
+
+**Minimal program:**
+
+```text
+let greeting = "Hello, A0!"
+let data = { name: "world", version: 1 }
+return { greeting: greeting, data: data }
+```
+
+**Fetch, transform, and write:**
+
+```text
+cap { http.get: true, fs.write: true }
+
+call? http.get { url: "https://jsonplaceholder.typicode.com/todos/1" } -> response
+let body = parse.json { in: response.body }
+let title = get { in: body, path: "title" }
+let output = { fetched_title: title, status: response.status }
+do fs.write { path: "output.json", data: output, format: "json" } -> artifact
+
+return { artifact: artifact, output: output }
+```
+
+**Functions with tool calls:**
+
+```text
+cap { sh.exec: true }
+budget { timeMs: 10000, maxToolCalls: 2 }
+
+fn check_cmd { cmd } {
+  do sh.exec { cmd: cmd, timeoutMs: 5000 } -> result
+  let ok = eq { a: result.exitCode, b: 0 }
+  return { cmd: cmd, ok: ok, stdout: result.stdout }
+}
+
+let node_check = check_cmd { cmd: "node --version" }
+let npm_check = check_cmd { cmd: "npm --version" }
+
+return { node: node_check, npm: npm_check }
+```
+
+More examples in the [`examples/`](examples/) directory.
+
+## Built-in Tools
+
+| Tool | Mode | Capability | Description |
+|------|------|------------|-------------|
+| `fs.read` | read | `fs.read` | Read a file's contents |
+| `fs.write` | effect | `fs.write` | Write data to a file |
+| `http.get` | read | `http.get` | HTTP GET request |
+| `sh.exec` | effect | `sh.exec` | Execute a shell command |
+
+Tool arguments are always records (never positional) and validated against Zod schemas at runtime.
+
+## Capabilities and Policy
+
+A0 is **deny-by-default**. Every tool call requires a capability grant from the host policy.
+
+Programs declare what they need:
+
+```text
+cap { http.get: true, fs.write: true }
+```
+
+The host decides what to allow via policy files:
 
 ```json
 {
@@ -117,196 +212,72 @@ Minimal policy example (project-local):
 }
 ```
 
-Minimal script using those capabilities:
+**Policy resolution order:**
+1. `./.a0policy.json` (project-local)
+2. `~/.a0/policy.json` (user-level)
+3. Deny all (default)
+
+Enforcement happens at two points: `a0 check` validates that declared capabilities cover all tools used, and the runtime verifies each tool call against the active policy.
+
+## Budgets
+
+Resource limits enforced at runtime:
 
 ```text
-cap { http.get: true, fs.write: true }
-
-let resp = call? http.get { url: "https://example.com" }
-
-# evidence is intentionally simple in v0.1 (no operators yet):
-check { that: resp.body, msg: "non-empty body" } -> ev.body
-
-let out = do fs.write { path: "./out.txt", data: resp.body }
-
-return { response: resp, out: out, evidence: [ev.body] }
+budget { timeMs: 30000, maxToolCalls: 10, maxBytesWritten: 1048576, maxIterations: 100 }
 ```
 
-Notes:
+| Field | Enforced at |
+|-------|-------------|
+| `timeMs` | Wall-clock timeout for the entire run |
+| `maxToolCalls` | Total tool invocations |
+| `maxBytesWritten` | Cumulative bytes written via `fs.write` |
+| `maxIterations` | Iterations per `for` loop |
 
-* `call?` cannot be used with tools marked `mode:"effect"` (it will fail).
-* `do` on a read-mode tool is allowed but unconventional — prefer `call?` to signal read-only intent.
-* Tool args must be a record `{ ... }` (never positional).
-* Tool inputs are validated against Zod schemas at runtime.
+## Traces
 
-## Evidence and trace artifacts
+Every `a0 run --trace <file.jsonl>` produces a structured event log:
 
-Evidence:
+```bash
+a0 run program.a0 --trace run.jsonl
+a0 trace run.jsonl   # summarize: events, tools used, failures, duration
+```
 
-* `assert` and `check` emit an evidence object and write a trace event.
-* A failing `assert/check` stops the program with exit code 5.
+Trace events: `run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `tool_end`, `evidence`, `budget_exceeded`, `for_start`, `for_end`, `fn_call_start`, `fn_call_end`, `match_start`, `match_end`.
 
-Trace:
+## Exit Codes
 
-* `a0 run --trace <file.jsonl>` writes JSONL events (one JSON object per line).
-* `a0 trace <file.jsonl>` summarizes counts, tools used, failures, and duration.
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 2 | Parse or validation error |
+| 3 | Capability denied |
+| 4 | Runtime or tool error |
+| 5 | Assertion or check failed |
 
-## Exit codes
+## Project Structure
 
-* 0: success
-* 2: parse/validation failure
-* 3: capability denied
-* 4: runtime/tool error
-* 5: assertion/check failed (or evidence failure)
+npm workspaces monorepo:
 
-## Repo layout
+```
+packages/
+  core/    — Lexer, parser, AST, validator, evaluator, formatter, capabilities
+  std/     — Pure stdlib functions (parse.json, get/put, patch, predicates)
+  tools/   — Built-in tools (fs, http, sh) with Zod schema validation
+  cli/     — The a0 CLI (run, check, fmt, trace)
+examples/  — Sample A0 programs
+```
 
-Monorepo (npm workspaces):
+## Contributing
 
-* `packages/core` — AST, parser, diagnostics, formatter, evaluator, capability policy
-* `packages/std` — pure stdlib functions (parse.json, get/put, patch)
-* `packages/tools` — built-in tools (fs/http/sh)
-* `packages/cli` — the `a0` command (run/check/fmt/trace)
-* `examples/` — small A0 programs
+A0 is designed for agents, but contributions from humans are welcome too.
 
-## “Language card” (paste into an agent prompt)
-
-A0 is line-oriented and record-first.
-
-Statements:
-
-* `let name = expr`
-* `expr -> name` (bind result of an expression statement)
-* `fn name { params } { body }` — define a function (v0.3)
-* `return { ... }` must be last
-
-Expressions:
-
-* literals: `null`, `true/false`, numbers, `"strings"`
-* record: `{ k: expr, ... }`
-* list: `[ expr, ... ]`
-* path: `name.foo.bar`
-* tools:
-
-  * `call? tool.name { k: expr, ... }`   # read-only tool
-  * `do tool.name { k: expr, ... }`      # effect tool
-* evidence:
-
-  * `assert { that: expr, msg: "..." } -> ev`
-  * `check  { that: expr, msg: "..." } -> ev`
-* control flow (v0.3):
-
-  * `if { cond: expr, then: expr, else: expr }` — conditional
-  * `for { in: list, as: "name" } { body }` — iteration
-  * `match subject { ok { val } { body } err { e } { body } }` — ok/err discrimination
-* stdlib:
-
-  * `parse.json { in: expr }`
-  * `get { in: expr, path: "a.b[0]" }`
-  * `put { in: expr, path: "...", value: expr }`
-  * `patch { in: expr, ops: [ ... ] }`
-  * `eq { a: expr, b: expr }`, `contains { in: expr, value: expr }`
-  * `not { in: expr }`, `and { a: expr, b: expr }`, `or { a: expr, b: expr }`
-
-Capabilities:
-
-* Policy allowlist gates tools. Policy file: `./.a0policy.json` then `~/.a0/policy.json`.
-* Tools: `fs.read`, `fs.write`, `http.get`, `sh.exec`.
-* Capabilities must be declared in `cap { ... }` for each tool used (enforced at `a0 check` time).
-
-Budgets:
-
-* `budget { timeMs: N, maxToolCalls: N, maxBytesWritten: N, maxIterations: N }` — enforced at runtime.
-
-## Roadmap
-
-### v0.2 — Make runs reproducible and failures cheaper ✓
-
-Theme: "tighten invariants + better contracts". **Implemented.**
-
-What shipped in v0.2:
-
-* **Stdlib predicates**: `eq`, `contains`, `not`, `and`, `or` — makes `assert`/`check` genuinely useful
-* **Capability enforcement**: `a0 check` rejects programs that use tools without declaring the capability in `cap { ... }` (`E_UNDECLARED_CAP`)
-* **Capability naming cleanup**: removed `http.read` remnant; canonical set is `fs.read`, `fs.write`, `http.get`, `sh.exec`
-* **Budget enforcement**: `budget { timeMs, maxToolCalls, maxBytesWritten }` enforced at runtime (`E_BUDGET`)
-* **Tool contracts**: Zod schemas validate tool inputs at runtime (`E_TOOL_ARGS` with field-level details)
-* **Trace schema v1**: stable event names (`run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `tool_end`, `evidence`, `budget_exceeded`), enriched with capabilities, budget, mode, and durations
-* **CLI polish**: `--pretty` flag for human-readable errors, improved `--unsafe-allow-all` labeling
-* **Golden tests**: formatter idempotence, trace event sequences, capability-policy precedence
-
-### v0.3 — Make it a real programming language (composition) ✓
-
-Theme: "control flow + user-defined reuse". **Implemented.**
-
-What shipped in v0.3:
-
-* **`if` expression**: `if { cond: expr, then: expr, else: expr }` — record-style conditional, lazy evaluation (only taken branch evaluates), uses A0 truthiness (false/null/0/"" are falsy)
-* **`for` loop**: `for { in: list, as: "binding" } { body }` — list iteration producing a list of results, scoped bindings, budget-aware via `maxIterations`
-* **`fn` user-defined functions**: `fn name { params } { body }` — define-before-use, record-style arguments, direct recursion allowed, no closures
-* **`match` expression**: `match subject { ok { val } { body } err { e } { body } }` — ok/err discrimination on records, scoped arm bodies
-* **Scoped environments**: parent-chained `Env` for `fn`/`for`/`match` block bodies
-* **New budget field**: `maxIterations` — enforced in `for` loops
-* **New trace events**: `for_start`, `for_end`, `fn_call_start`, `fn_call_end`, `match_start`, `match_end`
-* **New diagnostic codes**: `E_FN_DUP`, `E_FOR_NOT_LIST`, `E_MATCH_NOT_RECORD`, `E_MATCH_NO_ARM`
-
-### v0.4 — Extensibility without losing safety
-
-Theme: “plugins + sandbox-shaped boundaries”.
-
-Tools/plugins:
-
-* External tool registry:
-
-  * discover tools via a manifest (JSON)
-  * map tool -> capabilityId -> schema
-* Optional sandbox strategy for effectful tools:
-
-  * start with process isolation + strict policy
-  * explore WASI (Wasm) for untrusted tools (keeps host safe)
-
-Packaging:
-
-* `a0 pack/unpack` (optional) only if it stays reversible and debuggable:
-
-  * packed form must round-trip to identical canonical AST
-  * traces still reference source spans meaningfully
-
-## "Fully functional GP runtime" checklist (beyond v0.4)
-
-If you want A0 to stand on its own as a general-purpose agent runtime, these are the big missing chunks:
-
-* ~~A minimal expression system (comparisons, boolean logic) or a disciplined stdlib that covers it.~~ → **v0.2**: stdlib predicates (`eq`, `contains`, `not`, `and`, `or`)
-* Modules/imports that actually execute (today "import" is only a header shape).
-* A coherent error/value convention (`{ ok: ... }` / `{ err: ... }`) and helpers to work with it.
-* ~~A real resource governance model (timeouts, quotas, per-capability constraints, "effects in loops" policies).~~ → **v0.2**: budget enforcement (`timeMs`, `maxToolCalls`, `maxBytesWritten`)
-* ~~First-class testing story for A0 scripts (fixture inputs + golden outputs + golden traces).~~ → **v0.2**: golden tests for formatter, traces, and capability-policy precedence
-
-## Recommended tech direction
-
-Current stack (good for fast iteration):
-
-* TypeScript + Node.js
-* Commander (CLI), Chevrotain (parser)
-* Node’s built-in test runner for tests
-
-If you push toward running agent-generated code in more hostile environments:
-
-* Keep the language semantics stable in TS for v0.2–v0.3
-* Consider a hardened runtime in Rust later (capability gate + sandbox), while keeping the language front-end compatible
-
-## Contribution rules (for agents)
-
-* Preserve the philosophy: structured data, explicit effects, capability gating, evidence/trace outputs.
-* Never add a language feature without:
-
-  * formatter support
-  * trace impact specified
-  * tests (golden where possible)
-* Prefer small PRs with one invariant change at a time.
-* If you add nondeterminism, it must be opt-in and explicitly marked in trace output.
+**Rules:**
+- Every language feature must include: formatter support, trace impact, and tests (golden where possible)
+- Preserve the core invariants: structured data, explicit effects, capability gating, evidence/trace
+- Prefer small PRs with one logical change at a time
+- Nondeterminism must be opt-in and visible in trace output
 
 ## License
 
 MIT
-

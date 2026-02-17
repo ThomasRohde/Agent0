@@ -8,6 +8,7 @@ import { runCheck } from "./cmd-check.js";
 import { runRun } from "./cmd-run.js";
 import { runFmt } from "./cmd-fmt.js";
 import { runTrace } from "./cmd-trace.js";
+import { runHelp, QUICKREF } from "./cmd-help.js";
 
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as { version: string };
@@ -17,7 +18,8 @@ const program = new Command();
 program
   .name("a0")
   .description("A0: Agent-Optimized General-Purpose CLI Interpreter")
-  .version(pkg.version);
+  .version(pkg.version)
+  .addHelpText("after", "\n" + QUICKREF);
 
 program
   .command("check")
@@ -61,6 +63,14 @@ program
   .action(async (file: string, opts: { json?: boolean }) => {
     const code = await runTrace(file, opts);
     process.exit(code);
+  });
+
+program
+  .command("help")
+  .description("Language reference — run 'a0 help <topic>' for details")
+  .argument("[topic]", "Topic: syntax, types, tools, stdlib, caps, budget, flow, diagnostics, examples")
+  .action((topic?: string) => {
+    runHelp(topic);
   });
 
 program.parse();

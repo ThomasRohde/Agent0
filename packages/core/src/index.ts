@@ -9,6 +9,7 @@ export { validate, KNOWN_CAPABILITIES } from "./validator.js";
 export { format } from "./formatter.js";
 export {
   execute,
+  isTruthy,
   A0RuntimeError,
 } from "./evaluator.js";
 export type {

@@ -1,0 +1,9 @@
+# if-demo.a0 — Conditional branching with if expression
+cap { sh.exec: true }
+budget { timeMs: 10000, maxToolCalls: 2 }
+
+do sh.exec { cmd: "echo hello", timeoutMs: 5000 } -> x
+let ok = eq { a: x.exitCode, b: 0 }
+let msg = if { cond: ok, then: "command succeeded", else: "command failed" }
+
+return { msg: msg, exitCode: x.exitCode }

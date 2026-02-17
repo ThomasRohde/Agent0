@@ -1,4 +1,4 @@
-# Agent0 / A0 — Agent-Optimized CLI Language (v0.2)
+# Agent0 / A0 — Agent-Optimized CLI Language (v0.3)
 
 A0 is a small, structured, general-purpose scripting language with a CLI runner designed to be generated and repaired reliably by autonomous agents. It favors structured values over strings, explicit effects, capability gating, and machine-readable traces/evidence.
 
@@ -33,7 +33,12 @@ Language surface:
   - Data: `parse.json`, `get`, `put`, `patch`
   - Predicates (v0.2): `eq`, `contains`, `not`, `and`, `or`
 - Capabilities: `cap { ... }` — declare required capabilities; validated against used tools at check time
-- Budgets (v0.2): `budget { timeMs, maxToolCalls, maxBytesWritten }` — resource limits enforced at runtime
+- Budgets (v0.2): `budget { timeMs, maxToolCalls, maxBytesWritten, maxIterations }` — resource limits enforced at runtime
+- Control flow (v0.3):
+  - `if { cond: expr, then: expr, else: expr }` — conditional expression (lazy, only taken branch evaluates)
+  - `for { in: list, as: "binding" } { body }` — list iteration, produces list of results, budget-aware via `maxIterations`
+  - `fn name { params } { body }` — user-defined functions, define-before-use, direct recursion allowed
+  - `match subject { ok { val } { body } err { e } { body } }` — ok/err discrimination on records
 - Program must end with `return { ... }` (record return is required).
 
 Runtime / CLI:
@@ -172,6 +177,7 @@ Statements:
 
 * `let name = expr`
 * `expr -> name` (bind result of an expression statement)
+* `fn name { params } { body }` — define a function (v0.3)
 * `return { ... }` must be last
 
 Expressions:
@@ -188,6 +194,11 @@ Expressions:
 
   * `assert { that: expr, msg: "..." } -> ev`
   * `check  { that: expr, msg: "..." } -> ev`
+* control flow (v0.3):
+
+  * `if { cond: expr, then: expr, else: expr }` — conditional
+  * `for { in: list, as: "name" } { body }` — iteration
+  * `match subject { ok { val } { body } err { e } { body } }` — ok/err discrimination
 * stdlib:
 
   * `parse.json { in: expr }`
@@ -205,7 +216,7 @@ Capabilities:
 
 Budgets:
 
-* `budget { timeMs: N, maxToolCalls: N, maxBytesWritten: N }` — enforced at runtime.
+* `budget { timeMs: N, maxToolCalls: N, maxBytesWritten: N, maxIterations: N }` — enforced at runtime.
 
 ## Roadmap
 
@@ -224,29 +235,20 @@ What shipped in v0.2:
 * **CLI polish**: `--pretty` flag for human-readable errors, improved `--unsafe-allow-all` labeling
 * **Golden tests**: formatter idempotence, trace event sequences, capability-policy precedence
 
-### v0.3 — Make it a real programming language (composition)
+### v0.3 — Make it a real programming language (composition) ✓
 
-Theme: “control flow + user-defined reuse”.
+Theme: "control flow + user-defined reuse". **Implemented.**
 
-Language:
+What shipped in v0.3:
 
-* User-defined functions:
-
-  * `fn name { params:{...}, body:[...] }` (exact syntax up to you, but keep it record-first)
-  * recursion allowed, no closures until needed
-* Control flow:
-
-  * `if` (expression form)
-  * `match` on `{ ok: ... } / { err: ... }` conventions
-* Iteration:
-
-  * `for` over lists (budget-aware)
-  * no unbounded loops without explicit budgets
-
-Runtime:
-
-* Deterministic evaluation guarantees documented (what is pure, what is effectful)
-* Better error model for stdlib (structured `{ err: { code, message, ... } }` conventions)
+* **`if` expression**: `if { cond: expr, then: expr, else: expr }` — record-style conditional, lazy evaluation (only taken branch evaluates), uses A0 truthiness (false/null/0/"" are falsy)
+* **`for` loop**: `for { in: list, as: "binding" } { body }` — list iteration producing a list of results, scoped bindings, budget-aware via `maxIterations`
+* **`fn` user-defined functions**: `fn name { params } { body }` — define-before-use, record-style arguments, direct recursion allowed, no closures
+* **`match` expression**: `match subject { ok { val } { body } err { e } { body } }` — ok/err discrimination on records, scoped arm bodies
+* **Scoped environments**: parent-chained `Env` for `fn`/`for`/`match` block bodies
+* **New budget field**: `maxIterations` — enforced in `for` loops
+* **New trace events**: `for_start`, `for_end`, `fn_call_start`, `fn_call_end`, `match_start`, `match_end`
+* **New diagnostic codes**: `E_FN_DUP`, `E_FOR_NOT_LIST`, `E_MATCH_NOT_RECORD`, `E_MATCH_NO_ARM`
 
 ### v0.4 — Extensibility without losing safety
 

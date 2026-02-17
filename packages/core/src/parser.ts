@@ -18,6 +18,10 @@ import {
   True,
   False,
   Null,
+  If,
+  For,
+  Fn,
+  Match,
   Ident,
   FloatLit,
   IntLit,
@@ -80,6 +84,7 @@ class A0CstParser extends CstParser {
 
   stmt = this.RULE("stmt", () => {
     this.OR([
+      { ALT: () => this.SUBRULE(this.fnDecl) },
       { ALT: () => this.SUBRULE(this.letStmt) },
       { ALT: () => this.SUBRULE(this.returnStmt) },
       { ALT: () => this.SUBRULE(this.exprStmt) },
@@ -106,8 +111,44 @@ class A0CstParser extends CstParser {
     });
   });
 
+  // v0.3: fn declaration
+  fnDecl = this.RULE("fnDecl", () => {
+    this.CONSUME(Fn);
+    this.CONSUME(Ident);
+    this.SUBRULE(this.paramList);
+    this.SUBRULE(this.block);
+  });
+
+  // Shared: parameter list { a, b, c }
+  paramList = this.RULE("paramList", () => {
+    this.CONSUME(LBrace);
+    this.OPTION(() => {
+      this.CONSUME(Ident);
+      this.MANY(() => {
+        this.CONSUME(Comma);
+        this.CONSUME2(Ident);
+      });
+      this.OPTION2(() => {
+        this.CONSUME2(Comma); // trailing comma
+      });
+    });
+    this.CONSUME(RBrace);
+  });
+
+  // Shared: block of statements { stmt* }
+  block = this.RULE("block", () => {
+    this.CONSUME(LBrace);
+    this.MANY(() => {
+      this.SUBRULE(this.stmt);
+    });
+    this.CONSUME(RBrace);
+  });
+
   expr = this.RULE("expr", () => {
     this.OR([
+      { ALT: () => this.SUBRULE(this.ifExpr) },
+      { ALT: () => this.SUBRULE(this.forExpr) },
+      { ALT: () => this.SUBRULE(this.matchExpr) },
       { ALT: () => this.SUBRULE(this.callExpr) },
       { ALT: () => this.SUBRULE(this.doExpr) },
       { ALT: () => this.SUBRULE(this.assertExpr) },
@@ -117,6 +158,35 @@ class A0CstParser extends CstParser {
       { ALT: () => this.SUBRULE(this.literal) },
       { ALT: () => this.SUBRULE(this.identOrFnCall) },
     ]);
+  });
+
+  // v0.3: if { cond: ..., then: ..., else: ... }
+  ifExpr = this.RULE("ifExpr", () => {
+    this.CONSUME(If);
+    this.SUBRULE(this.record);
+  });
+
+  // v0.3: for { in: ..., as: "..." } { body }
+  forExpr = this.RULE("forExpr", () => {
+    this.CONSUME(For);
+    this.SUBRULE(this.record);
+    this.SUBRULE(this.block);
+  });
+
+  // v0.3: match <identPath> { ok { binding } { body } err { binding } { body } }
+  matchExpr = this.RULE("matchExpr", () => {
+    this.CONSUME(Match);
+    this.SUBRULE(this.identPath);
+    this.CONSUME(LBrace);
+    this.SUBRULE(this.matchArm);
+    this.SUBRULE2(this.matchArm);
+    this.CONSUME(RBrace);
+  });
+
+  matchArm = this.RULE("matchArm", () => {
+    this.CONSUME(Ident);       // "ok" or "err"
+    this.SUBRULE(this.paramList);
+    this.SUBRULE(this.block);
   });
 
   callExpr = this.RULE("callExpr", () => {
@@ -165,9 +235,18 @@ class A0CstParser extends CstParser {
   });
 
   pair = this.RULE("pair", () => {
-    this.SUBRULE(this.identPath);
+    this.SUBRULE(this.pairKey);
     this.CONSUME(Colon);
     this.SUBRULE(this.expr);
+  });
+
+  // Record pair keys: identOrKeyword with optional dotted segments (e.g., "as", "fs.read")
+  private pairKey = this.RULE("pairKey", () => {
+    this.SUBRULE(this.identOrKeyword);
+    this.MANY(() => {
+      this.CONSUME(Dot);
+      this.SUBRULE2(this.identOrKeyword);
+    });
   });
 
   list = this.RULE("list", () => {
@@ -185,11 +264,31 @@ class A0CstParser extends CstParser {
     this.CONSUME(RBracket);
   });
 
+  // Accept Ident or any keyword token as a path segment (e.g., nonexistent.fn, foo.match)
+  private identOrKeyword = this.RULE("identOrKeyword", () => {
+    this.OR([
+      { ALT: () => this.CONSUME(Ident) },
+      { ALT: () => this.CONSUME(If) },
+      { ALT: () => this.CONSUME(For) },
+      { ALT: () => this.CONSUME(Fn) },
+      { ALT: () => this.CONSUME(Match) },
+      { ALT: () => this.CONSUME(Cap) },
+      { ALT: () => this.CONSUME(Budget) },
+      { ALT: () => this.CONSUME(Import) },
+      { ALT: () => this.CONSUME(As) },
+      { ALT: () => this.CONSUME(Let) },
+      { ALT: () => this.CONSUME(Return) },
+      { ALT: () => this.CONSUME(Do) },
+      { ALT: () => this.CONSUME(Assert) },
+      { ALT: () => this.CONSUME(Check) },
+    ]);
+  });
+
   identPath = this.RULE("identPath", () => {
     this.CONSUME(Ident);
     this.MANY(() => {
       this.CONSUME(Dot);
-      this.CONSUME2(Ident);
+      this.SUBRULE(this.identOrKeyword);
     });
   });
 
@@ -295,6 +394,9 @@ function visitImportDecl(cst: CstNode, file: string): AST.ImportDecl {
 
 function visitStmt(cst: CstNode, file: string): AST.Stmt {
   const children = cst.children;
+  if (children["fnDecl"]) {
+    return visitFnDecl((children["fnDecl"] as CstNode[])[0], file);
+  }
   if (children["letStmt"]) {
     return visitLetStmt((children["letStmt"] as CstNode[])[0], file);
   }
@@ -336,8 +438,49 @@ function visitExprStmt(cst: CstNode, file: string): AST.ExprStmt {
   return result;
 }
 
+function visitFnDecl(cst: CstNode, file: string): AST.FnDecl {
+  const nameToken = (cst.children["Ident"] as IToken[])[0];
+  const paramListNode = (cst.children["paramList"] as CstNode[])[0];
+  const blockNode = (cst.children["block"] as CstNode[])[0];
+
+  const params: string[] = [];
+  if (paramListNode.children["Ident"]) {
+    for (const t of paramListNode.children["Ident"] as IToken[]) {
+      params.push(t.image);
+    }
+  }
+
+  const body: AST.Stmt[] = [];
+  if (blockNode.children["stmt"]) {
+    for (const s of blockNode.children["stmt"] as CstNode[]) {
+      body.push(visitStmt(s, file));
+    }
+  }
+
+  return {
+    kind: "FnDecl",
+    span: cstSpan(cst, file),
+    name: nameToken.image,
+    params,
+    body,
+  };
+}
+
+function visitBlock(cst: CstNode, file: string): AST.Stmt[] {
+  const body: AST.Stmt[] = [];
+  if (cst.children["stmt"]) {
+    for (const s of cst.children["stmt"] as CstNode[]) {
+      body.push(visitStmt(s, file));
+    }
+  }
+  return body;
+}
+
 function visitExpr(cst: CstNode, file: string): AST.Expr {
   const children = cst.children;
+  if (children["ifExpr"]) return visitIfExpr((children["ifExpr"] as CstNode[])[0], file);
+  if (children["forExpr"]) return visitForExpr((children["forExpr"] as CstNode[])[0], file);
+  if (children["matchExpr"]) return visitMatchExpr((children["matchExpr"] as CstNode[])[0], file);
   if (children["callExpr"]) return visitCallExpr((children["callExpr"] as CstNode[])[0], file);
   if (children["doExpr"]) return visitDoExpr((children["doExpr"] as CstNode[])[0], file);
   if (children["assertExpr"]) return visitAssertExpr((children["assertExpr"] as CstNode[])[0], file);
@@ -347,6 +490,98 @@ function visitExpr(cst: CstNode, file: string): AST.Expr {
   if (children["literal"]) return visitLiteral((children["literal"] as CstNode[])[0], file);
   if (children["identOrFnCall"]) return visitIdentOrFnCall((children["identOrFnCall"] as CstNode[])[0], file);
   throw new Error("Unknown expression type");
+}
+
+function visitIfExpr(cst: CstNode, file: string): AST.IfExpr {
+  const rec = visitRecord((cst.children["record"] as CstNode[])[0], file);
+  let cond: AST.Expr | undefined;
+  let thenExpr: AST.Expr | undefined;
+  let elseExpr: AST.Expr | undefined;
+  for (const p of rec.pairs) {
+    if (p.key === "cond") cond = p.value;
+    if (p.key === "then") thenExpr = p.value;
+    if (p.key === "else") elseExpr = p.value;
+  }
+  if (!cond || !thenExpr || !elseExpr) {
+    throw new Error("if expression requires cond, then, and else fields");
+  }
+  return {
+    kind: "IfExpr",
+    span: cstSpan(cst, file),
+    cond,
+    then: thenExpr,
+    else: elseExpr,
+  };
+}
+
+function visitForExpr(cst: CstNode, file: string): AST.ForExpr {
+  const rec = visitRecord((cst.children["record"] as CstNode[])[0], file);
+  const blockNode = (cst.children["block"] as CstNode[])[0];
+
+  let list: AST.Expr | undefined;
+  let binding: string | undefined;
+  for (const p of rec.pairs) {
+    if (p.key === "in") list = p.value;
+    if (p.key === "as" && p.value.kind === "StrLiteral") binding = p.value.value;
+  }
+  if (!list || !binding) {
+    throw new Error("for expression requires 'in' and 'as' fields");
+  }
+
+  return {
+    kind: "ForExpr",
+    span: cstSpan(cst, file),
+    list,
+    binding,
+    body: visitBlock(blockNode, file),
+  };
+}
+
+function visitMatchExpr(cst: CstNode, file: string): AST.MatchExpr {
+  const subject = visitIdentPath((cst.children["identPath"] as CstNode[])[0], file);
+  const arms = cst.children["matchArm"] as CstNode[];
+
+  let okArm: AST.MatchArm | undefined;
+  let errArm: AST.MatchArm | undefined;
+
+  for (const arm of arms) {
+    const tagToken = (arm.children["Ident"] as IToken[])[0];
+    const tag = tagToken.image;
+    const paramListNode = (arm.children["paramList"] as CstNode[])[0];
+    const blockNode = (arm.children["block"] as CstNode[])[0];
+
+    const params: string[] = [];
+    if (paramListNode.children["Ident"]) {
+      for (const t of paramListNode.children["Ident"] as IToken[]) {
+        params.push(t.image);
+      }
+    }
+    const binding = params[0] ?? "_";
+
+    const matchArm: AST.MatchArm = {
+      kind: "MatchArm",
+      span: cstSpan(arm, file),
+      tag: tag as "ok" | "err",
+      binding,
+      body: visitBlock(blockNode, file),
+    };
+
+    if (tag === "ok") okArm = matchArm;
+    else if (tag === "err") errArm = matchArm;
+    else throw new Error(`match arm must be 'ok' or 'err', got '${tag}'`);
+  }
+
+  if (!okArm || !errArm) {
+    throw new Error("match expression requires both ok and err arms");
+  }
+
+  return {
+    kind: "MatchExpr",
+    span: cstSpan(cst, file),
+    subject,
+    okArm,
+    errArm,
+  };
 }
 
 function visitCallExpr(cst: CstNode, file: string): AST.CallExpr {
@@ -391,14 +626,25 @@ function visitRecord(cst: CstNode, file: string): AST.RecordExpr {
 }
 
 function visitPair(cst: CstNode, file: string): AST.RecordPair {
-  const keyPath = visitIdentPath((cst.children["identPath"] as CstNode[])[0], file);
+  const keyNode = (cst.children["pairKey"] as CstNode[])[0];
+  const key = visitPairKey(keyNode);
   const valueNode = (cst.children["expr"] as CstNode[])[0];
   return {
     kind: "RecordPair",
     span: cstSpan(cst, file),
-    key: keyPath.parts.join("."),
+    key,
     value: visitExpr(valueNode, file),
   };
+}
+
+function visitPairKey(cst: CstNode): string {
+  const parts: string[] = [];
+  if (cst.children["identOrKeyword"]) {
+    for (const node of cst.children["identOrKeyword"] as CstNode[]) {
+      parts.push(extractIdentOrKeyword(node));
+    }
+  }
+  return parts.join(".");
 }
 
 function visitList(cst: CstNode, file: string): AST.ListExpr {
@@ -413,12 +659,27 @@ function visitList(cst: CstNode, file: string): AST.ListExpr {
 
 function visitIdentPath(cst: CstNode, file: string): AST.IdentPath {
   const parts: string[] = [];
+  // First segment is always a direct Ident child
   if (cst.children["Ident"]) {
-    for (const t of cst.children["Ident"] as IToken[]) {
-      parts.push(t.image);
+    parts.push((cst.children["Ident"] as IToken[])[0].image);
+  }
+  // Subsequent segments come from identOrKeyword subrule nodes
+  if (cst.children["identOrKeyword"]) {
+    for (const node of cst.children["identOrKeyword"] as CstNode[]) {
+      parts.push(extractIdentOrKeyword(node));
     }
   }
   return { kind: "IdentPath", span: cstSpan(cst, file), parts };
+}
+
+function extractIdentOrKeyword(cst: CstNode): string {
+  // identOrKeyword rule matches exactly one token (Ident or any keyword)
+  for (const children of Object.values(cst.children)) {
+    if (children && children.length > 0) {
+      return (children[0] as IToken).image;
+    }
+  }
+  return "";
 }
 
 function visitLiteral(cst: CstNode, file: string): AST.Literal {

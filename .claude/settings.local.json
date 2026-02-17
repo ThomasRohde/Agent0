@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(npm run test:*)",
-      "Bash(npm test)"
+      "Bash(npm test)",
+      "Bash(a0 run:*)",
+      "Bash(npx a0 check:*)"
     ]
   }
 }

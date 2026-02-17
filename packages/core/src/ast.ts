@@ -95,6 +95,36 @@ export interface FnCallExpr extends BaseNode {
   args: RecordExpr;
 }
 
+// --- v0.3: Control flow & composition ---
+
+export interface IfExpr extends BaseNode {
+  kind: "IfExpr";
+  cond: Expr;
+  then: Expr;
+  else: Expr;
+}
+
+export interface ForExpr extends BaseNode {
+  kind: "ForExpr";
+  list: Expr;
+  binding: string;
+  body: Stmt[];
+}
+
+export interface MatchArm extends BaseNode {
+  kind: "MatchArm";
+  tag: "ok" | "err";
+  binding: string;
+  body: Stmt[];
+}
+
+export interface MatchExpr extends BaseNode {
+  kind: "MatchExpr";
+  subject: Expr;
+  okArm: MatchArm;
+  errArm: MatchArm;
+}
+
 export type Expr =
   | Literal
   | IdentPath
@@ -104,7 +134,10 @@ export type Expr =
   | DoExpr
   | AssertExpr
   | CheckExpr
-  | FnCallExpr;
+  | FnCallExpr
+  | IfExpr
+  | ForExpr
+  | MatchExpr;
 
 // --- Statements ---
 export interface LetStmt extends BaseNode {
@@ -124,7 +157,14 @@ export interface ReturnStmt extends BaseNode {
   value: RecordExpr;
 }
 
-export type Stmt = LetStmt | ExprStmt | ReturnStmt;
+export interface FnDecl extends BaseNode {
+  kind: "FnDecl";
+  name: string;
+  params: string[];
+  body: Stmt[];
+}
+
+export type Stmt = LetStmt | ExprStmt | ReturnStmt | FnDecl;
 
 // --- Headers ---
 export interface CapDecl extends BaseNode {

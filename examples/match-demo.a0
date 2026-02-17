@@ -1,0 +1,17 @@
+# match-demo.a0 — ok/err discrimination with match
+cap { sh.exec: true }
+budget { timeMs: 10000, maxToolCalls: 1 }
+
+do sh.exec { cmd: "node --version", timeoutMs: 5000 } -> result
+let status = if { cond: eq { a: result.exitCode, b: 0 }, then: { ok: result.stdout }, else: { err: "node failed" } }
+
+let output = match status {
+  ok { val } {
+    return { message: "node version found", version: val }
+  }
+  err { e } {
+    return { message: "error occurred", error: e }
+  }
+}
+
+return { output: output }

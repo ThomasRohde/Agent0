@@ -50,10 +50,11 @@ Map exit codes to error categories:
 | `E_RETURN_NOT_LAST` | Statements after `return` | Move `return` to end of program |
 | `E_UNKNOWN_CAP` | Invalid capability name | Use valid caps: `fs.read`, `fs.write`, `http.get`, `sh.exec` |
 | `E_UNDECLARED_CAP` | Tool used without declaring capability | Add the tool's capability to `cap { ... }` |
-| `E_UNKNOWN_BUDGET` | Invalid budget field name | Use valid fields: `timeMs`, `maxToolCalls`, `maxBytesWritten` |
+| `E_UNKNOWN_BUDGET` | Invalid budget field name | Use valid fields: `timeMs`, `maxToolCalls`, `maxBytesWritten`, `maxIterations` |
 | `E_DUP_BINDING` | Duplicate `let` name | Rename one of the bindings |
 | `E_UNBOUND` | Undefined variable | Bind with `let` or `->` before use |
 | `E_TOOL_ARGS` | Invalid tool arguments | Check required fields in tool signature |
+| `E_FN_DUP` | Duplicate function name | Rename one of the `fn` definitions |
 
 ### Runtime Errors (exit 3, 4, 5)
 
@@ -67,6 +68,9 @@ Map exit codes to error categories:
 | `E_UNKNOWN_FN` | Stdlib function not found | Check spelling: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or` |
 | `E_FN` | Stdlib function threw | Check function args (e.g., invalid JSON to `parse.json`) |
 | `E_PATH` | Property access on non-record | Verify the variable holds a record before dot access |
+| `E_FOR_NOT_LIST` | `for` `in:` value is not a list | Ensure `in:` evaluates to a list `[...]` |
+| `E_MATCH_NOT_RECORD` | `match` subject is not a record | Ensure subject evaluates to `{ ok: ... }` or `{ err: ... }` |
+| `E_MATCH_NO_ARM` | `match` subject has no `ok`/`err` key | Subject record must contain an `ok` or `err` key |
 | `E_ASSERT` | `assert` condition is false | Fix the condition or the data producing it |
 | `E_CHECK` | `check` condition is false | Fix the condition or the data producing it |
 
@@ -82,7 +86,7 @@ Start with static validation — catches most errors without executing anything:
 a0 check file.a0
 ```
 
-This catches: `E_LEX`, `E_PARSE`, `E_AST`, `E_NO_RETURN`, `E_RETURN_NOT_LAST`, `E_UNKNOWN_CAP`, `E_DUP_BINDING`, `E_UNBOUND`, `E_TOOL_ARGS`, `E_UNDECLARED_CAP`, `E_UNKNOWN_BUDGET`.
+This catches: `E_LEX`, `E_PARSE`, `E_AST`, `E_NO_RETURN`, `E_RETURN_NOT_LAST`, `E_UNKNOWN_CAP`, `E_DUP_BINDING`, `E_UNBOUND`, `E_TOOL_ARGS`, `E_UNDECLARED_CAP`, `E_UNKNOWN_BUDGET`, `E_FN_DUP`.
 
 ### Step 2: Read the Diagnostic
 

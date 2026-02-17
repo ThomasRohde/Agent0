@@ -48,8 +48,8 @@ All packages are ESM (`"type": "module"`) targeting ES2022, with TypeScript comp
 
 1. **Lexer** (`core/src/lexer.ts`) — Chevrotain tokenizer. Token order matters: keywords before `Ident`, `FloatLit` before `IntLit`.
 2. **Parser** (`core/src/parser.ts`) — Chevrotain CST parser → CST-to-AST visitor functions produce typed AST nodes.
-3. **Validator** (`core/src/validator.ts`) — Semantic checks: `return` required and last, known capabilities, unique bindings, no unbound variables, declared capabilities match used tools, known budget fields.
-4. **Evaluator** (`core/src/evaluator.ts`) — Step-by-step async execution. `Env` class holds bindings. Tool calls go through `ExecOptions.tools` map; stdlib through `ExecOptions.stdlib` map. Emits trace events via callback.
+3. **Validator** (`core/src/validator.ts`) — Semantic checks: `return` required and last, known capabilities, unique bindings, no unbound variables, declared capabilities match used tools, known budget fields. Scoped validation for `fn`/`for`/`match` block bodies via `validateBlockBindings`.
+4. **Evaluator** (`core/src/evaluator.ts`) — Step-by-step async execution. `Env` class with parent-chained scoping. Tool calls go through `ExecOptions.tools` map; stdlib through `ExecOptions.stdlib` map; user-defined functions through `userFns` map. Emits trace events via callback.
 5. **Capabilities** (`core/src/capabilities.ts`) — Policy loaded from `.a0policy.json` (project) → `~/.a0/policy.json` (user) → deny-all default. `--unsafe-allow-all` overrides for dev.
 
 Key interfaces defined in the evaluator that tools/stdlib implement:
@@ -66,7 +66,21 @@ When adding language features, you must update all of: lexer tokens, parser rule
 
 ## Diagnostic Codes
 
-Stable string codes: `E_LEX`, `E_PARSE`, `E_AST`, `E_NO_RETURN`, `E_RETURN_NOT_LAST`, `E_UNKNOWN_CAP`, `E_DUP_BINDING`, `E_UNBOUND`, `E_TOOL_ARGS`, `E_UNKNOWN_TOOL`, `E_CALL_EFFECT`, `E_CAP_DENIED`, `E_TOOL`, `E_UNKNOWN_FN`, `E_FN`, `E_ASSERT`, `E_CHECK`, `E_PATH`, `E_UNDECLARED_CAP`, `E_BUDGET`, `E_UNKNOWN_BUDGET`.
+Stable string codes: `E_LEX`, `E_PARSE`, `E_AST`, `E_NO_RETURN`, `E_RETURN_NOT_LAST`, `E_UNKNOWN_CAP`, `E_DUP_BINDING`, `E_UNBOUND`, `E_TOOL_ARGS`, `E_UNKNOWN_TOOL`, `E_CALL_EFFECT`, `E_CAP_DENIED`, `E_TOOL`, `E_UNKNOWN_FN`, `E_FN`, `E_ASSERT`, `E_CHECK`, `E_PATH`, `E_UNDECLARED_CAP`, `E_BUDGET`, `E_UNKNOWN_BUDGET`, `E_FN_DUP`, `E_FOR_NOT_LIST`, `E_MATCH_NOT_RECORD`, `E_MATCH_NO_ARM`.
+
+## Keywords
+
+Reserved keywords (lexer tokens): `cap`, `budget`, `import`, `as`, `let`, `return`, `call?`, `do`, `assert`, `check`, `true`, `false`, `null`, `if`, `for`, `fn`, `match`.
+
+Note: `ok`, `err`, `in`, `cond`, `then`, `else` are NOT keywords — they are parsed as identifiers or record keys.
+
+## Trace Events
+
+`run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `tool_end`, `evidence`, `budget_exceeded`, `for_start`, `for_end`, `fn_call_start`, `fn_call_end`, `match_start`, `match_end`.
+
+## Budget Fields
+
+`timeMs`, `maxToolCalls`, `maxBytesWritten`, `maxIterations`.
 
 ## A0 Language Skills (Plugin)
 

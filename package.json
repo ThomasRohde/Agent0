@@ -1,7 +1,8 @@
 {
   "name": "a0-lang",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
+  "type": "module",
   "description": "A0: Agent-Optimized General-Purpose CLI Interpreter",
   "workspaces": [
     "packages/*"
@@ -9,7 +10,8 @@
   "scripts": {
     "build": "npm run build -w packages/core && npm run build -w packages/std -w packages/tools && npm run build -w packages/cli",
     "test": "npm run test --workspaces --if-present",
-    "clean": "npm run clean --workspaces --if-present"
+    "clean": "npm run clean --workspaces --if-present",
+    "version:sync": "node scripts/sync-versions.js"
   },
   "engines": {
     "node": ">=18"

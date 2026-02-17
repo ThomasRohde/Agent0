@@ -18,6 +18,12 @@ export const True = createToken({ name: "True", pattern: /true/, longer_alt: und
 export const False = createToken({ name: "False", pattern: /false/, longer_alt: undefined });
 export const Null = createToken({ name: "Null", pattern: /null/, longer_alt: undefined });
 
+// v0.3 keywords
+export const If = createToken({ name: "If", pattern: /if/, longer_alt: undefined });
+export const For = createToken({ name: "For", pattern: /for/, longer_alt: undefined });
+export const Fn = createToken({ name: "Fn", pattern: /fn/, longer_alt: undefined });
+export const Match = createToken({ name: "Match", pattern: /match/, longer_alt: undefined });
+
 // Identifiers (must come after all keywords)
 export const Ident = createToken({ name: "Ident", pattern: /[A-Za-z_][A-Za-z0-9_]*/ });
 
@@ -34,6 +40,10 @@ Check.LONGER_ALT = Ident;
 True.LONGER_ALT = Ident;
 False.LONGER_ALT = Ident;
 Null.LONGER_ALT = Ident;
+If.LONGER_ALT = Ident;
+For.LONGER_ALT = Ident;
+Fn.LONGER_ALT = Ident;
+Match.LONGER_ALT = Ident;
 
 // Literals
 export const FloatLit = createToken({
@@ -95,6 +105,10 @@ export const allTokens = [
   Return,
   Do,
   Check,
+  Match,
+  If,
+  For,
+  Fn,
   True,
   False,
   Null,

@@ -17,6 +17,7 @@ export const KNOWN_BUDGET_FIELDS = new Set([
   "timeMs",
   "maxToolCalls",
   "maxBytesWritten",
+  "maxIterations",
 ]);
 
 export function validate(program: AST.Program): Diagnostic[] {
@@ -86,10 +87,26 @@ export function validate(program: AST.Program): Diagnostic[] {
     }
   }
 
-  // Validate let bindings are unique and referenced before use
+  // Validate let bindings, fn declarations, and variable references
   const bindings = new Set<string>();
+  const fnNames = new Set<string>();
+
   for (const stmt of program.statements) {
-    if (stmt.kind === "LetStmt") {
+    if (stmt.kind === "FnDecl") {
+      if (fnNames.has(stmt.name) || bindings.has(stmt.name)) {
+        diags.push(
+          makeDiag(
+            "E_FN_DUP",
+            `Duplicate function definition '${stmt.name}'.`,
+            stmt.span,
+            "Use a different function name."
+          )
+        );
+      }
+      fnNames.add(stmt.name);
+      // Validate body with params + fn name (for recursion) as extra bindings
+      validateBlockBindings(stmt.body, bindings, fnNames, [...stmt.params, stmt.name], diags, true, `function '${stmt.name}'`);
+    } else if (stmt.kind === "LetStmt") {
       if (bindings.has(stmt.name)) {
         diags.push(
           makeDiag(
@@ -101,15 +118,14 @@ export function validate(program: AST.Program): Diagnostic[] {
         );
       }
       bindings.add(stmt.name);
-      validateExprBindings(stmt.value, bindings, diags);
+      validateExprBindings(stmt.value, bindings, fnNames, diags);
     } else if (stmt.kind === "ExprStmt") {
-      validateExprBindings(stmt.expr, bindings, diags);
+      validateExprBindings(stmt.expr, bindings, fnNames, diags);
       if (stmt.target) {
-        // target introduces a binding
         bindings.add(stmt.target.parts[0]);
       }
     } else if (stmt.kind === "ReturnStmt") {
-      validateExprBindings(stmt.value, bindings, diags);
+      validateExprBindings(stmt.value, bindings, fnNames, diags);
     }
   }
 
@@ -137,11 +153,94 @@ export function validate(program: AST.Program): Diagnostic[] {
   return diags;
 }
 
+/**
+ * Validate bindings inside a block body (for, fn, match arm).
+ */
+function validateBlockBindings(
+  body: AST.Stmt[],
+  parentBindings: Set<string>,
+  parentFnNames: Set<string>,
+  extraBindings: string[],
+  diags: Diagnostic[],
+  requireReturn: boolean,
+  context: string
+): void {
+  const bindings = new Set(parentBindings);
+  const fnNames = new Set(parentFnNames);
+  for (const name of extraBindings) {
+    bindings.add(name);
+  }
+
+  if (requireReturn) {
+    const hasReturn = body.some((s) => s.kind === "ReturnStmt");
+    if (!hasReturn) {
+      diags.push(
+        makeDiag(
+          "E_NO_RETURN",
+          `${context} must end with a return statement.`,
+          body.length > 0 ? body[body.length - 1].span : undefined,
+          "Add a 'return { ... }' statement at the end of the body."
+        )
+      );
+    }
+  }
+
+  for (let i = 0; i < body.length; i++) {
+    const s = body[i];
+    if (s.kind === "ReturnStmt" && i < body.length - 1) {
+      diags.push(
+        makeDiag(
+          "E_RETURN_NOT_LAST",
+          `Return statement must be the last statement in ${context}.`,
+          s.span,
+          "Move any statements after return before it, or remove them."
+        )
+      );
+    }
+  }
+
+  for (const stmt of body) {
+    if (stmt.kind === "FnDecl") {
+      if (fnNames.has(stmt.name) || bindings.has(stmt.name)) {
+        diags.push(
+          makeDiag(
+            "E_FN_DUP",
+            `Duplicate function definition '${stmt.name}'.`,
+            stmt.span,
+            "Use a different function name."
+          )
+        );
+      }
+      fnNames.add(stmt.name);
+      validateBlockBindings(stmt.body, bindings, fnNames, [...stmt.params, stmt.name], diags, true, `function '${stmt.name}'`);
+    } else if (stmt.kind === "LetStmt") {
+      if (bindings.has(stmt.name)) {
+        diags.push(
+          makeDiag(
+            "E_DUP_BINDING",
+            `Duplicate binding '${stmt.name}'.`,
+            stmt.span,
+            "Use a different variable name."
+          )
+        );
+      }
+      bindings.add(stmt.name);
+      validateExprBindings(stmt.value, bindings, fnNames, diags);
+    } else if (stmt.kind === "ExprStmt") {
+      validateExprBindings(stmt.expr, bindings, fnNames, diags);
+      if (stmt.target) {
+        bindings.add(stmt.target.parts[0]);
+      }
+    } else if (stmt.kind === "ReturnStmt") {
+      validateExprBindings(stmt.value, bindings, fnNames, diags);
+    }
+  }
+}
+
 function validateCapUsage(
   program: AST.Program,
   diags: Diagnostic[]
 ): void {
-  // Collect all capabilities declared in cap { ... } headers
   const declaredCaps = new Set<string>();
   for (const h of program.headers) {
     if (h.kind === "CapDecl") {
@@ -151,7 +250,6 @@ function validateCapUsage(
     }
   }
 
-  // Walk all statements and check tool calls against declared caps
   for (const stmt of program.statements) {
     visitExprInStmt(stmt, (expr) => {
       if (expr.kind === "CallExpr" || expr.kind === "DoExpr") {
@@ -174,6 +272,7 @@ function validateCapUsage(
 function validateExprBindings(
   expr: AST.Expr,
   bindings: Set<string>,
+  fnNames: Set<string>,
   diags: Diagnostic[]
 ): void {
   switch (expr.kind) {
@@ -191,32 +290,45 @@ function validateExprBindings(
       break;
     case "RecordExpr":
       for (const p of expr.pairs) {
-        validateExprBindings(p.value, bindings, diags);
+        validateExprBindings(p.value, bindings, fnNames, diags);
       }
       break;
     case "ListExpr":
       for (const e of expr.elements) {
-        validateExprBindings(e, bindings, diags);
+        validateExprBindings(e, bindings, fnNames, diags);
       }
       break;
     case "CallExpr":
     case "DoExpr":
       for (const p of expr.args.pairs) {
-        validateExprBindings(p.value, bindings, diags);
+        validateExprBindings(p.value, bindings, fnNames, diags);
       }
       break;
     case "AssertExpr":
     case "CheckExpr":
       for (const p of expr.args.pairs) {
-        validateExprBindings(p.value, bindings, diags);
+        validateExprBindings(p.value, bindings, fnNames, diags);
       }
       break;
     case "FnCallExpr":
       for (const p of expr.args.pairs) {
-        validateExprBindings(p.value, bindings, diags);
+        validateExprBindings(p.value, bindings, fnNames, diags);
       }
       break;
-    // Literals don't reference bindings
+    case "IfExpr":
+      validateExprBindings(expr.cond, bindings, fnNames, diags);
+      validateExprBindings(expr.then, bindings, fnNames, diags);
+      validateExprBindings(expr.else, bindings, fnNames, diags);
+      break;
+    case "ForExpr":
+      validateExprBindings(expr.list, bindings, fnNames, diags);
+      validateBlockBindings(expr.body, bindings, fnNames, [expr.binding], diags, true, "for body");
+      break;
+    case "MatchExpr":
+      validateExprBindings(expr.subject, bindings, fnNames, diags);
+      validateBlockBindings(expr.okArm.body, bindings, fnNames, [expr.okArm.binding], diags, true, "match ok arm");
+      validateBlockBindings(expr.errArm.body, bindings, fnNames, [expr.errArm.binding], diags, true, "match err arm");
+      break;
     default:
       break;
   }
@@ -235,6 +347,11 @@ function visitExprInStmt(
       break;
     case "ReturnStmt":
       visitExpr(stmt.value, visitor);
+      break;
+    case "FnDecl":
+      for (const bodyStmt of stmt.body) {
+        visitExprInStmt(bodyStmt, visitor);
+      }
       break;
   }
 }
@@ -261,6 +378,20 @@ function visitExpr(
       break;
     case "FnCallExpr":
       for (const p of expr.args.pairs) visitExpr(p.value, visitor);
+      break;
+    case "IfExpr":
+      visitExpr(expr.cond, visitor);
+      visitExpr(expr.then, visitor);
+      visitExpr(expr.else, visitor);
+      break;
+    case "ForExpr":
+      visitExpr(expr.list, visitor);
+      for (const bodyStmt of expr.body) visitExprInStmt(bodyStmt, visitor);
+      break;
+    case "MatchExpr":
+      visitExpr(expr.subject, visitor);
+      for (const bodyStmt of expr.okArm.body) visitExprInStmt(bodyStmt, visitor);
+      for (const bodyStmt of expr.errArm.body) visitExprInStmt(bodyStmt, visitor);
       break;
     default:
       break;

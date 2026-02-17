@@ -1,0 +1,14 @@
+# fn-demo.a0 — User-defined functions
+cap { sh.exec: true }
+budget { timeMs: 10000, maxToolCalls: 2 }
+
+fn check_cmd { cmd } {
+  do sh.exec { cmd: cmd, timeoutMs: 5000 } -> result
+  let ok = eq { a: result.exitCode, b: 0 }
+  return { cmd: cmd, ok: ok, stdout: result.stdout }
+}
+
+let node_check = check_cmd { cmd: "node --version" }
+let npm_check = check_cmd { cmd: "npm --version" }
+
+return { node: node_check, npm: npm_check }

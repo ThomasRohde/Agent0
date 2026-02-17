@@ -1,0 +1,11 @@
+# for-demo.a0 — List iteration with for loop
+cap { sh.exec: true }
+budget { timeMs: 15000, maxToolCalls: 3, maxIterations: 10 }
+
+let cmds = ["echo one", "echo two", "echo three"]
+let results = for { in: cmds, as: "cmd" } {
+  do sh.exec { cmd: cmd, timeoutMs: 5000 } -> out
+  return { cmd: cmd, stdout: out.stdout, exitCode: out.exitCode }
+}
+
+return { results: results }

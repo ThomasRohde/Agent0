@@ -37,20 +37,30 @@ function formatHeader(h: AST.Header): string {
   }
 }
 
-function formatStmt(s: AST.Stmt): string {
+function formatStmt(s: AST.Stmt, depth: number = 0): string {
+  const prefix = INDENT.repeat(depth);
   switch (s.kind) {
     case "LetStmt":
-      return `let ${s.name} = ${formatExpr(s.value, 0)}`;
+      return `${prefix}let ${s.name} = ${formatExpr(s.value, depth)}`;
     case "ExprStmt": {
-      let out = formatExpr(s.expr, 0);
+      let out = `${prefix}${formatExpr(s.expr, depth)}`;
       if (s.target) {
         out += ` -> ${formatIdentPath(s.target)}`;
       }
       return out;
     }
     case "ReturnStmt":
-      return `return ${formatRecord(s.value, 0)}`;
+      return `${prefix}return ${formatRecord(s.value, depth)}`;
+    case "FnDecl": {
+      const params = s.params.join(", ");
+      const bodyLines = formatBlock(s.body, depth);
+      return `${prefix}fn ${s.name} { ${params} } {\n${bodyLines}\n${prefix}}`;
+    }
   }
+}
+
+function formatBlock(stmts: AST.Stmt[], depth: number): string {
+  return stmts.map((s) => formatStmt(s, depth + 1)).join("\n");
 }
 
 function formatExpr(e: AST.Expr, depth: number): string {
@@ -81,6 +91,18 @@ function formatExpr(e: AST.Expr, depth: number): string {
       return `check ${formatRecord(e.args, depth)}`;
     case "FnCallExpr":
       return `${formatIdentPath(e.name)} ${formatRecord(e.args, depth)}`;
+    case "IfExpr":
+      return `if { cond: ${formatExpr(e.cond, depth + 1)}, then: ${formatExpr(e.then, depth + 1)}, else: ${formatExpr(e.else, depth + 1)} }`;
+    case "ForExpr": {
+      const bodyLines = formatBlock(e.body, depth);
+      return `for { in: ${formatExpr(e.list, depth + 1)}, as: ${JSON.stringify(e.binding)} } {\n${bodyLines}\n${INDENT.repeat(depth)}}`;
+    }
+    case "MatchExpr": {
+      const inner = INDENT.repeat(depth + 1);
+      const okBody = formatBlock(e.okArm.body, depth + 1);
+      const errBody = formatBlock(e.errArm.body, depth + 1);
+      return `match ${formatExpr(e.subject, depth)} {\n${inner}ok { ${e.okArm.binding} } {\n${okBody}\n${inner}}\n${inner}err { ${e.errArm.binding} } {\n${errBody}\n${inner}}\n${INDENT.repeat(depth)}}`;
+    }
   }
 }
 

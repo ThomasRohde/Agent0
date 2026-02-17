@@ -105,12 +105,67 @@ check { that: has_name, msg: "record has name field" }
 
 You can also use `assert { that: true, msg: "..." }` as an evidence marker to document that a step completed.
 
+## Control Flow (v0.3)
+
+### if — Conditional expression
+
+Record-style with lazy evaluation (only the taken branch evaluates):
+
+```
+let msg = if { cond: ok, then: "yes", else: "no" }
+```
+
+Uses A0 truthiness: `false`, `null`, `0`, `""` are falsy; everything else truthy.
+
+### for — List iteration
+
+Iterates a list, producing a list of results. Each iteration runs in its own scope.
+
+```
+let results = for { in: items, as: "item" } {
+  let processed = parse.json { in: item }
+  return { data: processed }
+}
+```
+
+Body must end with `return`. Budget-aware via `maxIterations`. The loop variable (`item`) is scoped to the body.
+
+### fn — User-defined functions
+
+Define before use. Called with record-style arguments. Direct recursion allowed, no closures.
+
+```
+fn greet { name } {
+  return { greeting: "hello", who: name }
+}
+let result = greet { name: "world" }
+```
+
+Parameters are destructured from the caller's record. Missing params default to `null`. Body must end with `return`.
+
+### match — ok/err discrimination
+
+Discriminates records with `ok` or `err` keys:
+
+```
+let output = match result {
+  ok { val } {
+    return { data: val }
+  }
+  err { e } {
+    return { error: e }
+  }
+}
+```
+
+Subject must be a record with `ok` or `err` key. The inner value is bound to the named identifier. Both arms must end with `return`.
+
 ## Budget
 
 Declare resource limits with `budget { ... }` at the top of the file (after `cap`). Exceeding a limit stops execution with `E_BUDGET` (exit 4).
 
 ```
-budget { timeMs: 30000, maxToolCalls: 10, maxBytesWritten: 1048576 }
+budget { timeMs: 30000, maxToolCalls: 10, maxBytesWritten: 1048576, maxIterations: 100 }
 ```
 
 | Field | Type | Meaning |
@@ -118,6 +173,7 @@ budget { timeMs: 30000, maxToolCalls: 10, maxBytesWritten: 1048576 }
 | `timeMs` | int | Maximum wall-clock time in milliseconds |
 | `maxToolCalls` | int | Maximum number of tool invocations |
 | `maxBytesWritten` | int | Maximum bytes written via `fs.write` |
+| `maxIterations` | int | Maximum `for` loop iterations (cumulative) |
 
 Only declare budget fields the program needs. Unknown fields produce `E_UNKNOWN_BUDGET` at validation time.
 
@@ -132,7 +188,9 @@ Dot notation on bound variables: `response.body`, `result.exitCode`, `data.items
 3. No duplicate `let` bindings in the same scope.
 4. `call?` for read-mode tools only; `do` for effect-mode tools only.
 5. Tool and function args are always records `{ ... }`.
-6. Reserved words cannot be variable names: `cap`, `let`, `return`, `do`, `assert`, `check`, `true`, `false`, `null`, `import`, `as`, `budget`.
+6. Reserved words cannot be variable names: `cap`, `let`, `return`, `do`, `assert`, `check`, `true`, `false`, `null`, `import`, `as`, `budget`, `if`, `for`, `fn`, `match`.
+7. `fn` bodies, `for` bodies, and `match` arms must each end with `return`.
+8. `fn` must be defined before use (no hoisting).
 
 ## Common Mistakes
 
@@ -145,7 +203,11 @@ Avoid these frequent errors:
 - **Undeclared capability** → `E_UNDECLARED_CAP`. Declare the capability in `cap { ... }` for each tool used.
 - **Capability denied by policy** → `E_CAP_DENIED`. Update the policy file or use `--unsafe-allow-all`.
 - **Budget exceeded** → `E_BUDGET`. Increase the budget limit or reduce resource usage.
-- **Unknown budget field** → `E_UNKNOWN_BUDGET`. Valid fields: `timeMs`, `maxToolCalls`, `maxBytesWritten`.
+- **Unknown budget field** → `E_UNKNOWN_BUDGET`. Valid fields: `timeMs`, `maxToolCalls`, `maxBytesWritten`, `maxIterations`.
+- **Duplicate function name** → `E_FN_DUP`. Each `fn` name must be unique.
+- **`for` on non-list** → `E_FOR_NOT_LIST`. The `in:` value must evaluate to a list.
+- **`match` on non-record** → `E_MATCH_NOT_RECORD`. The subject must be a record with `ok` or `err` key.
+- **`match` missing arm** → `E_MATCH_NO_ARM`. Subject record must have `ok` or `err` key.
 - **Reusing a variable name** → `E_DUP_BINDING`. Each `let` name must be unique.
 - **Using a variable before binding** → `E_UNBOUND`. Bind with `let` or `->` first.
 - **Positional arguments** → Parse error. Always use record syntax `{ key: value }`.
@@ -207,5 +269,7 @@ Exit codes: `0` ok, `2` parse error, `3` capability denied, `4` runtime error, `
 Working `.a0` programs in `examples/`:
 - **`examples/hello.a0`** — Minimal pure-data program
 - **`examples/fetch-transform.a0`** — HTTP fetch, parse, write pattern
-- **`examples/shell-exec.a0`** — Shell command execution
-- **`examples/validation.a0`** — Data validation with assert/check
+- **`examples/if-demo.a0`** — Conditional branching with `if`
+- **`examples/for-demo.a0`** — List iteration with `for`
+- **`examples/fn-demo.a0`** — User-defined functions with `fn`
+- **`examples/match-demo.a0`** — ok/err discrimination with `match`

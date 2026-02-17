@@ -27,7 +27,7 @@ export interface Evidence {
 }
 
 // --- Trace events ---
-export type TraceEventType = "run_start" | "run_end" | "stmt_start" | "stmt_end" | "tool_start" | "tool_end" | "evidence" | "budget_exceeded";
+export type TraceEventType = "run_start" | "run_end" | "stmt_start" | "stmt_end" | "tool_start" | "tool_end" | "evidence" | "budget_exceeded" | "for_start" | "for_end" | "fn_call_start" | "fn_call_end" | "match_start" | "match_end";
 
 export interface TraceEvent {
   ts: string;
@@ -89,11 +89,13 @@ interface Budget {
   timeMs?: number;
   maxToolCalls?: number;
   maxBytesWritten?: number;
+  maxIterations?: number;
 }
 
 interface BudgetTracker {
   toolCalls: number;
   bytesWritten: number;
+  iterations: number;
   startMs: number;
 }
 
@@ -111,6 +113,9 @@ function extractBudget(program: AST.Program): Budget {
         if (p.key === "maxBytesWritten" && p.value.kind === "IntLiteral") {
           budget.maxBytesWritten = p.value.value;
         }
+        if (p.key === "maxIterations" && p.value.kind === "IntLiteral") {
+          budget.maxIterations = p.value.value;
+        }
       }
       return budget;
     }
@@ -118,20 +123,40 @@ function extractBudget(program: AST.Program): Budget {
   return {};
 }
 
+// --- Truthiness ---
+export function isTruthy(v: A0Value): boolean {
+  if (v === null || v === false || v === 0 || v === "") return false;
+  return true;
+}
+
 // --- Environment ---
 class Env {
   private bindings = new Map<string, A0Value>();
+  private parent: Env | null;
+
+  constructor(parent: Env | null = null) {
+    this.parent = parent;
+  }
+
+  child(): Env {
+    return new Env(this);
+  }
 
   set(name: string, value: A0Value): void {
     this.bindings.set(name, value);
   }
 
   get(name: string): A0Value | undefined {
-    return this.bindings.get(name);
+    const val = this.bindings.get(name);
+    if (val !== undefined) return val;
+    if (this.parent) return this.parent.get(name);
+    return undefined;
   }
 
   has(name: string): boolean {
-    return this.bindings.has(name);
+    if (this.bindings.has(name)) return true;
+    if (this.parent) return this.parent.has(name);
+    return false;
   }
 }
 
@@ -172,7 +197,7 @@ export async function execute(
   }
 
   const budget = extractBudget(program);
-  const tracker: BudgetTracker = { toolCalls: 0, bytesWritten: 0, startMs: Date.now() };
+  const tracker: BudgetTracker = { toolCalls: 0, bytesWritten: 0, iterations: 0, startMs: Date.now() };
 
   emitTrace("run_start", program.span, {
     file: program.span.file,
@@ -180,9 +205,30 @@ export async function execute(
     ...(Object.keys(budget).length > 0 ? { budget: budget as unknown as A0Record } : {}),
   });
 
+  const userFns = new Map<string, AST.FnDecl>();
+  const result = await executeBlock(program.statements, env, options, evidence, emitTrace, budget, tracker, userFns);
+
+  emitTrace("run_end", program.span, { durationMs: Date.now() - runStartMs });
+
+  return { value: result, evidence, diagnostics };
+}
+
+/**
+ * Execute a list of statements in a given scope. Returns the value from the ReturnStmt.
+ */
+async function executeBlock(
+  stmts: AST.Stmt[],
+  env: Env,
+  options: ExecOptions,
+  evidence: Evidence[],
+  emitTrace: (event: TraceEventType, span?: Span, data?: A0Record) => void,
+  budget: Budget,
+  tracker: BudgetTracker,
+  userFns: Map<string, AST.FnDecl>
+): Promise<A0Value> {
   let result: A0Value = null;
 
-  for (const stmt of program.statements) {
+  for (const stmt of stmts) {
     if (budget.timeMs !== undefined) {
       const elapsed = Date.now() - tracker.startMs;
       if (elapsed > budget.timeMs) {
@@ -198,15 +244,17 @@ export async function execute(
     emitTrace("stmt_start", stmt.span);
 
     if (stmt.kind === "LetStmt") {
-      const val = await evalExpr(stmt.value, env, options, evidence, emitTrace, budget, tracker);
+      const val = await evalExpr(stmt.value, env, options, evidence, emitTrace, budget, tracker, userFns);
       env.set(stmt.name, val);
     } else if (stmt.kind === "ExprStmt") {
-      const val = await evalExpr(stmt.expr, env, options, evidence, emitTrace, budget, tracker);
+      const val = await evalExpr(stmt.expr, env, options, evidence, emitTrace, budget, tracker, userFns);
       if (stmt.target) {
         env.set(stmt.target.parts[0], val);
       }
+    } else if (stmt.kind === "FnDecl") {
+      userFns.set(stmt.name, stmt);
     } else if (stmt.kind === "ReturnStmt") {
-      result = await evalExpr(stmt.value, env, options, evidence, emitTrace, budget, tracker);
+      result = await evalExpr(stmt.value, env, options, evidence, emitTrace, budget, tracker, userFns);
       emitTrace("stmt_end", stmt.span);
       break;
     }
@@ -214,9 +262,7 @@ export async function execute(
     emitTrace("stmt_end", stmt.span);
   }
 
-  emitTrace("run_end", program.span, { durationMs: Date.now() - runStartMs });
-
-  return { value: result, evidence, diagnostics };
+  return result;
 }
 
 function extractCapabilities(program: AST.Program): string[] {
@@ -238,7 +284,8 @@ async function evalExpr(
   evidence: Evidence[],
   emitTrace: (event: TraceEventType, span?: Span, data?: A0Record) => void,
   budget: Budget,
-  tracker: BudgetTracker
+  tracker: BudgetTracker,
+  userFns: Map<string, AST.FnDecl>
 ): Promise<A0Value> {
   switch (expr.kind) {
     case "IntLiteral":
@@ -279,7 +326,7 @@ async function evalExpr(
     case "RecordExpr": {
       const rec: A0Record = {};
       for (const p of expr.pairs) {
-        rec[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker);
+        rec[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
       }
       return rec;
     }
@@ -287,7 +334,7 @@ async function evalExpr(
     case "ListExpr": {
       const arr: A0Value[] = [];
       for (const e of expr.elements) {
-        arr.push(await evalExpr(e, env, options, evidence, emitTrace, budget, tracker));
+        arr.push(await evalExpr(e, env, options, evidence, emitTrace, budget, tracker, userFns));
       }
       return arr;
     }
@@ -326,7 +373,7 @@ async function evalExpr(
       // Evaluate args
       const args: A0Record = {};
       for (const p of expr.args.pairs) {
-        args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker);
+        args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
       }
 
       // Validate input schema if present
@@ -412,7 +459,7 @@ async function evalExpr(
     case "CheckExpr": {
       const args: A0Record = {};
       for (const p of expr.args.pairs) {
-        args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker);
+        args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
       }
 
       const ok = Boolean(args["that"]);
@@ -444,6 +491,29 @@ async function evalExpr(
 
     case "FnCallExpr": {
       const fnName = expr.name.parts.join(".");
+
+      // Check user-defined functions first, then stdlib
+      const userFn = userFns.get(fnName);
+      if (userFn) {
+        emitTrace("fn_call_start", expr.span, { fn: fnName });
+
+        // Evaluate call arguments
+        const args: A0Record = {};
+        for (const p of expr.args.pairs) {
+          args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
+        }
+
+        // Create child scope with param bindings
+        const fnEnv = env.child();
+        for (const param of userFn.params) {
+          fnEnv.set(param, args[param] ?? null);
+        }
+
+        const result = await executeBlock(userFn.body, fnEnv, options, evidence, emitTrace, budget, tracker, userFns);
+        emitTrace("fn_call_end", expr.span, { fn: fnName });
+        return result;
+      }
+
       const fn = options.stdlib.get(fnName);
       if (!fn) {
         throw new A0RuntimeError(
@@ -455,7 +525,7 @@ async function evalExpr(
 
       const args: A0Record = {};
       for (const p of expr.args.pairs) {
-        args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker);
+        args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
       }
 
       try {
@@ -467,6 +537,84 @@ async function evalExpr(
           `Function '${fnName}' failed: ${errMsg}`,
           expr.span,
           { fn: fnName }
+        );
+      }
+    }
+
+    case "IfExpr": {
+      const condVal = await evalExpr(expr.cond, env, options, evidence, emitTrace, budget, tracker, userFns);
+      if (isTruthy(condVal)) {
+        return evalExpr(expr.then, env, options, evidence, emitTrace, budget, tracker, userFns);
+      } else {
+        return evalExpr(expr.else, env, options, evidence, emitTrace, budget, tracker, userFns);
+      }
+    }
+
+    case "ForExpr": {
+      const listVal = await evalExpr(expr.list, env, options, evidence, emitTrace, budget, tracker, userFns);
+      if (!Array.isArray(listVal)) {
+        throw new A0RuntimeError(
+          "E_FOR_NOT_LIST",
+          `for-in expression must evaluate to a list, got ${typeof listVal}.`,
+          expr.list.span
+        );
+      }
+
+      emitTrace("for_start", expr.span, { listLength: listVal.length, as: expr.binding });
+
+      const results: A0Value[] = [];
+      for (const item of listVal) {
+        // Budget: maxIterations check
+        tracker.iterations++;
+        if (budget.maxIterations !== undefined && tracker.iterations > budget.maxIterations) {
+          throw new A0RuntimeError(
+            "E_BUDGET",
+            `Budget exceeded: maxIterations limit of ${budget.maxIterations} reached.`,
+            expr.span,
+            { budget: "maxIterations", limit: budget.maxIterations, actual: tracker.iterations }
+          );
+        }
+
+        const iterEnv = env.child();
+        iterEnv.set(expr.binding, item);
+        const iterResult = await executeBlock(expr.body, iterEnv, options, evidence, emitTrace, budget, tracker, userFns);
+        results.push(iterResult);
+      }
+
+      emitTrace("for_end", expr.span, { iterations: listVal.length });
+      return results;
+    }
+
+    case "MatchExpr": {
+      const subject = await evalExpr(expr.subject, env, options, evidence, emitTrace, budget, tracker, userFns);
+      if (subject === null || typeof subject !== "object" || Array.isArray(subject)) {
+        throw new A0RuntimeError(
+          "E_MATCH_NOT_RECORD",
+          `match subject must be a record, got ${subject === null ? "null" : Array.isArray(subject) ? "list" : typeof subject}.`,
+          expr.subject.span
+        );
+      }
+
+      const rec = subject as A0Record;
+      if ("ok" in rec) {
+        emitTrace("match_start", expr.span, { arm: "ok" });
+        const armEnv = env.child();
+        armEnv.set(expr.okArm.binding, rec["ok"]);
+        const result = await executeBlock(expr.okArm.body, armEnv, options, evidence, emitTrace, budget, tracker, userFns);
+        emitTrace("match_end", expr.span, { arm: "ok" });
+        return result;
+      } else if ("err" in rec) {
+        emitTrace("match_start", expr.span, { arm: "err" });
+        const armEnv = env.child();
+        armEnv.set(expr.errArm.binding, rec["err"]);
+        const result = await executeBlock(expr.errArm.body, armEnv, options, evidence, emitTrace, budget, tracker, userFns);
+        emitTrace("match_end", expr.span, { arm: "err" });
+        return result;
+      } else {
+        throw new A0RuntimeError(
+          "E_MATCH_NO_ARM",
+          `match subject record has neither 'ok' nor 'err' key.`,
+          expr.subject.span
         );
       }
     }

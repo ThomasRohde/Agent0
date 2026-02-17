@@ -2,17 +2,8 @@
  * A0 stdlib: boolean/predicate helpers
  * eq, contains, not, and, or
  */
+import { isTruthy } from "@a0/core";
 import type { StdlibFn, A0Record, A0Value } from "@a0/core";
-
-/**
- * A0 truthiness coercion:
- * - false, null, 0, "" are falsy
- * - everything else (including empty records/lists) is truthy
- */
-function isTruthy(v: A0Value): boolean {
-  if (v === null || v === false || v === 0 || v === "") return false;
-  return true;
-}
 
 /**
  * eq { a: <value>, b: <value> } -> boolean

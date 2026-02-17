@@ -2,18 +2,22 @@
 /**
  * a0 - A0 Language CLI
  */
+import { createRequire } from "node:module";
 import { Command } from "commander";
 import { runCheck } from "./cmd-check.js";
 import { runRun } from "./cmd-run.js";
 import { runFmt } from "./cmd-fmt.js";
 import { runTrace } from "./cmd-trace.js";
 
+const require = createRequire(import.meta.url);
+const pkg = require("../package.json") as { version: string };
+
 const program = new Command();
 
 program
   .name("a0")
   .description("A0: Agent-Optimized General-Purpose CLI Interpreter")
-  .version("0.2.0");
+  .version(pkg.version);
 
 program
   .command("check")

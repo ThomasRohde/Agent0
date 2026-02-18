@@ -639,5 +639,84 @@ async function evalExpr(
         );
       }
     }
+
+    case "BinaryExpr": {
+      const left = await evalExpr(expr.left, env, options, evidence, emitTrace, budget, tracker, userFns);
+      const right = await evalExpr(expr.right, env, options, evidence, emitTrace, budget, tracker, userFns);
+      return evalBinaryOp(expr.op, left, right, expr.span);
+    }
+
+    case "UnaryExpr": {
+      const operand = await evalExpr(expr.operand, env, options, evidence, emitTrace, budget, tracker, userFns);
+      if (typeof operand !== "number") {
+        throw new A0RuntimeError(
+          "E_TYPE",
+          `Unary '-' requires a number, got ${operand === null ? "null" : typeof operand}.`,
+          expr.span
+        );
+      }
+      return -operand;
+    }
   }
+}
+
+function evalBinaryOp(op: string, left: A0Value, right: A0Value, span: Span): A0Value {
+  // Arithmetic operators: both must be numbers
+  if (op === "+" || op === "-" || op === "*" || op === "/" || op === "%") {
+    if (typeof left !== "number" || typeof right !== "number") {
+      throw new A0RuntimeError(
+        "E_TYPE",
+        `Operator '${op}' requires numbers, got ${left === null ? "null" : typeof left} and ${right === null ? "null" : typeof right}.`,
+        span
+      );
+    }
+    switch (op) {
+      case "+": return left + right;
+      case "-": return left - right;
+      case "*": return left * right;
+      case "/":
+        if (right === 0) {
+          throw new A0RuntimeError("E_TYPE", "Division by zero.", span);
+        }
+        return left / right;
+      case "%":
+        if (right === 0) {
+          throw new A0RuntimeError("E_TYPE", "Modulo by zero.", span);
+        }
+        return left % right;
+    }
+  }
+
+  // Equality operators: any types via deep equality
+  if (op === "==" || op === "!=") {
+    const equal = JSON.stringify(left) === JSON.stringify(right);
+    return op === "==" ? equal : !equal;
+  }
+
+  // Ordering operators: numbers or strings, but not mixed
+  if (op === ">" || op === "<" || op === ">=" || op === "<=") {
+    if (typeof left === "number" && typeof right === "number") {
+      switch (op) {
+        case ">": return left > right;
+        case "<": return left < right;
+        case ">=": return left >= right;
+        case "<=": return left <= right;
+      }
+    }
+    if (typeof left === "string" && typeof right === "string") {
+      switch (op) {
+        case ">": return left > right;
+        case "<": return left < right;
+        case ">=": return left >= right;
+        case "<=": return left <= right;
+      }
+    }
+    throw new A0RuntimeError(
+      "E_TYPE",
+      `Operator '${op}' requires numbers or strings of the same type, got ${left === null ? "null" : typeof left} and ${right === null ? "null" : typeof right}.`,
+      span
+    );
+  }
+
+  throw new A0RuntimeError("E_TYPE", `Unknown operator '${op}'.`, span);
 }

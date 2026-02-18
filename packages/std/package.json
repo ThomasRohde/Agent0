@@ -1,6 +1,6 @@
 {
   "name": "@a0/std",
-  "version": "0.3.3",
+  "version": "0.3.5",
   "description": "A0 standard library: parse.json, get/put, patch",
   "type": "module",
   "main": "dist/index.js",

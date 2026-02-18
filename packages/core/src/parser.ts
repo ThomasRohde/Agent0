@@ -30,11 +30,24 @@ import {
   RBrace,
   LBracket,
   RBracket,
+  LParen,
+  RParen,
   Colon,
   Comma,
   Dot,
   Arrow,
   Equals,
+  GtEq,
+  LtEq,
+  EqEq,
+  BangEq,
+  Gt,
+  Lt,
+  Plus,
+  Minus,
+  Star,
+  Slash,
+  Percent,
 } from "./lexer.js";
 import type * as AST from "./ast.js";
 import type { Span } from "./ast.js";
@@ -144,6 +157,14 @@ class A0CstParser extends CstParser {
     this.CONSUME(RBrace);
   });
 
+  // Precedence-climbing expression grammar:
+  // expr       → if | for | match | call? | do | assert | check | comparison
+  // comparison → additive ((>|<|>=|<=|==|!=) additive)?
+  // additive   → multiplicative ((+|-) multiplicative)*
+  // multiplicative → unaryExpr ((*|/|%) unaryExpr)*
+  // unaryExpr  → - unaryExpr | primary
+  // primary    → ( expr ) | record | list | literal | identOrFnCall
+
   expr = this.RULE("expr", () => {
     this.OR([
       { ALT: () => this.SUBRULE(this.ifExpr) },
@@ -153,6 +174,69 @@ class A0CstParser extends CstParser {
       { ALT: () => this.SUBRULE(this.doExpr) },
       { ALT: () => this.SUBRULE(this.assertExpr) },
       { ALT: () => this.SUBRULE(this.checkExpr) },
+      { ALT: () => this.SUBRULE(this.comparison) },
+    ]);
+  });
+
+  comparison = this.RULE("comparison", () => {
+    this.SUBRULE(this.additive);
+    this.OPTION(() => {
+      this.OR([
+        { ALT: () => this.CONSUME(Gt) },
+        { ALT: () => this.CONSUME(Lt) },
+        { ALT: () => this.CONSUME(GtEq) },
+        { ALT: () => this.CONSUME(LtEq) },
+        { ALT: () => this.CONSUME(EqEq) },
+        { ALT: () => this.CONSUME(BangEq) },
+      ]);
+      this.SUBRULE2(this.additive);
+    });
+  });
+
+  additive = this.RULE("additive", () => {
+    this.SUBRULE(this.multiplicative);
+    this.MANY(() => {
+      this.OR([
+        { ALT: () => this.CONSUME(Plus) },
+        { ALT: () => this.CONSUME(Minus) },
+      ]);
+      this.SUBRULE2(this.multiplicative);
+    });
+  });
+
+  multiplicative = this.RULE("multiplicative", () => {
+    this.SUBRULE(this.unaryExpr);
+    this.MANY(() => {
+      this.OR([
+        { ALT: () => this.CONSUME(Star) },
+        { ALT: () => this.CONSUME(Slash) },
+        { ALT: () => this.CONSUME(Percent) },
+      ]);
+      this.SUBRULE2(this.unaryExpr);
+    });
+  });
+
+  unaryExpr = this.RULE("unaryExpr", () => {
+    this.OR([
+      {
+        ALT: () => {
+          this.CONSUME(Minus);
+          this.SUBRULE(this.unaryExpr);
+        },
+      },
+      { ALT: () => this.SUBRULE(this.primary) },
+    ]);
+  });
+
+  primary = this.RULE("primary", () => {
+    this.OR([
+      {
+        ALT: () => {
+          this.CONSUME(LParen);
+          this.SUBRULE(this.expr);
+          this.CONSUME(RParen);
+        },
+      },
       { ALT: () => this.SUBRULE(this.record) },
       { ALT: () => this.SUBRULE(this.list) },
       { ALT: () => this.SUBRULE(this.literal) },
@@ -485,11 +569,102 @@ function visitExpr(cst: CstNode, file: string): AST.Expr {
   if (children["doExpr"]) return visitDoExpr((children["doExpr"] as CstNode[])[0], file);
   if (children["assertExpr"]) return visitAssertExpr((children["assertExpr"] as CstNode[])[0], file);
   if (children["checkExpr"]) return visitCheckExpr((children["checkExpr"] as CstNode[])[0], file);
+  if (children["comparison"]) return visitComparison((children["comparison"] as CstNode[])[0], file);
+  throw new Error("Unknown expression type");
+}
+
+const COMPARISON_TOKEN_NAMES = new Set(["Gt", "Lt", "GtEq", "LtEq", "EqEq", "BangEq"]);
+const COMPARISON_OP_MAP: Record<string, AST.BinaryOp> = {
+  Gt: ">", Lt: "<", GtEq: ">=", LtEq: "<=", EqEq: "==", BangEq: "!=",
+};
+
+const ADDITIVE_TOKEN_NAMES = new Set(["Plus", "Minus"]);
+const ADDITIVE_OP_MAP: Record<string, AST.BinaryOp> = { Plus: "+", Minus: "-" };
+
+const MULT_TOKEN_NAMES = new Set(["Star", "Slash", "Percent"]);
+const MULT_OP_MAP: Record<string, AST.BinaryOp> = { Star: "*", Slash: "/", Percent: "%" };
+
+function findOperatorTokens(children: Record<string, unknown>, tokenNames: Set<string>): IToken[] {
+  const ops: IToken[] = [];
+  for (const name of tokenNames) {
+    if (children[name]) {
+      for (const t of children[name] as IToken[]) {
+        ops.push(t);
+      }
+    }
+  }
+  // Sort by position to maintain order
+  ops.sort((a, b) => (a.startOffset ?? 0) - (b.startOffset ?? 0));
+  return ops;
+}
+
+function visitComparison(cst: CstNode, file: string): AST.Expr {
+  const children = cst.children;
+  const additives = children["additive"] as CstNode[];
+  let left = visitAdditive(additives[0], file);
+
+  if (additives.length > 1) {
+    const ops = findOperatorTokens(children, COMPARISON_TOKEN_NAMES);
+    const op = COMPARISON_OP_MAP[ops[0].tokenType.name];
+    const right = visitAdditive(additives[1], file);
+    left = { kind: "BinaryExpr", span: cstSpan(cst, file), op, left, right };
+  }
+
+  return left;
+}
+
+function visitAdditive(cst: CstNode, file: string): AST.Expr {
+  const children = cst.children;
+  const mults = children["multiplicative"] as CstNode[];
+  let left = visitMultiplicative(mults[0], file);
+
+  if (mults.length > 1) {
+    const ops = findOperatorTokens(children, ADDITIVE_TOKEN_NAMES);
+    for (let i = 1; i < mults.length; i++) {
+      const op = ADDITIVE_OP_MAP[ops[i - 1].tokenType.name];
+      const right = visitMultiplicative(mults[i], file);
+      left = { kind: "BinaryExpr", span: cstSpan(cst, file), op, left, right };
+    }
+  }
+
+  return left;
+}
+
+function visitMultiplicative(cst: CstNode, file: string): AST.Expr {
+  const children = cst.children;
+  const unaries = children["unaryExpr"] as CstNode[];
+  let left = visitUnaryExpr(unaries[0], file);
+
+  if (unaries.length > 1) {
+    const ops = findOperatorTokens(children, MULT_TOKEN_NAMES);
+    for (let i = 1; i < unaries.length; i++) {
+      const op = MULT_OP_MAP[ops[i - 1].tokenType.name];
+      const right = visitUnaryExpr(unaries[i], file);
+      left = { kind: "BinaryExpr", span: cstSpan(cst, file), op, left, right };
+    }
+  }
+
+  return left;
+}
+
+function visitUnaryExpr(cst: CstNode, file: string): AST.Expr {
+  const children = cst.children;
+  if (children["Minus"]) {
+    // Unary minus: recurse into nested unaryExpr
+    const inner = visitUnaryExpr((children["unaryExpr"] as CstNode[])[0], file);
+    return { kind: "UnaryExpr", span: cstSpan(cst, file), op: "-", operand: inner };
+  }
+  return visitPrimary((children["primary"] as CstNode[])[0], file);
+}
+
+function visitPrimary(cst: CstNode, file: string): AST.Expr {
+  const children = cst.children;
+  if (children["expr"]) return visitExpr((children["expr"] as CstNode[])[0], file);
   if (children["record"]) return visitRecord((children["record"] as CstNode[])[0], file);
   if (children["list"]) return visitList((children["list"] as CstNode[])[0], file);
   if (children["literal"]) return visitLiteral((children["literal"] as CstNode[])[0], file);
   if (children["identOrFnCall"]) return visitIdentOrFnCall((children["identOrFnCall"] as CstNode[])[0], file);
-  throw new Error("Unknown expression type");
+  throw new Error("Unknown primary expression type");
 }
 
 function visitIfExpr(cst: CstNode, file: string): AST.IfExpr {

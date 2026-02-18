@@ -27,6 +27,50 @@ Lists: `[1, 2, "three"]`
 
 Strings are double-quoted with JSON escapes (`\"`, `\\`, `\n`, `\t`).
 
+Punctuation: `( )` for grouping expressions (controls operator precedence).
+
+## Arithmetic and Comparison Operators
+
+Binary operators on numeric values, usable anywhere an expression is expected. AST node type: `BinaryExpr`.
+
+### Arithmetic Operators
+
+```
+let total = a + b
+let diff = a - b
+let product = a * b
+let ratio = a / b
+let remainder = a % b
+```
+
+Precedence follows standard math: `*`, `/`, `%` bind tighter than `+`, `-`. Use parentheses to override: `let x = (a + b) * c`.
+
+Operands must be numbers (int or float). Using arithmetic on non-numbers produces `E_TYPE` (exit 4). Division or modulo by zero also produces `E_TYPE`.
+
+### Comparison Operators
+
+```
+let bigger = a > b
+let ok = a <= threshold
+let same = a == b
+let diff = a != b
+```
+
+Full set: `>`, `<`, `>=`, `<=`, `==`, `!=`. Return `bool`. Work on numbers and strings (lexicographic comparison for strings). Comparing incompatible types produces `E_TYPE`.
+
+Comparison operators have lower precedence than arithmetic, so `a + 1 > b` means `(a + 1) > b`.
+
+### Unary Minus
+
+Negate a numeric value. AST node type: `UnaryExpr`.
+
+```
+let neg = -x
+let result = -(a + b)
+```
+
+Using unary minus on a non-number produces `E_TYPE`.
+
 ## Capabilities
 
 Declare required capabilities at the top of the file. Execution fails before any side-effect if the host policy denies them.
@@ -82,11 +126,46 @@ Pure functions called like `name { args }`. No capability needed.
 
 Predicates use A0 truthiness: `false`, `null`, `0`, and `""` are falsy; everything else is truthy.
 
+### List Operations
+
+| Function | Purpose | Key Args |
+|----------|---------|----------|
+| `len` | Length of list, string, or record (key count) | `{ in: list\|str\|rec }` -> `int` |
+| `append` | Append element to list | `{ in: list, value: any }` -> `list` |
+| `concat` | Concatenate two lists | `{ a: list, b: list }` -> `list` |
+| `sort` | Sort list (natural order or by key) | `{ in: list, by?: str }` -> `list` |
+| `filter` | Keep elements where predicate key is truthy | `{ in: list, by: str }` -> `list` |
+| `find` | First element where key matches value | `{ in: list, key: str, value: any }` -> `any\|null` |
+| `range` | Generate integer list | `{ from: int, to: int }` -> `list` |
+| `join` | Join list of strings | `{ in: list, sep?: str }` -> `str` |
+
+### String Operations
+
+| Function | Purpose | Key Args |
+|----------|---------|----------|
+| `str.concat` | Concatenate strings from a list | `{ parts: list }` -> `str` |
+| `str.split` | Split string by separator | `{ in: str, sep: str }` -> `list` |
+| `str.starts` | Starts-with check | `{ in: str, value: str }` -> `bool` |
+| `str.replace` | Replace substring | `{ in: str, from: str, to: str }` -> `str` |
+
+### Record Operations
+
+| Function | Purpose | Key Args |
+|----------|---------|----------|
+| `keys` | List of record keys | `{ in: rec }` -> `list` |
+| `values` | List of record values | `{ in: rec }` -> `list` |
+| `merge` | Shallow merge two records | `{ a: rec, b: rec }` -> `rec` |
+
 ```
 let parsed = parse.json { in: raw_string }
 let val = get { in: record, path: "nested.key[0]" }
 let same = eq { a: 1, b: 1 }
 let has_key = contains { in: record, value: "name" }
+let count = len { in: items }
+let nums = range { from: 1, to: 5 }
+let sorted = sort { in: items, by: "name" }
+let k = keys { in: record }
+let full = str.concat { parts: ["hello", " ", "world"] }
 ```
 
 ## Evidence — assert & check
@@ -208,6 +287,7 @@ Avoid these frequent errors:
 - **`for` on non-list** → `E_FOR_NOT_LIST`. The `in:` value must evaluate to a list.
 - **`match` on non-record** → `E_MATCH_NOT_RECORD`. The subject must be a record with `ok` or `err` key.
 - **`match` missing arm** → `E_MATCH_NO_ARM`. Subject record must have `ok` or `err` key.
+- **Type error in expression** → `E_TYPE`. Arithmetic on non-numbers, division by zero, or comparing incompatible types.
 - **Reusing a variable name** → `E_DUP_BINDING`. Each `let` name must be unique.
 - **Using a variable before binding** → `E_UNBOUND`. Bind with `let` or `->` first.
 - **Positional arguments** → Parse error. Always use record syntax `{ key: value }`.

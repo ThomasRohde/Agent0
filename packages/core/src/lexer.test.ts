@@ -50,19 +50,33 @@ describe("A0 Lexer", () => {
     }
   });
 
-  it("tokenizes negative integer literals", () => {
+  it("tokenizes negative integer as Minus + IntLit", () => {
     const result = A0Lexer.tokenize("-1 -42");
     assert.equal(result.errors.length, 0);
-    assert.equal(result.tokens[0].tokenType.name, "IntLit");
-    assert.equal(result.tokens[0].image, "-1");
+    assert.equal(result.tokens.length, 4);
+    assert.equal(result.tokens[0].tokenType.name, "Minus");
+    assert.equal(result.tokens[1].tokenType.name, "IntLit");
+    assert.equal(result.tokens[1].image, "1");
+    assert.equal(result.tokens[2].tokenType.name, "Minus");
+    assert.equal(result.tokens[3].tokenType.name, "IntLit");
+    assert.equal(result.tokens[3].image, "42");
   });
 
   it("tokenizes float literals", () => {
-    const result = A0Lexer.tokenize("3.14 0.5 -2.7");
+    const result = A0Lexer.tokenize("3.14 0.5");
     assert.equal(result.errors.length, 0);
     for (const t of result.tokens) {
       assert.equal(t.tokenType.name, "FloatLit");
     }
+  });
+
+  it("tokenizes negative float as Minus + FloatLit", () => {
+    const result = A0Lexer.tokenize("-2.7");
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.tokens.length, 2);
+    assert.equal(result.tokens[0].tokenType.name, "Minus");
+    assert.equal(result.tokens[1].tokenType.name, "FloatLit");
+    assert.equal(result.tokens[1].image, "2.7");
   });
 
   it("tokenizes float with exponent", () => {
@@ -142,5 +156,54 @@ return { x: x }`;
     assert.equal(result.errors.length, 0);
     assert.equal(result.tokens.length, 1);
     assert.equal(result.tokens[0].tokenType.name, "StringLit");
+  });
+
+  it("tokenizes arithmetic operators", () => {
+    const result = A0Lexer.tokenize("+ - * / %");
+    assert.equal(result.errors.length, 0);
+    const names = result.tokens.map((t) => t.tokenType.name);
+    assert.deepEqual(names, ["Plus", "Minus", "Star", "Slash", "Percent"]);
+  });
+
+  it("tokenizes comparison operators", () => {
+    const result = A0Lexer.tokenize("> < >= <= == !=");
+    assert.equal(result.errors.length, 0);
+    const names = result.tokens.map((t) => t.tokenType.name);
+    assert.deepEqual(names, ["Gt", "Lt", "GtEq", "LtEq", "EqEq", "BangEq"]);
+  });
+
+  it("tokenizes parentheses", () => {
+    const result = A0Lexer.tokenize("( )");
+    assert.equal(result.errors.length, 0);
+    const names = result.tokens.map((t) => t.tokenType.name);
+    assert.deepEqual(names, ["LParen", "RParen"]);
+  });
+
+  it("disambiguates -> from - and >", () => {
+    const result = A0Lexer.tokenize("-> - >");
+    assert.equal(result.errors.length, 0);
+    const names = result.tokens.map((t) => t.tokenType.name);
+    assert.deepEqual(names, ["Arrow", "Minus", "Gt"]);
+  });
+
+  it("disambiguates == from =", () => {
+    const result = A0Lexer.tokenize("== =");
+    assert.equal(result.errors.length, 0);
+    const names = result.tokens.map((t) => t.tokenType.name);
+    assert.deepEqual(names, ["EqEq", "Equals"]);
+  });
+
+  it("disambiguates >= and <= from > and <", () => {
+    const result = A0Lexer.tokenize(">= > <= <");
+    assert.equal(result.errors.length, 0);
+    const names = result.tokens.map((t) => t.tokenType.name);
+    assert.deepEqual(names, ["GtEq", "Gt", "LtEq", "Lt"]);
+  });
+
+  it("tokenizes arithmetic expression", () => {
+    const result = A0Lexer.tokenize("(2 + 3) * 4");
+    assert.equal(result.errors.length, 0);
+    const names = result.tokens.map((t) => t.tokenType.name);
+    assert.deepEqual(names, ["LParen", "IntLit", "Plus", "IntLit", "RParen", "Star", "IntLit"]);
   });
 });

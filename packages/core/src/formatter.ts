@@ -6,6 +6,25 @@ import type * as AST from "./ast.js";
 
 const INDENT = "  ";
 
+// Precedence table for binary operators (higher = tighter binding)
+const PRECEDENCE: Record<string, number> = {
+  "==": 1, "!=": 1,
+  ">": 2, "<": 2, ">=": 2, "<=": 2,
+  "+": 3, "-": 3,
+  "*": 4, "/": 4, "%": 4,
+};
+
+function needsParens(child: AST.Expr, parentOp: string, isRight: boolean): boolean {
+  if (child.kind !== "BinaryExpr") return false;
+  const childPrec = PRECEDENCE[child.op] ?? 0;
+  const parentPrec = PRECEDENCE[parentOp] ?? 0;
+  if (childPrec < parentPrec) return true;
+  // Right-associativity: for same-precedence on right side, add parens
+  // to maintain left-associativity (e.g. a - (b - c))
+  if (childPrec === parentPrec && isRight) return true;
+  return false;
+}
+
 export function format(program: AST.Program): string {
   const lines: string[] = [];
 
@@ -102,6 +121,21 @@ function formatExpr(e: AST.Expr, depth: number): string {
       const okBody = formatBlock(e.okArm.body, depth + 1);
       const errBody = formatBlock(e.errArm.body, depth + 1);
       return `match ${formatExpr(e.subject, depth)} {\n${inner}ok { ${e.okArm.binding} } {\n${okBody}\n${inner}}\n${inner}err { ${e.errArm.binding} } {\n${errBody}\n${inner}}\n${INDENT.repeat(depth)}}`;
+    }
+    case "BinaryExpr": {
+      let leftStr = formatExpr(e.left, depth);
+      let rightStr = formatExpr(e.right, depth);
+      if (needsParens(e.left, e.op, false)) leftStr = `(${leftStr})`;
+      if (needsParens(e.right, e.op, true)) rightStr = `(${rightStr})`;
+      return `${leftStr} ${e.op} ${rightStr}`;
+    }
+    case "UnaryExpr": {
+      const operandStr = formatExpr(e.operand, depth);
+      // Parenthesize if operand is binary or unary to avoid ambiguity
+      if (e.operand.kind === "BinaryExpr" || e.operand.kind === "UnaryExpr") {
+        return `-(${operandStr})`;
+      }
+      return `-${operandStr}`;
     }
   }
 }

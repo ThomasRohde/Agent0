@@ -192,15 +192,22 @@ describe("A0 Parser", () => {
     }
   });
 
-  it("parses negative numbers", () => {
+  it("parses negative numbers as UnaryExpr", () => {
     const src = `let x = -42\nlet y = -3.14\nreturn { x: x, y: y }`;
     const result = parse(src, "test.a0");
     assert.equal(result.diagnostics.length, 0);
     assert.ok(result.program);
     if (result.program.statements[0].kind === "LetStmt") {
-      assert.equal(result.program.statements[0].value.kind, "IntLiteral");
-      if (result.program.statements[0].value.kind === "IntLiteral") {
-        assert.equal(result.program.statements[0].value.value, -42);
+      assert.equal(result.program.statements[0].value.kind, "UnaryExpr");
+      if (result.program.statements[0].value.kind === "UnaryExpr") {
+        assert.equal(result.program.statements[0].value.op, "-");
+        assert.equal(result.program.statements[0].value.operand.kind, "IntLiteral");
+      }
+    }
+    if (result.program.statements[1].kind === "LetStmt") {
+      assert.equal(result.program.statements[1].value.kind, "UnaryExpr");
+      if (result.program.statements[1].value.kind === "UnaryExpr") {
+        assert.equal(result.program.statements[1].value.operand.kind, "FloatLiteral");
       }
     }
   });
@@ -332,6 +339,80 @@ describe("A0 Parser", () => {
     assert.equal(exprStmt.span.startLine, 2);
     if (exprStmt.kind === "ExprStmt" && exprStmt.expr.kind === "CallExpr") {
       assert.equal(exprStmt.expr.span.startLine, 2);
+    }
+  });
+
+  it("parses binary arithmetic expression", () => {
+    const src = `let x = 2 + 3\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    if (result.program.statements[0].kind === "LetStmt") {
+      const val = result.program.statements[0].value;
+      assert.equal(val.kind, "BinaryExpr");
+      if (val.kind === "BinaryExpr") {
+        assert.equal(val.op, "+");
+        assert.equal(val.left.kind, "IntLiteral");
+        assert.equal(val.right.kind, "IntLiteral");
+      }
+    }
+  });
+
+  it("parses operator precedence (* before +)", () => {
+    const src = `let x = 2 + 3 * 4\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    if (result.program.statements[0].kind === "LetStmt") {
+      const val = result.program.statements[0].value;
+      assert.equal(val.kind, "BinaryExpr");
+      if (val.kind === "BinaryExpr") {
+        assert.equal(val.op, "+");
+        assert.equal(val.left.kind, "IntLiteral");
+        assert.equal(val.right.kind, "BinaryExpr");
+        if (val.right.kind === "BinaryExpr") {
+          assert.equal(val.right.op, "*");
+        }
+      }
+    }
+  });
+
+  it("parses parenthesized expressions", () => {
+    const src = `let x = (2 + 3) * 4\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    if (result.program.statements[0].kind === "LetStmt") {
+      const val = result.program.statements[0].value;
+      assert.equal(val.kind, "BinaryExpr");
+      if (val.kind === "BinaryExpr") {
+        assert.equal(val.op, "*");
+        assert.equal(val.left.kind, "BinaryExpr");
+        if (val.left.kind === "BinaryExpr") {
+          assert.equal(val.left.op, "+");
+        }
+      }
+    }
+  });
+
+  it("parses comparison operators", () => {
+    const src = `let a = 1 > 2\nlet b = 3 <= 4\nlet c = 5 == 5\nlet d = 6 != 7\nreturn { a: a, b: b, c: c, d: d }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const stmts = result.program.statements;
+    if (stmts[0].kind === "LetStmt") assert.equal(stmts[0].value.kind, "BinaryExpr");
+    if (stmts[1].kind === "LetStmt") assert.equal(stmts[1].value.kind, "BinaryExpr");
+    if (stmts[2].kind === "LetStmt") assert.equal(stmts[2].value.kind, "BinaryExpr");
+    if (stmts[3].kind === "LetStmt") assert.equal(stmts[3].value.kind, "BinaryExpr");
+  });
+
+  it("parses all arithmetic operators", () => {
+    for (const op of ["+", "-", "*", "/", "%"]) {
+      const src = `let x = 10 ${op} 3\nreturn { x: x }`;
+      const result = parse(src, "test.a0");
+      assert.equal(result.diagnostics.length, 0, `Failed for operator ${op}`);
+      assert.ok(result.program);
     }
   });
 });

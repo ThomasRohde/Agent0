@@ -65,12 +65,13 @@ Map exit codes to error categories:
 | `E_TOOL_ARGS` | Invalid tool arguments | Check required fields in tool signature |
 | `E_TOOL` | Tool execution failed | Check tool args, file paths, URLs, permissions |
 | `E_BUDGET` | Budget limit exceeded | Increase budget limit or reduce resource usage |
-| `E_UNKNOWN_FN` | Stdlib function not found | Check spelling: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or` |
+| `E_UNKNOWN_FN` | Stdlib function not found | Check spelling: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or`, `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `str.concat`, `str.split`, `str.starts`, `str.replace`, `keys`, `values`, `merge` |
 | `E_FN` | Stdlib function threw | Check function args (e.g., invalid JSON to `parse.json`) |
 | `E_PATH` | Property access on non-record | Verify the variable holds a record before dot access |
 | `E_FOR_NOT_LIST` | `for` `in:` value is not a list | Ensure `in:` evaluates to a list `[...]` |
 | `E_MATCH_NOT_RECORD` | `match` subject is not a record | Ensure subject evaluates to `{ ok: ... }` or `{ err: ... }` |
 | `E_MATCH_NO_ARM` | `match` subject has no `ok`/`err` key | Subject record must contain an `ok` or `err` key |
+| `E_TYPE` | Type error in expression | Ensure arithmetic operands are numbers; avoid division/modulo by zero; compare compatible types |
 | `E_ASSERT` | `assert` condition is false | Fix the condition or the data producing it |
 | `E_CHECK` | `check` condition is false | Fix the condition or the data producing it |
 

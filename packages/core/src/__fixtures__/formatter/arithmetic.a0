@@ -1,0 +1,5 @@
+let x=(2+3)*4
+let y=x>10
+let z=-42
+let w=a+b*c
+return {x:x,y:y,z:z,w:w}

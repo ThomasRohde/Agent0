@@ -200,4 +200,57 @@ return { data: data, content: content }`;
     const fmt2 = format(r2.program);
     assert.equal(fmt1, fmt2, "Complex program formatting should be idempotent");
   });
+
+  // --- BinaryExpr / UnaryExpr formatting ---
+
+  it("formats binary arithmetic", () => {
+    const src = `let x = 2 + 3\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("let x = 2 + 3"));
+  });
+
+  it("formats binary with correct precedence (no unnecessary parens)", () => {
+    const src = `let x = 2 + 3 * 4\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("let x = 2 + 3 * 4"));
+  });
+
+  it("formats parenthesized expressions", () => {
+    const src = `let x = (2 + 3) * 4\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("let x = (2 + 3) * 4"));
+  });
+
+  it("formats comparison operators", () => {
+    const src = `let x = 5 > 3\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("let x = 5 > 3"));
+  });
+
+  it("formats unary minus", () => {
+    const src = `let x = -42\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("let x = -42"));
+  });
+
+  it("is idempotent for arithmetic expressions", () => {
+    const src = `let x = (2 + 3) * 4\nlet y = -x\nlet z = x > 10\nreturn { x: x, y: y, z: z }`;
+    const r1 = parse(src, "test.a0");
+    assert.ok(r1.program);
+    const fmt1 = format(r1.program);
+    const r2 = parse(fmt1, "test.a0");
+    assert.ok(r2.program);
+    const fmt2 = format(r2.program);
+    assert.equal(fmt1, fmt2, "Arithmetic formatting should be idempotent");
+  });
 });

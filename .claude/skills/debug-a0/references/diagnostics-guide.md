@@ -307,7 +307,7 @@ The tool ran but threw an error.
 
 The function name is not a recognized stdlib function.
 
-**Valid functions**: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or`
+**Valid functions**: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or`, `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `str.concat`, `str.split`, `str.starts`, `str.replace`, `keys`, `values`, `merge`
 
 **Before** (broken):
 ```
@@ -435,6 +435,78 @@ budget { maxToolCalls: 2 }
 call? fs.read { path: "a.json" } -> a
 call? fs.read { path: "b.json" } -> b
 return { a: a, b: b }
+```
+
+---
+
+## E_TYPE — Type Error in Expression
+
+**Phase**: Runtime
+**Exit code**: 4
+
+An expression used an operator with incompatible types. Arithmetic operators (`+`, `-`, `*`, `/`, `%`) require numeric operands. Comparison operators (`>`, `<`, `>=`, `<=`) require numbers or strings. Division and modulo by zero are also type errors. Unary minus requires a number.
+
+**Common causes**:
+- Arithmetic on non-numbers (e.g., string + number)
+- Division or modulo by zero
+- Comparing incompatible types (e.g., number > boolean)
+- Unary minus on a non-number
+
+**Before** (broken — arithmetic on non-number):
+```
+let x = "hello" + 1
+return { x: x }
+```
+
+**Error**: `E_TYPE: Operator '+' requires numbers`
+
+**After** (fixed):
+```
+let x = 5 + 1
+return { x: x }
+```
+
+**Before** (broken — division by zero):
+```
+let x = 1 / 0
+return { x: x }
+```
+
+**Error**: `E_TYPE: Division by zero`
+
+**After** (fixed):
+```
+let divisor = 2
+let x = 1 / divisor
+return { x: x }
+```
+
+**Before** (broken — comparing incompatible types):
+```
+let x = true > false
+return { x: x }
+```
+
+**Error**: `E_TYPE: Operator '>' requires numbers or strings`
+
+**After** (fixed):
+```
+let x = 10 > 5
+return { x: x }
+```
+
+**Before** (broken — unary minus on non-number):
+```
+let x = -"hello"
+return { x: x }
+```
+
+**Error**: `E_TYPE: Unary '-' requires a number`
+
+**After** (fixed):
+```
+let x = -42
+return { x: x }
 ```
 
 ---

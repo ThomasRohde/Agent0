@@ -1,0 +1,8 @@
+let x = (2 + 3) * 4
+let items = range { from: 0, to: 5 }
+let total = len { in: items }
+let bigger = total > 3
+let sorted = sort { in: [3, 1, 2] }
+let greeting = str.concat { parts: ["hello", " ", "world"] }
+let k = keys { in: { a: 1, b: 2 } }
+return { x: x, items: items, total: total, bigger: bigger, sorted: sorted, greeting: greeting, k: k }

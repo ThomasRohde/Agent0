@@ -1,0 +1,171 @@
+/**
+ * A0 stdlib: list operations
+ * len, append, concat, sort, filter, find, range, join
+ */
+import { isTruthy } from "@a0/core";
+import type { StdlibFn, A0Record, A0Value } from "@a0/core";
+
+/**
+ * len { in: list|str|rec } -> int
+ * Returns the length of a list, string, or record (number of keys).
+ */
+export const lenFn: StdlibFn = {
+  name: "len",
+  execute(args: A0Record): A0Value {
+    const input = args["in"] ?? null;
+    if (Array.isArray(input)) return input.length;
+    if (typeof input === "string") return input.length;
+    if (input !== null && typeof input === "object" && !Array.isArray(input)) {
+      return Object.keys(input as A0Record).length;
+    }
+    throw new Error("len: 'in' must be a list, string, or record");
+  },
+};
+
+/**
+ * append { in: list, value: any } -> list
+ * Returns a new list with value appended.
+ */
+export const appendFn: StdlibFn = {
+  name: "append",
+  execute(args: A0Record): A0Value {
+    const input = args["in"] ?? null;
+    const value = args["value"] ?? null;
+    if (!Array.isArray(input)) {
+      throw new Error("append: 'in' must be a list");
+    }
+    return [...input, value];
+  },
+};
+
+/**
+ * concat { a: list, b: list } -> list
+ * Concatenates two lists.
+ */
+export const concatFn: StdlibFn = {
+  name: "concat",
+  execute(args: A0Record): A0Value {
+    const a = args["a"] ?? null;
+    const b = args["b"] ?? null;
+    if (!Array.isArray(a) || !Array.isArray(b)) {
+      throw new Error("concat: 'a' and 'b' must be lists");
+    }
+    return [...a, ...b];
+  },
+};
+
+/**
+ * sort { in: list, by?: str } -> list
+ * Returns a new sorted list. Natural sort: numbers numeric, strings lexicographic.
+ * If `by` is provided, sorts by that record key.
+ */
+export const sortFn: StdlibFn = {
+  name: "sort",
+  execute(args: A0Record): A0Value {
+    const input = args["in"] ?? null;
+    const by = args["by"] ?? null;
+    if (!Array.isArray(input)) {
+      throw new Error("sort: 'in' must be a list");
+    }
+    const sorted = [...input];
+    sorted.sort((x, y) => {
+      let a: A0Value = x;
+      let b: A0Value = y;
+      if (typeof by === "string") {
+        a = (x as A0Record)?.[by] ?? null;
+        b = (y as A0Record)?.[by] ?? null;
+      }
+      if (typeof a === "number" && typeof b === "number") return a - b;
+      if (typeof a === "string" && typeof b === "string") return a.localeCompare(b);
+      return JSON.stringify(a) < JSON.stringify(b) ? -1 : JSON.stringify(a) > JSON.stringify(b) ? 1 : 0;
+    });
+    return sorted;
+  },
+};
+
+/**
+ * filter { in: list, by: str } -> list
+ * Keeps elements (records) where element[by] is truthy.
+ */
+export const filterFn: StdlibFn = {
+  name: "filter",
+  execute(args: A0Record): A0Value {
+    const input = args["in"] ?? null;
+    const by = args["by"] ?? null;
+    if (!Array.isArray(input)) {
+      throw new Error("filter: 'in' must be a list");
+    }
+    if (typeof by !== "string") {
+      throw new Error("filter: 'by' must be a string");
+    }
+    return input.filter((el) => {
+      if (el === null || typeof el !== "object" || Array.isArray(el)) return false;
+      return isTruthy((el as A0Record)[by] ?? null);
+    });
+  },
+};
+
+/**
+ * find { in: list, key: str, value: any } -> any|null
+ * Finds the first record element where element[key] deeply equals value.
+ */
+export const findFn: StdlibFn = {
+  name: "find",
+  execute(args: A0Record): A0Value {
+    const input = args["in"] ?? null;
+    const key = args["key"] ?? null;
+    const value = args["value"] ?? null;
+    if (!Array.isArray(input)) {
+      throw new Error("find: 'in' must be a list");
+    }
+    if (typeof key !== "string") {
+      throw new Error("find: 'key' must be a string");
+    }
+    const needle = JSON.stringify(value);
+    for (const el of input) {
+      if (el !== null && typeof el === "object" && !Array.isArray(el)) {
+        if (JSON.stringify((el as A0Record)[key] ?? null) === needle) {
+          return el;
+        }
+      }
+    }
+    return null;
+  },
+};
+
+/**
+ * range { from: int, to: int } -> list
+ * Returns a list of integers from `from` (inclusive) to `to` (exclusive).
+ */
+export const rangeFn: StdlibFn = {
+  name: "range",
+  execute(args: A0Record): A0Value {
+    const from = args["from"] ?? null;
+    const to = args["to"] ?? null;
+    if (typeof from !== "number" || typeof to !== "number") {
+      throw new Error("range: 'from' and 'to' must be numbers");
+    }
+    if (from >= to) return [];
+    const result: number[] = [];
+    for (let i = from; i < to; i++) {
+      result.push(i);
+    }
+    return result;
+  },
+};
+
+/**
+ * join { in: list, sep?: str } -> str
+ * Joins list elements into a string with optional separator (default "").
+ */
+export const joinFn: StdlibFn = {
+  name: "join",
+  execute(args: A0Record): A0Value {
+    const input = args["in"] ?? null;
+    const sep = args["sep"] ?? "";
+    if (!Array.isArray(input)) {
+      throw new Error("join: 'in' must be a list");
+    }
+    return input.map(String).join(typeof sep === "string" ? sep : "");
+  },
+};

@@ -177,6 +177,112 @@ do fs.write { path: "result.json", data: body, format: "json" } -> artifact
 return { artifact: artifact }
 ```
 
+## Pattern 11: Arithmetic and Computed Values
+
+Use arithmetic operators for inline computation. Parentheses control precedence.
+
+```
+# compute-stats.a0
+let items = [10, 20, 30, 40, 50]
+let count = len { in: items }
+let total = 10 + 20 + 30 + 40 + 50
+let average = total / count
+let adjusted = (average - 5) * 2
+let is_large = average > 25
+
+return { count: count, total: total, average: average, adjusted: adjusted, is_large: is_large }
+```
+
+## Pattern 12: List Processing with range + for
+
+Use `range` to generate index lists, then `for` to process them. Use `sort`, `filter`, and `len` for data manipulation.
+
+```
+# process-list.a0
+let users = [
+  { name: "Alice", active: true, score: 85 },
+  { name: "Bob", active: false, score: 92 },
+  { name: "Carol", active: true, score: 78 }
+]
+
+let active = filter { in: users, by: "active" }
+let sorted = sort { in: active, by: "score" }
+let count = len { in: sorted }
+let found = find { in: users, key: "name", value: "Bob" }
+
+let indices = range { from: 0, to: count }
+let names = for { in: sorted, as: "user" } {
+  return { name: user.name, score: user.score }
+}
+
+return { active_count: count, sorted: names, bob: found }
+```
+
+## Pattern 13: String Building and Manipulation
+
+Use `str.concat` for multi-part strings, `str.split` and `join` for transformations.
+
+```
+# string-ops.a0
+let parts = ["Hello", " ", "World", "!"]
+let greeting = str.concat { parts: parts }
+
+let csv = "alice,bob,carol"
+let names = str.split { in: csv, sep: "," }
+let count = len { in: names }
+let rejoined = join { in: names, sep: " | " }
+
+let url = "http://example.com/old-path"
+let fixed = str.replace { in: url, from: "old-path", to: "new-path" }
+let is_http = str.starts { in: url, value: "http" }
+
+return { greeting: greeting, names: names, count: count, rejoined: rejoined, fixed: fixed, is_http: is_http }
+```
+
+## Pattern 14: Record Introspection and Merging
+
+Use `keys`, `values`, and `merge` to work with records dynamically.
+
+```
+# record-ops.a0
+let defaults = { color: "blue", size: 10, verbose: false }
+let overrides = { size: 20, debug: true }
+let config = merge { a: defaults, b: overrides }
+
+let k = keys { in: config }
+let v = values { in: config }
+let field_count = len { in: config }
+
+return { config: config, keys: k, values: v, field_count: field_count }
+```
+
+## Pattern 15: Data Pipeline with Arithmetic
+
+Combine list operations and arithmetic for data processing without shelling out.
+
+```
+# pipeline-arithmetic.a0
+cap { fs.read: true, fs.write: true }
+
+call? fs.read { path: "scores.json" } -> raw
+let scores = parse.json { in: raw }
+let count = len { in: scores }
+let passing = filter { in: scores, by: "passed" }
+let pass_count = len { in: passing }
+let sorted = sort { in: passing, by: "score" }
+
+let summary = {
+  total: count,
+  passing: pass_count,
+  fail_count: count - pass_count,
+  pass_rate_pct: (pass_count * 100) / count
+}
+
+do fs.write { path: "summary.json", data: summary, format: "json" } -> artifact
+
+return { summary: summary, artifact: artifact }
+```
+
 ## Anti-Patterns to Avoid
 
 ### Missing return

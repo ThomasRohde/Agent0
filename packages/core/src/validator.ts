@@ -30,6 +30,22 @@ export const KNOWN_STDLIB = new Set([
   "not",
   "and",
   "or",
+  // v0.35: list, string, record operations
+  "len",
+  "append",
+  "concat",
+  "sort",
+  "filter",
+  "find",
+  "range",
+  "join",
+  "str.concat",
+  "str.split",
+  "str.starts",
+  "str.replace",
+  "keys",
+  "values",
+  "merge",
 ]);
 
 export const KNOWN_BUDGET_FIELDS = new Set([
@@ -384,6 +400,13 @@ function validateExprBindings(
       validateBlockBindings(expr.okArm.body, bindings, fnNames, [expr.okArm.binding], diags, true, "match ok arm");
       validateBlockBindings(expr.errArm.body, bindings, fnNames, [expr.errArm.binding], diags, true, "match err arm");
       break;
+    case "BinaryExpr":
+      validateExprBindings(expr.left, bindings, fnNames, diags);
+      validateExprBindings(expr.right, bindings, fnNames, diags);
+      break;
+    case "UnaryExpr":
+      validateExprBindings(expr.operand, bindings, fnNames, diags);
+      break;
     default:
       break;
   }
@@ -447,6 +470,13 @@ function visitExpr(
       visitExpr(expr.subject, visitor);
       for (const bodyStmt of expr.okArm.body) visitExprInStmt(bodyStmt, visitor);
       for (const bodyStmt of expr.errArm.body) visitExprInStmt(bodyStmt, visitor);
+      break;
+    case "BinaryExpr":
+      visitExpr(expr.left, visitor);
+      visitExpr(expr.right, visitor);
+      break;
+    case "UnaryExpr":
+      visitExpr(expr.operand, visitor);
       break;
     default:
       break;

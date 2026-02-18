@@ -724,6 +724,189 @@ describe("A0 Evaluator", () => {
     assert.ok((runEnd!.data!["durationMs"] as number) >= 0);
   });
 
+  // --- Arithmetic & comparison tests ---
+
+  it("evaluates arithmetic addition", async () => {
+    const src = `let x = 2 + 3\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["x"], 5);
+  });
+
+  it("evaluates arithmetic subtraction", async () => {
+    const src = `let x = 10 - 4\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["x"], 6);
+  });
+
+  it("evaluates arithmetic multiplication", async () => {
+    const src = `let x = 3 * 7\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["x"], 21);
+  });
+
+  it("evaluates arithmetic division", async () => {
+    const src = `let x = 15 / 4\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["x"], 3.75);
+  });
+
+  it("evaluates arithmetic modulo", async () => {
+    const src = `let x = 10 % 3\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["x"], 1);
+  });
+
+  it("evaluates operator precedence", async () => {
+    const src = `let x = 2 + 3 * 4\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["x"], 14);
+  });
+
+  it("evaluates parenthesized expressions", async () => {
+    const src = `let x = (2 + 3) * 4\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["x"], 20);
+  });
+
+  it("evaluates unary minus", async () => {
+    const src = `let x = -42\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["x"], -42);
+  });
+
+  it("evaluates comparison operators", async () => {
+    const src = `let a = 5 > 3\nlet b = 2 < 1\nlet c = 3 >= 3\nlet d = 4 <= 3\nlet e = 5 == 5\nlet f = 5 != 6\nreturn { a: a, b: b, c: c, d: d, e: e, f: f }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["a"], true);
+    assert.equal(val["b"], false);
+    assert.equal(val["c"], true);
+    assert.equal(val["d"], false);
+    assert.equal(val["e"], true);
+    assert.equal(val["f"], true);
+  });
+
+  it("evaluates deep equality with ==", async () => {
+    const src = `let a = [1, 2] == [1, 2]\nlet b = { x: 1 } == { x: 1 }\nlet c = [1, 2] != [1, 3]\nreturn { a: a, b: b, c: c }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["a"], true);
+    assert.equal(val["b"], true);
+    assert.equal(val["c"], true);
+  });
+
+  it("evaluates string comparison", async () => {
+    const src = `let a = "b" > "a"\nlet b = "apple" < "banana"\nreturn { a: a, b: b }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["a"], true);
+    assert.equal(val["b"], true);
+  });
+
+  it("throws E_TYPE for arithmetic on non-numbers", async () => {
+    const src = `let x = "hello" + 1\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        return true;
+      }
+    );
+  });
+
+  it("throws E_TYPE for division by zero", async () => {
+    const src = `let x = 10 / 0\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        return true;
+      }
+    );
+  });
+
+  it("throws E_TYPE for modulo by zero", async () => {
+    const src = `let x = 10 % 0\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        return true;
+      }
+    );
+  });
+
+  it("throws E_TYPE for unary minus on non-number", async () => {
+    const src = `let x = -"hello"\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        return true;
+      }
+    );
+  });
+
+  it("throws E_TYPE for ordering comparison on mixed types", async () => {
+    const src = `let x = 1 > "hello"\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        return true;
+      }
+    );
+  });
+
+  it("evaluates arithmetic with variables", async () => {
+    const src = `let a = 10\nlet b = 3\nlet c = a + b * 2\nreturn { c: c }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["c"], 16);
+  });
+
   it("tool_start trace includes mode", async () => {
     const mockTool: import("./evaluator.js").ToolDef = {
       name: "test.read",

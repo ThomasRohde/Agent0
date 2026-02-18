@@ -352,4 +352,54 @@ describe("A0 Validator", () => {
     assert.ok(diags.some((d) => d.code === "E_UNDECLARED_CAP"));
     assert.ok(!diags.some((d) => d.code === "E_UNKNOWN_TOOL"));
   });
+
+  // --- BinaryExpr / UnaryExpr validation ---
+
+  it("validates bindings in BinaryExpr", () => {
+    const src = `let x = 1\nlet y = x + 2\nreturn { y: y }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.equal(diags.length, 0);
+  });
+
+  it("reports unbound variable in BinaryExpr", () => {
+    const src = `let x = unknown + 2\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_UNBOUND"));
+  });
+
+  it("validates bindings in UnaryExpr", () => {
+    const src = `let x = 5\nlet y = -x\nreturn { y: y }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.equal(diags.length, 0);
+  });
+
+  it("reports unbound variable in UnaryExpr", () => {
+    const src = `let x = -unknown\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_UNBOUND"));
+  });
+
+  it("accepts new stdlib functions without E_UNKNOWN_FN", () => {
+    const src = `let x = len { in: [1, 2, 3] }\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(!diags.some((d) => d.code === "E_UNKNOWN_FN"));
+  });
+
+  it("accepts str.concat without E_UNKNOWN_FN", () => {
+    const src = `let x = str.concat { parts: ["a", "b"] }\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(!diags.some((d) => d.code === "E_UNKNOWN_FN"));
+  });
 });

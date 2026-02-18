@@ -45,14 +45,14 @@ For.LONGER_ALT = Ident;
 Fn.LONGER_ALT = Ident;
 Match.LONGER_ALT = Ident;
 
-// Literals
+// Literals (no leading minus — unary minus is now an operator)
 export const FloatLit = createToken({
   name: "FloatLit",
-  pattern: /-?(?:0|[1-9]\d*)\.\d+(?:[eE][+-]?\d+)?/,
+  pattern: /(?:0|[1-9]\d*)\.\d+(?:[eE][+-]?\d+)?/,
 });
 export const IntLit = createToken({
   name: "IntLit",
-  pattern: /-?(?:0|[1-9]\d*)(?![.\deE])/,
+  pattern: /(?:0|[1-9]\d*)(?![.\deE])/,
 });
 export const StringLit = createToken({
   name: "StringLit",
@@ -64,11 +64,28 @@ export const LBrace = createToken({ name: "LBrace", pattern: /\{/ });
 export const RBrace = createToken({ name: "RBrace", pattern: /\}/ });
 export const LBracket = createToken({ name: "LBracket", pattern: /\[/ });
 export const RBracket = createToken({ name: "RBracket", pattern: /\]/ });
+export const LParen = createToken({ name: "LParen", pattern: /\(/ });
+export const RParen = createToken({ name: "RParen", pattern: /\)/ });
 export const Colon = createToken({ name: "Colon", pattern: /:/ });
 export const Comma = createToken({ name: "Comma", pattern: /,/ });
 export const Dot = createToken({ name: "Dot", pattern: /\./ });
 export const Arrow = createToken({ name: "Arrow", pattern: /->/ });
 export const Equals = createToken({ name: "Equals", pattern: /=/ });
+
+// Comparison operators (multi-char before single-char)
+export const GtEq = createToken({ name: "GtEq", pattern: />=/ });
+export const LtEq = createToken({ name: "LtEq", pattern: /<=/ });
+export const EqEq = createToken({ name: "EqEq", pattern: /==/ });
+export const BangEq = createToken({ name: "BangEq", pattern: /!=/ });
+export const Gt = createToken({ name: "Gt", pattern: />/ });
+export const Lt = createToken({ name: "Lt", pattern: /</ });
+
+// Arithmetic operators
+export const Plus = createToken({ name: "Plus", pattern: /\+/ });
+export const Minus = createToken({ name: "Minus", pattern: /-/ });
+export const Star = createToken({ name: "Star", pattern: /\*/ });
+export const Slash = createToken({ name: "Slash", pattern: /\// });
+export const Percent = createToken({ name: "Percent", pattern: /%/ });
 
 // Whitespace and comments
 export const WhiteSpace = createToken({
@@ -92,8 +109,12 @@ export const allTokens = [
   WhiteSpace,
   Newline,
   Comment,
-  // Multi-char operators first
-  Arrow,
+  // Multi-char operators first (order critical)
+  Arrow,    // -> before Minus and Gt
+  GtEq,     // >= before Gt and Equals
+  LtEq,     // <= before Lt and Equals
+  EqEq,     // == before Equals
+  BangEq,   // != before single chars
   // Keywords (before Ident) - longer prefixes first
   CallQ,
   Cap,
@@ -118,15 +139,24 @@ export const allTokens = [
   StringLit,
   // Ident after keywords
   Ident,
-  // Punctuation
+  // Punctuation & single-char operators
   LBrace,
   RBrace,
   LBracket,
   RBracket,
+  LParen,
+  RParen,
   Colon,
   Comma,
   Dot,
   Equals,
+  Gt,
+  Lt,
+  Plus,
+  Minus,
+  Star,
+  Slash,
+  Percent,
 ];
 
 export const A0Lexer = new Lexer(allTokens);

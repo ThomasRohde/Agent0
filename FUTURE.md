@@ -4,89 +4,51 @@ This document captures the roadmap and longer-term vision for A0 beyond the curr
 
 ---
 
-## v0.35 — Arithmetic, List Primitives, and Data Processing
+## v0.36 — Higher-Order `map` for List Transformation
 
-**Theme:** close the expressiveness gap for self-contained data transformation programs.
+**Theme:** enable declarative list transformation without explicit `for` loops.
 
-Experiment evidence (2026-02-17): an A0 program tasked with reading JSON configs, computing dependency graphs, and sorting output had to delegate all computation to Node.js via `sh.exec` because A0 lacks basic arithmetic and list manipulation. The A0 program was reduced to an I/O orchestrator. These additions let A0 handle common data-processing workloads without shelling out.
+Currently, transforming every element in a list requires a `for` loop with an explicit body. A `map` stdlib function would let programs express element-wise transformations more concisely by referencing a user-defined `fn` by name.
 
-### Arithmetic Expressions
-
-Binary operators on numeric values, usable anywhere an expression is expected:
-
-```
-let total = a + b
-let diff = a - b
-let product = a * b
-let ratio = a / b
-let remainder = a % b
-```
-
-Operator precedence follows standard math rules (`*`/`/`/`%` before `+`/`-`). Parentheses for grouping: `let x = (a + b) * c`. Type errors (e.g. `"foo" + 1`) produce `E_TYPE` at runtime.
-
-### Comparison Operators
-
-```
-let bigger = a > b
-let ok = a <= threshold
-let same = a == b
-let diff = a != b
-```
-
-Return `bool`. Work on numbers and strings (lexicographic for strings). These complement the existing `eq` stdlib function with inline syntax.
-
-### List Primitives (stdlib)
+### `map` Stdlib Function
 
 | Function | Purpose | Signature |
 |----------|---------|-----------|
-| `len` | Length of list, string, or record (key count) | `{ in: list\|str\|rec }` → `int` |
-| `append` | Append element to list | `{ in: list, value: any }` → `list` |
-| `concat` | Concatenate two lists | `{ a: list, b: list }` → `list` |
-| `sort` | Sort list (natural order or by key) | `{ in: list, by?: str }` → `list` |
-| `filter` | Keep elements where predicate key is truthy | `{ in: list, by: str }` → `list` |
-| `map` | Transform elements (via named fn) | `{ in: list, fn: str }` → `list` |
-| `find` | First element where key matches value | `{ in: list, key: str, value: any }` → `any\|null` |
-| `range` | Generate integer list | `{ from: int, to: int }` → `list` |
-| `join` | Join list of strings | `{ in: list, sep?: str }` → `str` |
-
-### String Operations (stdlib)
-
-| Function | Purpose | Signature |
-|----------|---------|-----------|
-| `str.concat` | Concatenate strings | `{ parts: list }` → `str` |
-| `str.split` | Split string | `{ in: str, sep: str }` → `list` |
-| `str.starts` | Starts-with check | `{ in: str, value: str }` → `bool` |
-| `str.replace` | Replace substring | `{ in: str, from: str, to: str }` → `str` |
-
-### Record Operations (stdlib)
-
-| Function | Purpose | Signature |
-|----------|---------|-----------|
-| `keys` | List of record keys | `{ in: rec }` → `list` |
-| `values` | List of record values | `{ in: rec }` → `list` |
-| `merge` | Shallow merge two records | `{ a: rec, b: rec }` → `rec` |
-
-### Impact on the Pipeline
-
-With these additions, the build-manifest experiment task becomes fully expressible in pure A0:
+| `map` | Transform each element via a named function | `{ in: list, fn: str }` → `list` |
 
 ```
-# Pseudocode of what becomes possible
-let order = if { cond: len { in: deps } == 0, then: 0, else: max_dep_order + 1 }
-let sorted = sort { in: manifests, by: "buildOrder" }
+fn double { n: n } {
+  let result = n * 2
+  return { out: result }
+}
+
+let nums = [1, 2, 3, 4, 5]
+let doubled = map { in: nums, fn: "double" }
+return { doubled: doubled }
+# → { "doubled": [{ "out": 2 }, { "out": 4 }, { "out": 6 }, { "out": 8 }, { "out": 10 }] }
 ```
 
-No `sh.exec` delegation needed for arithmetic, sorting, filtering, or string building.
+### Design Considerations
+
+- **Evaluator integration required.** `map` must resolve `fn` names against the current `userFns` map at runtime — this is unlike other stdlib functions which are pure and stateless. The implementation may need to live in the evaluator itself (similar to `for`) rather than in `@a0/std`.
+- **Alternative: stdlib with fn callback.** Pass the evaluator's `userFns` map into the stdlib function, or introduce a `StdlibFnWithContext` interface that receives the execution context.
+- **Return shape.** Each `fn` returns a record (as all A0 functions do). `map` collects these records into a list. If the caller wants a flat list of scalars, they can use a `fn` that returns `{ out: value }` and post-process with `for`.
+- **Error propagation.** If the mapped function throws (e.g. `E_FN`), `map` should propagate immediately — no partial results.
+- **Trace events.** Each function invocation within `map` should emit `fn_call_start` / `fn_call_end` trace events, consistent with direct `fn` calls.
+- **Workaround today.** Users can achieve the same result with `for`:
+  ```
+  let doubled = for { in: nums, as: "n" } {
+    let result = n * 2
+    return { out: result }
+  }
+  ```
 
 ### Implementation Scope
 
-- **Lexer:** add operator tokens (`+`, `-`, `*`, `/`, `%`, `>`, `<`, `>=`, `<=`, `==`, `!=`)
-- **Parser:** arithmetic and comparison expression rules with precedence
-- **AST:** `BinaryExpr` node type
-- **Evaluator:** numeric operations in `evalExpr`, type checking
-- **Validator:** no new validation beyond existing rules
-- **Stdlib:** new pure functions (no capabilities needed)
-- **Trace:** arithmetic operations emit `expr_eval` events (or fold into existing `stmt_end`)
+- **Evaluator:** add `map` handling in `evalExpr` (or as a context-aware stdlib function)
+- **Validator:** add `map` to `KNOWN_STDLIB` (already reserved)
+- **Stdlib/tests:** test suite for `map` with various fn references, error cases, empty lists
+- **Skills/docs:** update write-a0 and debug-a0 skills with `map` usage and patterns
 
 ---
 

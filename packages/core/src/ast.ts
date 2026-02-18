@@ -125,6 +125,25 @@ export interface MatchExpr extends BaseNode {
   errArm: MatchArm;
 }
 
+// --- v0.35: Arithmetic & comparison expressions ---
+
+export type BinaryOp = "+" | "-" | "*" | "/" | "%" | ">" | "<" | ">=" | "<=" | "==" | "!=";
+
+export interface BinaryExpr extends BaseNode {
+  kind: "BinaryExpr";
+  op: BinaryOp;
+  left: Expr;
+  right: Expr;
+}
+
+export type UnaryOp = "-";
+
+export interface UnaryExpr extends BaseNode {
+  kind: "UnaryExpr";
+  op: UnaryOp;
+  operand: Expr;
+}
+
 export type Expr =
   | Literal
   | IdentPath
@@ -137,7 +156,9 @@ export type Expr =
   | FnCallExpr
   | IfExpr
   | ForExpr
-  | MatchExpr;
+  | MatchExpr
+  | BinaryExpr
+  | UnaryExpr;
 
 // --- Statements ---
 export interface LetStmt extends BaseNode {

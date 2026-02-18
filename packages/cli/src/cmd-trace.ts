@@ -2,6 +2,7 @@
  * a0 trace - trace summary command
  */
 import * as fs from "node:fs";
+import { formatDiagnostic } from "@a0/core";
 
 interface TraceEvent {
   ts: string;
@@ -28,12 +29,16 @@ export async function runTrace(
   file: string,
   opts: { json?: boolean }
 ): Promise<number> {
+  const emitCliError = (code: string, message: string): void => {
+    console.error(formatDiagnostic({ code, message }, !opts.json));
+  };
+
   let content: string;
   try {
     content = fs.readFileSync(file, "utf-8");
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error(`Error reading trace file: ${msg}`);
+    emitCliError("E_IO", `Error reading trace file: ${msg}`);
     return 4;
   }
 
@@ -49,7 +54,7 @@ export async function runTrace(
   }
 
   if (events.length === 0) {
-    console.error("No valid trace events found.");
+    emitCliError("E_TRACE", "No valid trace events found.");
     return 4;
   }
 

@@ -294,6 +294,13 @@ These errors occur during program execution and cannot be caught by `a0 check`.
 - **Common cause:** Missing file, invalid path, or insufficient filesystem permissions.
 - **Fix:** Verify file paths and permissions for the input/output paths passed to the command.
 
+### E_TRACE
+
+**Trace input error** -- `a0 trace` could read the file, but no valid JSONL trace events were found.
+
+- **Common cause:** Wrong file, empty file, or malformed/non-JSONL content.
+- **Fix:** Make sure the file was produced by `a0 run --trace` and contains at least one valid JSON event line.
+
 ### E_TOOL_ARGS
 
 **Invalid tool arguments** -- the arguments passed to a tool do not match its input schema.
@@ -440,6 +447,7 @@ Use `check` for validations the agent should know about but that should not prev
 | `E_UNKNOWN_TOOL` | Compile | 2 | Unknown tool |
 | `E_CAP_DENIED` | Runtime | 3 | Capability denied by policy |
 | `E_IO` | Runtime | 4 | CLI file/trace/evidence I/O failure |
+| `E_TRACE` | Runtime | 4 | Trace file has no valid JSONL events |
 | `E_TOOL_ARGS` | Runtime | 4 | Invalid tool arguments |
 | `E_TOOL` | Runtime | 4 | Tool execution failure |
 | `E_FN` | Runtime | 4 | Stdlib function error |

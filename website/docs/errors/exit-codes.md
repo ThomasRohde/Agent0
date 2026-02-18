@@ -114,6 +114,7 @@ An error occurred during program execution, or the CLI failed to perform a requi
 | Code | Description |
 |------|-------------|
 | `E_IO` | CLI file/trace/evidence I/O failure |
+| `E_TRACE` | Trace file had no valid JSONL events |
 | `E_TOOL` | Tool execution failed |
 | `E_TOOL_ARGS` | Invalid arguments passed to a tool |
 | `E_FN` | Stdlib function threw an error |

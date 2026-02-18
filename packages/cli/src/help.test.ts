@@ -94,6 +94,10 @@ describe("A0 CLI Help Content", () => {
     assert.ok(TOPICS.diagnostics.includes("E_IO"));
   });
 
+  it("diagnostics topic documents E_TRACE for invalid trace input", () => {
+    assert.ok(TOPICS.diagnostics.includes("E_TRACE"));
+  });
+
   it("tools topic documents unknown-tool validation behavior", () => {
     assert.ok(TOPICS.tools.includes("Unknown tool name"));
     assert.ok(TOPICS.tools.includes("usually exit 2"));
@@ -101,6 +105,10 @@ describe("A0 CLI Help Content", () => {
 
   it("syntax topic documents nested-scope shadowing", () => {
     assert.ok(TOPICS.syntax.includes("Shadowing is allowed in nested scopes"));
+  });
+
+  it("syntax topic documents top-level statement/function interleaving", () => {
+    assert.ok(TOPICS.syntax.includes("cap/budget headers must come first; fn and other statements may be interleaved"));
   });
 
   it("runHelp supports unique prefix matching", () => {

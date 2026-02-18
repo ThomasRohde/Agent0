@@ -109,7 +109,7 @@ LINE RULES
   - Strings are double-quoted only, with JSON escapes: \\" \\\\ \\n \\t
 
 SCOPING
-  - Top-level: cap, budget, fn definitions, then statements
+  - Top-level: cap/budget headers must come first; fn and other statements may be interleaved
   - fn/for/match bodies have their own scope (parent-chained)
   - No variable reassignment in the same scope — each let/-> creates a new binding
   - Shadowing is allowed in nested scopes (for/fn/match bodies)
@@ -527,6 +527,7 @@ RUNTIME ERRORS (exit 3/4/5)
   Code              Exit  Cause                      Fix
   E_CAP_DENIED      3     Policy denies capability   Update cap {} or policy file
   E_IO              4     CLI I/O error               Check file paths and permissions
+  E_TRACE           4     Invalid/empty trace input   Use valid JSONL with at least one event
   E_UNKNOWN_TOOL    4     Unknown tool at runtime (rare) Usually caught by validation (exit 2)
   E_TOOL_ARGS       4     Invalid tool arguments     Check args match tool schema
   E_TOOL            4     Tool execution failed       Check args, paths, URLs, perms

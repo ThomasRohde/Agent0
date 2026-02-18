@@ -29,6 +29,36 @@ async function captureTrace(
 }
 
 describe("a0 trace summary", () => {
+  it("returns E_IO diagnostic when trace file read fails", async () => {
+    const missing = path.join(os.tmpdir(), `a0-missing-trace-${Date.now()}.jsonl`);
+    const result = await captureTrace(missing, {});
+    assert.equal(result.code, 4);
+    assert.ok(result.stderr.includes("error[E_IO]"));
+  });
+
+  it("returns JSON E_IO diagnostic when --json is set and file read fails", async () => {
+    const missing = path.join(os.tmpdir(), `a0-missing-trace-json-${Date.now()}.jsonl`);
+    const result = await captureTrace(missing, { json: true });
+    assert.equal(result.code, 4);
+    const diag = JSON.parse(result.stderr) as { code: string };
+    assert.equal(diag.code, "E_IO");
+  });
+
+  it("returns E_TRACE when trace file has no valid JSONL events", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-cli-trace-test-"));
+    const tracePath = path.join(tmpDir, "invalid.jsonl");
+    fs.writeFileSync(tracePath, "not-json\nstill-not-json\n", "utf-8");
+
+    try {
+      const result = await captureTrace(tracePath, { json: true });
+      assert.equal(result.code, 4);
+      const diag = JSON.parse(result.stderr) as { code: string };
+      assert.equal(diag.code, "E_TRACE");
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("does not double-count tool failure and run_end error", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-cli-trace-test-"));
     const tracePath = path.join(tmpDir, "trace.jsonl");

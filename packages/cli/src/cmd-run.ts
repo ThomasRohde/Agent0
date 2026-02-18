@@ -21,6 +21,15 @@ export async function runRun(
   file: string,
   opts: { trace?: string; evidence?: string; pretty?: boolean; unsafeAllowAll?: boolean }
 ): Promise<number> {
+  const pretty = !!opts.pretty;
+  const emitCliError = (code: string, message: string): void => {
+    if (pretty) {
+      console.error(formatDiagnostic({ code, message }, true));
+      return;
+    }
+    console.error(JSON.stringify({ err: { code, message } }));
+  };
+
   const writeEvidenceFile = (records: Evidence[]): number | null => {
     if (!opts.evidence) return null;
     try {
@@ -28,7 +37,7 @@ export async function runRun(
       return null;
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error(JSON.stringify({ err: { code: "E_IO", message: `Error writing evidence file: ${msg}` } }));
+      emitCliError("E_IO", `Error writing evidence file: ${msg}`);
       return 4;
     }
   };
@@ -43,13 +52,12 @@ export async function runRun(
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error(JSON.stringify({ err: { code: "E_IO", message: `Error reading file: ${msg}` } }));
+    emitCliError("E_IO", `Error reading file: ${msg}`);
     return 4;
   }
 
   // Parse
   const parseResult = parse(source, file);
-  const pretty = !!opts.pretty;
 
   if (parseResult.diagnostics.length > 0) {
     console.error(formatDiagnostics(parseResult.diagnostics, pretty));
@@ -88,7 +96,7 @@ export async function runRun(
       traceFd = fs.openSync(opts.trace, "w");
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      console.error(JSON.stringify({ err: { code: "E_IO", message: `Error opening trace file: ${msg}` } }));
+      emitCliError("E_IO", `Error opening trace file: ${msg}`);
       return 4;
     }
   }

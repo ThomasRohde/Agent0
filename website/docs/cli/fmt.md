@@ -26,6 +26,7 @@ Without `--write`, the formatted output is printed to stdout. The original file 
 |------|---------|
 | 0 | Formatting succeeded |
 | 2 | Parse error (file cannot be formatted) |
+| 4 | CLI I/O error (for example, source file cannot be read) |
 
 ## What It Does
 

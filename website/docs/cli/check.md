@@ -24,6 +24,7 @@ a0 check <file> [options]
 |------|---------|
 | 0 | Program is valid |
 | 2 | Parse or validation errors found |
+| 4 | CLI I/O error (for example, source file cannot be read) |
 
 ## What It Catches
 

@@ -47,7 +47,7 @@ A0 emits 16 trace event types:
 | Event | Description |
 |-------|-------------|
 | `run_start` | Program execution begins |
-| `run_end` | Program execution completes (includes exit code) |
+| `run_end` | Program execution completes (includes duration and error metadata when failed) |
 
 ### Statement execution
 
@@ -61,7 +61,7 @@ A0 emits 16 trace event types:
 | Event | Description |
 |-------|-------------|
 | `tool_start` | A tool call begins (includes tool name and arguments) |
-| `tool_end` | A tool call completes (includes result) |
+| `tool_end` | A tool call completes (includes outcome, duration, and error metadata on failure) |
 
 ### Evidence
 
@@ -118,13 +118,13 @@ a0 trace debug.jsonl
 head -5 debug.jsonl
 ```
 
-Each line shows exactly what happened at each step, including tool arguments, return values, and evidence results.
+Each line shows exactly what happened at each step, including tool arguments, tool outcomes, and evidence results.
 
 ## Using traces for debugging
 
 Traces are especially useful for:
 
-- **Tool failures**: `tool_start`/`tool_end` events show exact arguments passed and results returned
+- **Tool failures**: `tool_start`/`tool_end` events show exact arguments passed and whether the tool succeeded or failed
 - **Assertion/check failures**: `evidence` events show which `assert` (fatal -- halts) or `check` (non-fatal -- continues) failed and why
 - **Budget overruns**: `budget_exceeded` events show which limit was hit
 - **Loop issues**: `for_start`/`for_end` events show iteration counts

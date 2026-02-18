@@ -62,6 +62,9 @@ export async function runTrace(
     failures: 0,
     budgetExceeded: 0,
   };
+  let hasToolError = false;
+  let hasEvidenceFailure = false;
+  let hasRunError = false;
 
   for (const ev of events) {
     if (ev.event === "run_start") {
@@ -77,14 +80,16 @@ export async function runTrace(
     }
     if (ev.event === "tool_end" && ev.data?.["outcome"] === "err") {
       summary.failures++;
+      hasToolError = true;
     }
     if (ev.event === "run_end" && ev.data?.["error"]) {
-      summary.failures++;
+      hasRunError = true;
     }
     if (ev.event === "evidence") {
       summary.evidenceCount++;
       if (ev.data?.["ok"] === false) {
         summary.failures++;
+        hasEvidenceFailure = true;
       }
     }
     if (ev.event === "budget_exceeded") {
@@ -95,6 +100,12 @@ export async function runTrace(
   if (summary.startTime && summary.endTime) {
     summary.durationMs =
       new Date(summary.endTime).getTime() - new Date(summary.startTime).getTime();
+  }
+
+  // run_end error represents a failure root cause when not already counted by
+  // tool_end(err) or failed evidence events.
+  if (hasRunError && !hasToolError && !hasEvidenceFailure) {
+    summary.failures++;
   }
 
   if (opts.json) {

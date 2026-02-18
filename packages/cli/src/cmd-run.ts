@@ -82,7 +82,6 @@ export async function runRun(
 
   // Trace setup
   let traceFd: number | null = null;
-  const traceEvents: TraceEvent[] = [];
 
   if (opts.trace) {
     try {
@@ -94,12 +93,12 @@ export async function runRun(
     }
   }
 
-  const traceHandler = (event: TraceEvent) => {
-    traceEvents.push(event);
-    if (traceFd !== null) {
-      fs.writeSync(traceFd, JSON.stringify(event) + "\n");
-    }
-  };
+  const traceHandler =
+    traceFd !== null
+      ? (event: TraceEvent) => {
+          fs.writeSync(traceFd, JSON.stringify(event) + "\n");
+        }
+      : undefined;
 
   // Execute
   try {

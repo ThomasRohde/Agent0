@@ -2,7 +2,7 @@
  * a0 fmt - canonical formatter command
  */
 import * as fs from "node:fs";
-import { parse, format, formatDiagnostics } from "@a0/core";
+import { parse, format, formatDiagnostics, formatDiagnostic } from "@a0/core";
 
 export async function runFmt(
   file: string,
@@ -13,8 +13,8 @@ export async function runFmt(
     source = fs.readFileSync(file, "utf-8");
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error(`Error reading file: ${msg}`);
-    return 2;
+    console.error(formatDiagnostic({ code: "E_IO", message: `Error reading file: ${msg}` }, true));
+    return 4;
   }
 
   const parseResult = parse(source, file);

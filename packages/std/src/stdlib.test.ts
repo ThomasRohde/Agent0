@@ -449,6 +449,12 @@ describe("find", () => {
     assert.equal(result["name"], "Bob");
   });
 
+  it("uses deep equality for nested records regardless of key order", () => {
+    const input = [{ id: 1, meta: { x: 1, y: 2 } }, { id: 2, meta: { x: 3, y: 4 } }];
+    const result = findFn.execute({ in: input, key: "meta", value: { y: 2, x: 1 } }) as A0Record;
+    assert.equal(result["id"], 1);
+  });
+
   it("returns null when no match", () => {
     const input = [{ id: 1, name: "Alice" }];
     assert.equal(findFn.execute({ in: input, key: "id", value: 99 }), null);

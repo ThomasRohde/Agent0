@@ -189,7 +189,7 @@ export function validate(program: AST.Program): Diagnostic[] {
       // Validate body with params + fn name (for recursion) as extra bindings
       validateBlockBindings(stmt.body, bindings, fnNames, [...stmt.params, stmt.name], diags, true, `function '${stmt.name}'`);
     } else if (stmt.kind === "LetStmt") {
-      if (bindings.has(stmt.name)) {
+      if (bindings.has(stmt.name) || fnNames.has(stmt.name)) {
         diags.push(
           makeDiag(
             "E_DUP_BINDING",
@@ -205,7 +205,7 @@ export function validate(program: AST.Program): Diagnostic[] {
       validateExprBindings(stmt.expr, bindings, fnNames, diags);
       if (stmt.target) {
         const targetName = stmt.target.parts[0];
-        if (bindings.has(targetName)) {
+        if (bindings.has(targetName) || fnNames.has(targetName)) {
           diags.push(
             makeDiag(
               "E_DUP_BINDING",
@@ -261,6 +261,7 @@ function validateBlockBindings(
   const lookupBindings = new Set(parentBindings);
   const localBindings = new Set<string>();
   const fnNames = new Set(parentFnNames);
+  const localFnNames = new Set<string>();
   for (const name of extraBindings) {
     localBindings.add(name);
     lookupBindings.add(name);
@@ -317,10 +318,11 @@ function validateBlockBindings(
           )
         );
       }
+      localFnNames.add(stmt.name);
       fnNames.add(stmt.name);
       validateBlockBindings(stmt.body, lookupBindings, fnNames, [...stmt.params, stmt.name], diags, true, `function '${stmt.name}'`);
     } else if (stmt.kind === "LetStmt") {
-      if (localBindings.has(stmt.name)) {
+      if (localBindings.has(stmt.name) || localFnNames.has(stmt.name)) {
         diags.push(
           makeDiag(
             "E_DUP_BINDING",
@@ -337,7 +339,7 @@ function validateBlockBindings(
       validateExprBindings(stmt.expr, lookupBindings, fnNames, diags);
       if (stmt.target) {
         const targetName = stmt.target.parts[0];
-        if (localBindings.has(targetName)) {
+        if (localBindings.has(targetName) || localFnNames.has(targetName)) {
           diags.push(
             makeDiag(
               "E_DUP_BINDING",

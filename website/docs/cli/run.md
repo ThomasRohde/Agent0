@@ -84,7 +84,12 @@ a0 run broken.a0 --pretty
 JSON output (default):
 
 ```json
-{"err":{"code":"E_UNBOUND","message":"Unbound variable 'x'."}}
+[
+  {
+    "code": "E_UNBOUND",
+    "message": "Unbound variable 'x'."
+  }
+]
 ```
 
 Pretty output:
@@ -123,7 +128,7 @@ Write evidence records (from `assert` and `check` statements) to a file:
 a0 run assertions.a0 --evidence evidence.json
 ```
 
-When `--evidence` is provided, the file is always written. If no `assert`/`check` events occur, the file contains `[]`.
+When `--evidence` is provided, the file is written for execution paths (success or runtime failure). If no `assert`/`check` events occur, the file contains `[]`. Parse/validation failures (exit 2) occur before evidence generation and do not create the file.
 
 ## How It Works
 

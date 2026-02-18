@@ -208,7 +208,7 @@ KEYWORD RULES
   call? on effect tool -> E_CALL_EFFECT (exit 2, caught at check time)
   do on read tool     -> allowed but unconventional (prefer call?)
   Invalid tool args   -> E_TOOL_ARGS (exit 4, runtime schema validation)
-  Unknown tool name   -> E_UNKNOWN_TOOL (exit 4)
+  Unknown tool name   -> E_UNKNOWN_TOOL (usually exit 2 from validation; runtime exit 4 is rare)
 
 PATH RESOLUTION
   File paths (fs.read, fs.write) resolve relative to the process
@@ -520,15 +520,18 @@ COMPILE-TIME ERRORS (exit 2) — caught by a0 check
   E_UNBOUND         Undefined variable               Bind with let or -> first
   E_CALL_EFFECT     call? on effect tool              Use do for fs.write, sh.exec
   E_FN_DUP          Duplicate fn name                Rename one function
+  E_UNKNOWN_FN      Unknown function name            Define function before use / fix spelling
+  E_UNKNOWN_TOOL    Unknown tool name                Use: fs.read fs.write http.get sh.exec
 
 RUNTIME ERRORS (exit 3/4/5)
   Code              Exit  Cause                      Fix
   E_CAP_DENIED      3     Policy denies capability   Update cap {} or policy file
-  E_UNKNOWN_TOOL    4     Unknown tool name           Check spelling: fs.read fs.write http.get sh.exec
+  E_IO              4     CLI I/O error               Check file paths and permissions
+  E_UNKNOWN_TOOL    4     Unknown tool at runtime (rare) Usually caught by validation (exit 2)
   E_TOOL_ARGS       4     Invalid tool arguments     Check args match tool schema
   E_TOOL            4     Tool execution failed       Check args, paths, URLs, perms
   E_BUDGET          4     Budget limit exceeded       Increase limit or reduce usage
-  E_UNKNOWN_FN      4     Unknown function            Check: parse.json get put patch eq contains not and or
+  E_UNKNOWN_FN      4     Unknown function at runtime (rare) Check: parse.json get put patch eq contains not and or
                                                      len append concat sort filter find range join map
                                                      str.concat str.split str.starts str.replace
                                                      keys values merge  (or user-defined fn names)

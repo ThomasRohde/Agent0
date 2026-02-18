@@ -5,6 +5,35 @@
 import { isTruthy } from "@a0/core";
 import type { StdlibFn, A0Record, A0Value } from "@a0/core";
 
+function deepEqual(a: A0Value, b: A0Value): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return a === b;
+
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i] ?? null, b[i] ?? null)) return false;
+    }
+    return true;
+  }
+
+  if (typeof a === "object" && typeof b === "object") {
+    const aRec = a as A0Record;
+    const bRec = b as A0Record;
+    const aKeys = Object.keys(aRec);
+    const bKeys = Object.keys(bRec);
+    if (aKeys.length !== bKeys.length) return false;
+    for (const key of aKeys) {
+      if (!Object.prototype.hasOwnProperty.call(bRec, key)) return false;
+      if (!deepEqual(aRec[key] ?? null, bRec[key] ?? null)) return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * len { in: list|str|rec } -> int
  * Returns the length of a list, string, or record (number of keys).
@@ -121,10 +150,9 @@ export const findFn: StdlibFn = {
     if (typeof key !== "string") {
       throw new Error("find: 'key' must be a string");
     }
-    const needle = JSON.stringify(value);
     for (const el of input) {
       if (el !== null && typeof el === "object" && !Array.isArray(el)) {
-        if (JSON.stringify((el as A0Record)[key] ?? null) === needle) {
+        if (deepEqual((el as A0Record)[key] ?? null, value)) {
           return el;
         }
       }

@@ -14,7 +14,7 @@ A0 CLI commands use a fixed set of exit codes to indicate the result of executio
 | **1** | CLI usage/help error | Unknown command/topic/option, command usage failure |
 | **2** | Parse or validation error | Compile-time issues caught by `a0 check` |
 | **3** | Capability denied | Program needs a capability not allowed by policy |
-| **4** | Runtime or tool error | Tool failure, budget exceeded, type error, etc. |
+| **4** | Runtime, tool, or CLI I/O error | Tool failure, budget exceeded, type error, file/trace/evidence I/O failure |
 | **5** | Assertion or check failed | `assert` (fatal -- halts) or `check` (non-fatal -- continues) evaluated to false |
 
 ## Exit Code 0: Success
@@ -105,20 +105,21 @@ error[E_CAP_DENIED]: Capability 'sh.exec' is not allowed by the active policy.
 
 **Fix:** Add the capability to your `.a0policy.json`, or use `--unsafe-allow-all` during development.
 
-## Exit Code 4: Runtime or Tool Error
+## Exit Code 4: Runtime, Tool, or CLI I/O Error
 
-An error occurred during program execution. The program was syntactically and semantically valid, but something failed at runtime.
+An error occurred during program execution, or the CLI failed to perform a required I/O operation (for example, opening a trace/evidence file).
 
 **Diagnostic codes that produce exit 4:**
 
 | Code | Description |
 |------|-------------|
+| `E_IO` | CLI file/trace/evidence I/O failure |
 | `E_TOOL` | Tool execution failed |
 | `E_TOOL_ARGS` | Invalid arguments passed to a tool |
 | `E_FN` | Stdlib function threw an error |
 | `E_BUDGET` | Budget limit exceeded |
-| `E_UNKNOWN_FN` | Function not found at runtime |
-| `E_UNKNOWN_TOOL` | Tool not found at runtime |
+| `E_UNKNOWN_FN` | Function not found at runtime (rare; usually caught at compile time) |
+| `E_UNKNOWN_TOOL` | Tool not found at runtime (rare; usually caught at compile time) |
 | `E_PATH` | Dot-access on a non-record value |
 | `E_FOR_NOT_LIST` | `for` expression received a non-list value |
 | `E_MATCH_NOT_RECORD` | `match` expression received a non-record value |

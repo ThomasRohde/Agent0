@@ -62,7 +62,7 @@ All commands use a consistent set of exit codes. See [Exit Codes](../errors/exit
 | 1 | CLI usage/help error (unknown command/topic/option) |
 | 2 | Parse or validation error |
 | 3 | Capability denied |
-| 4 | Runtime or tool error |
+| 4 | Runtime, tool, or CLI I/O error |
 | 5 | Assertion or check failed (`assert` = fatal/halts, `check` = non-fatal/continues) |
 
 ## Installation

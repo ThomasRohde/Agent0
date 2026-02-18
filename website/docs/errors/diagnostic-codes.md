@@ -287,6 +287,13 @@ error[E_CAP_DENIED]: Capability 'sh.exec' is not allowed by the active policy.
 
 These errors occur during program execution and cannot be caught by `a0 check`.
 
+### E_IO
+
+**CLI I/O error** -- the CLI failed to read or write a required file (for example, source file, trace output, or evidence output).
+
+- **Common cause:** Missing file, invalid path, or insufficient filesystem permissions.
+- **Fix:** Verify file paths and permissions for the input/output paths passed to the command.
+
 ### E_TOOL_ARGS
 
 **Invalid tool arguments** -- the arguments passed to a tool do not match its input schema.
@@ -432,6 +439,7 @@ Use `check` for validations the agent should know about but that should not prev
 | `E_UNKNOWN_FN` | Compile | 2 | Unknown function |
 | `E_UNKNOWN_TOOL` | Compile | 2 | Unknown tool |
 | `E_CAP_DENIED` | Runtime | 3 | Capability denied by policy |
+| `E_IO` | Runtime | 4 | CLI file/trace/evidence I/O failure |
 | `E_TOOL_ARGS` | Runtime | 4 | Invalid tool arguments |
 | `E_TOOL` | Runtime | 4 | Tool execution failure |
 | `E_FN` | Runtime | 4 | Stdlib function error |

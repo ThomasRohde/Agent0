@@ -521,6 +521,30 @@ describe("A0 Validator", () => {
     assert.equal(diags.length, 0);
   });
 
+  it("reports E_DUP_BINDING when let reuses a prior fn name", () => {
+    const src = `fn build { x } {\n  return { x: x }\n}\nlet build = 42\nreturn { value: build }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_DUP_BINDING" && d.message.includes("build")));
+  });
+
+  it("reports E_DUP_BINDING when arrow target reuses a prior fn name", () => {
+    const src = `fn build { x } {\n  return { x: x }\n}\n{ ok: true } -> build\nreturn { build: build }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_DUP_BINDING" && d.message.includes("build")));
+  });
+
+  it("reports E_DUP_BINDING for fn-name collisions inside nested scopes", () => {
+    const src = `let out = for { in: [1], as: "item" } {\n  fn build { x } {\n    return { x: x }\n  }\n  let build = item\n  return { build: build }\n}\nreturn { out: out }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_DUP_BINDING" && d.message.includes("build")));
+  });
+
   // --- Issue 4: fn name collides with stdlib ---
 
   it("reports E_FN_DUP when fn name collides with stdlib 'map'", () => {

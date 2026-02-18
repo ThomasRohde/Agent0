@@ -90,6 +90,15 @@ describe("A0 CLI Help Content", () => {
     assert.ok(TOPICS.diagnostics.includes("E_IMPORT_UNSUPPORTED"));
   });
 
+  it("diagnostics topic documents E_IO for CLI file errors", () => {
+    assert.ok(TOPICS.diagnostics.includes("E_IO"));
+  });
+
+  it("tools topic documents unknown-tool validation behavior", () => {
+    assert.ok(TOPICS.tools.includes("Unknown tool name"));
+    assert.ok(TOPICS.tools.includes("usually exit 2"));
+  });
+
   it("syntax topic documents nested-scope shadowing", () => {
     assert.ok(TOPICS.syntax.includes("Shadowing is allowed in nested scopes"));
   });

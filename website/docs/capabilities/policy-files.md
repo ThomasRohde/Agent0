@@ -11,7 +11,8 @@ Policy files control which capabilities are allowed at runtime. They are JSON fi
 ```json
 {
   "version": 1,
-  "allow": ["http.get", "fs.read"]
+  "allow": ["http.get", "fs.read"],
+  "deny": ["sh.exec"]
 }
 ```
 
@@ -19,7 +20,10 @@ Policy files control which capabilities are allowed at runtime. They are JSON fi
 |-------|------|-------------|
 | `version` | number | Policy format version (currently `1`) |
 | `allow` | string[] | List of capability identifiers to permit |
+| `deny` | string[] | Optional list of capabilities to explicitly deny (overrides `allow`) |
 | `limits` | object | Optional resource limits (reserved for future use) |
+
+When both `allow` and `deny` are present, `deny` takes precedence -- a capability listed in both will be denied.
 
 The `allow` array accepts any combination of the four A0 capabilities:
 

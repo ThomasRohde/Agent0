@@ -1,13 +1,13 @@
 {
   "name": "@a0/std",
-  "version": "0.3.6",
+  "version": "0.5.0",
   "description": "A0 standard library: parse.json, get/put, patch",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "clean": "rm -rf dist",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "test": "node --test dist/**/*.test.js"
   },
   "dependencies": {

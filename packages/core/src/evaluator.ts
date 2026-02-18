@@ -267,7 +267,12 @@ async function executeBlock(
     } else if (stmt.kind === "ExprStmt") {
       const val = await evalExpr(stmt.expr, env, options, evidence, emitTrace, budget, tracker, userFns);
       if (stmt.target) {
-        env.set(stmt.target.parts[0], val);
+        const parts = stmt.target.parts;
+        let wrappedVal: A0Value = val;
+        for (let i = parts.length - 1; i >= 1; i--) {
+          wrappedVal = { [parts[i]]: wrappedVal };
+        }
+        env.set(parts[0], wrappedVal);
       }
     } else if (stmt.kind === "FnDecl") {
       userFns.set(stmt.name, stmt);

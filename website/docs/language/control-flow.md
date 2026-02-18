@@ -108,6 +108,7 @@ return { results: results }
 `match` discriminates records that contain an `ok` or `err` key, enabling error-handling patterns.
 
 ```a0
+# Match on a variable (identPath)
 let output = match result {
   ok { val } {
     return { data: val }
@@ -116,9 +117,21 @@ let output = match result {
     return { error: e }
   }
 }
+
+# Match on an expression (parenthesized)
+let output = match ({ ok: 42 }) {
+  ok { v } {
+    return { value: v }
+  }
+  err { e } {
+    return { error: e }
+  }
+}
 ```
 
-- The subject (`result`) must be a record with an `ok` or `err` key (`E_MATCH_NOT_RECORD` otherwise)
+- The subject must be a record with an `ok` or `err` key (`E_MATCH_NOT_RECORD` otherwise)
+- When matching on a variable, use `match ident { ... }`
+- When matching on an expression, wrap it in parentheses: `match ( expr ) { ... }`
 - If the record has an `ok` key, the `ok` arm runs with the value bound to the specified name (`val`)
 - If the record has an `err` key, the `err` arm runs with the value bound to the specified name (`e`)
 - Both arms must end with `return`

@@ -249,9 +249,10 @@ Parameters are destructured from the caller's record. Missing params default to 
 
 ### match — ok/err discrimination
 
-Discriminates records with `ok` or `err` keys:
+Discriminates records with `ok` or `err` keys. Two forms:
 
 ```
+# Match on a variable (identPath)
 let output = match result {
   ok { val } {
     return { data: val }
@@ -260,9 +261,19 @@ let output = match result {
     return { error: e }
   }
 }
+
+# Match on an expression (parenthesized)
+let output = match ({ ok: 42 }) {
+  ok { v } {
+    return { value: v }
+  }
+  err { e } {
+    return { error: e }
+  }
+}
 ```
 
-Subject must be a record with `ok` or `err` key. The inner value is bound to the named identifier. Both arms must end with `return`.
+Subject must be a record with `ok` or `err` key. When matching on a variable, use `match ident { ... }`. When matching on an expression, wrap it in parentheses: `match ( expr ) { ... }`. Both arms must end with `return`.
 
 ## Budget
 

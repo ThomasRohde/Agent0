@@ -120,7 +120,10 @@ function formatExpr(e: AST.Expr, depth: number): string {
       const inner = INDENT.repeat(depth + 1);
       const okBody = formatBlock(e.okArm.body, depth + 1);
       const errBody = formatBlock(e.errArm.body, depth + 1);
-      return `match ${formatExpr(e.subject, depth)} {\n${inner}ok { ${e.okArm.binding} } {\n${okBody}\n${inner}}\n${inner}err { ${e.errArm.binding} } {\n${errBody}\n${inner}}\n${INDENT.repeat(depth)}}`;
+      const subjectStr = e.subject.kind === "IdentPath"
+        ? formatExpr(e.subject, depth)
+        : `(${formatExpr(e.subject, depth)})`;
+      return `match ${subjectStr} {\n${inner}ok { ${e.okArm.binding} } {\n${okBody}\n${inner}}\n${inner}err { ${e.errArm.binding} } {\n${errBody}\n${inner}}\n${INDENT.repeat(depth)}}`;
     }
     case "BinaryExpr": {
       let leftStr = formatExpr(e.left, depth);

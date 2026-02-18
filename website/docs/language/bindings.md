@@ -37,6 +37,20 @@ do sh.exec { cmd: "echo hello", timeoutMs: 5000 } -> output
 
 The `-> name` syntax appears after a statement and captures its result. This is the primary way to capture tool return values.
 
+### Dotted Arrow Targets
+
+Arrow targets can use dotted paths to create nested records:
+
+```a0
+{ x: 1 } -> data.info
+# data = { info: { x: 1 } }
+
+42 -> a.b.c
+# a = { b: { c: 42 } }
+```
+
+A single-part target (`-> name`) works as before. Multi-part targets (`-> a.b`) wrap the value in nested records, binding only the first part as a variable name.
+
 ## No Reassignment
 
 A0 does not allow reassignment. Binding the same name twice in the same scope produces an `E_DUP_BINDING` error:

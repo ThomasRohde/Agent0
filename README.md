@@ -90,8 +90,8 @@ do fs.write { path: "out.json", data: response.body, format: "json" } -> result
 `assert` and `check` produce evidence records and emit trace events. A failing assertion stops the program (exit code 5).
 
 ```text
-assert { that: response.status, msg: "got response" } -> ev.status
-check { that: result.ok, msg: "file written" } -> ev.write
+assert { that: response.status, msg: "got response" } -> evStatus
+check { that: result.ok, msg: "file written" } -> evWrite
 ```
 
 ### Control Flow

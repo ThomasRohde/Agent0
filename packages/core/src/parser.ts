@@ -257,14 +257,27 @@ class A0CstParser extends CstParser {
     this.SUBRULE(this.block);
   });
 
-  // v0.3: match <identPath> { ok { binding } { body } err { binding } { body } }
+  // v0.3: match <identPath|( expr )> { ok { binding } { body } err { binding } { body } }
   matchExpr = this.RULE("matchExpr", () => {
     this.CONSUME(Match);
-    this.SUBRULE(this.identPath);
+    this.SUBRULE(this.matchSubject);
     this.CONSUME(LBrace);
     this.SUBRULE(this.matchArm);
     this.SUBRULE2(this.matchArm);
     this.CONSUME(RBrace);
+  });
+
+  matchSubject = this.RULE("matchSubject", () => {
+    this.OR([
+      {
+        ALT: () => {
+          this.CONSUME(LParen);
+          this.SUBRULE(this.expr);
+          this.CONSUME(RParen);
+        },
+      },
+      { ALT: () => this.SUBRULE(this.identPath) },
+    ]);
   });
 
   matchArm = this.RULE("matchArm", () => {
@@ -712,8 +725,19 @@ function visitForExpr(cst: CstNode, file: string): AST.ForExpr {
   };
 }
 
+function visitMatchSubject(cst: CstNode, file: string): AST.Expr {
+  const children = cst.children;
+  if (children["expr"]) {
+    return visitExpr((children["expr"] as CstNode[])[0], file);
+  }
+  if (children["identPath"]) {
+    return visitIdentPath((children["identPath"] as CstNode[])[0], file);
+  }
+  throw new Error("Unknown match subject type");
+}
+
 function visitMatchExpr(cst: CstNode, file: string): AST.MatchExpr {
-  const subject = visitIdentPath((cst.children["identPath"] as CstNode[])[0], file);
+  const subject = visitMatchSubject((cst.children["matchSubject"] as CstNode[])[0], file);
   const arms = cst.children["matchArm"] as CstNode[];
 
   let okArm: AST.MatchArm | undefined;

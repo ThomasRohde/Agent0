@@ -73,7 +73,13 @@ export async function runRun(
   const traceEvents: TraceEvent[] = [];
 
   if (opts.trace) {
-    traceFd = fs.openSync(opts.trace, "w");
+    try {
+      traceFd = fs.openSync(opts.trace, "w");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(JSON.stringify({ err: { code: "E_IO", message: `Error opening trace file: ${msg}` } }));
+      return 4;
+    }
   }
 
   const traceHandler = (event: TraceEvent) => {

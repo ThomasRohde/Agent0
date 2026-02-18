@@ -37,7 +37,7 @@ CONTROL FLOW
   let x = if { cond: expr, then: val, else: val }
   let results = for { in: list, as: "item" } { ... return { } }
   fn name { params } { ... return { } }    # define before use
-  let x = match expr { ok {v} { return {} } err {e} { return {} } }
+  let x = match ident { ok {v} { return {} } err {e} { return {} } }
   let out = map { in: list, fn: "fnName" } # apply fn to each element
 
 EVIDENCE
@@ -89,7 +89,8 @@ EXPRESSIONS
   name.field                             # property access (dot notation)
   if { cond: x, then: y, else: z }      # conditional (lazy evaluation)
   for { in: list, as: "v" } { body }    # iteration (produces list)
-  match expr { ok {v} {body} err {e} {body} }  # ok/err discrimination
+  match ident { ok {v} {body} err {e} {body} }  # ok/err discrimination
+  match ( expr ) { ok {v} {body} err {e} {body} }  # match on expression
   fn_name { key: val }                   # function/stdlib call
 
 BINDING FORMS
@@ -270,8 +271,8 @@ PREDICATE FUNCTIONS (use A0 truthiness: false/null/0/"" are falsy)
 
 LIST FUNCTIONS
 
-  len { in: list|str } -> int
-    Length of a list or string.
+  len { in: list|str|record } -> int
+    Length of a list, string, or record (number of keys).
 
   append { in: list, value: any } -> list
     Return new list with value added at end.
@@ -279,20 +280,20 @@ LIST FUNCTIONS
   concat { a: list, b: list } -> list
     Concatenate two lists.
 
-  sort { in: list, by?: str, order?: "asc"|"desc" } -> list
-    Sort a list (optionally by field). Default order: asc.
+  sort { in: list, by?: str } -> list
+    Sort a list (optionally by record field).
 
-  filter { in: list, fn: "fnName" } -> list
-    Keep elements where named function returns truthy.
+  filter { in: list, by: str } -> list
+    Keep record elements where element[by] is truthy.
 
-  find { in: list, fn: "fnName" } -> any|null
-    Return first element where named function returns truthy.
+  find { in: list, key: str, value: any } -> any|null
+    Return first record element where element[key] deeply equals value.
 
-  range { start?: int, end: int, step?: int } -> list
-    Generate a list of integers. Defaults: start=0, step=1.
+  range { from: int, to: int } -> list
+    Generate a list of integers from 'from' (inclusive) to 'to' (exclusive).
 
   join { in: list, sep?: str } -> str
-    Join list elements into a string. Default sep: ",".
+    Join list elements into a string. Default sep: "" (empty string).
 
   map { in: list, fn: "fnName" } -> list
     Apply a named user-defined function to each element, return results list.
@@ -312,11 +313,11 @@ STRING FUNCTIONS
   str.split { in: str, sep: str } -> list
     Split a string by separator.
 
-  str.starts { in: str, prefix: str } -> bool
-    Test whether string starts with prefix.
+  str.starts { in: str, value: str } -> bool
+    Test whether string starts with value.
 
   str.replace { in: str, from: str, to: str } -> str
-    Replace first occurrence of substring.
+    Replace all occurrences of substring.
 
 RECORD FUNCTIONS
 
@@ -450,7 +451,8 @@ fn — User-defined functions
     let result = greet { name: "world", greeting: "hello" }
 
 match — ok/err discrimination
-  Syntax: match expr { ok {var} { body } err {var} { body } }
+  Syntax: match ident { ok {var} { body } err {var} { body } }
+          match ( expr ) { ok {var} { body } err {var} { body } }
   - Subject must be a record with an ok or err key
   - The inner value is bound to the named variable
   - Both arms MUST end with return { ... }

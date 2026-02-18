@@ -145,6 +145,26 @@ describe("A0 Evaluator", () => {
     assert.equal(data["y"], 2);
   });
 
+  it("evaluates expression statement with -> dotted target (2-part)", async () => {
+    const src = `{ x: 1 } -> data.info\nreturn { data: data }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const data = val["data"] as A0Record;
+    assert.deepEqual(data, { info: { x: 1 } });
+  });
+
+  it("evaluates expression statement with -> dotted target (3-part)", async () => {
+    const src = `42 -> a.b.c\nreturn { a: a }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const a = val["a"] as A0Record;
+    assert.deepEqual(a, { b: { c: 42 } });
+  });
+
   it("collects trace events", async () => {
     const events: unknown[] = [];
     const src = `let x = 1\nreturn { x: x }`;
@@ -1039,6 +1059,26 @@ describe("A0 Evaluator", () => {
     const mapped = val["result"] as A0Record[];
     assert.deepEqual(mapped[0]["name"], "Alice Smith");
     assert.deepEqual(mapped[1]["name"], "Bob Jones");
+  });
+
+  it("evaluates match with parenthesized expression subject", async () => {
+    const src = `let x = match ({ ok: 42 }) {\n  ok { v } {\n    return { v: v }\n  }\n  err { e } {\n    return { e: e }\n  }\n}\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const x = val["x"] as A0Record;
+    assert.equal(x["v"], 42);
+  });
+
+  it("evaluates match with inline record expression subject", async () => {
+    const src = `let x = match ({ err: "fail" }) {\n  ok { v } {\n    return { v: v }\n  }\n  err { e } {\n    return { e: e }\n  }\n}\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const x = val["x"] as A0Record;
+    assert.equal(x["e"], "fail");
   });
 
   it("tool_start trace includes mode", async () => {

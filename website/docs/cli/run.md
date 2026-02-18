@@ -71,6 +71,8 @@ a0 run examples/fetch-transform.a0 --trace trace.jsonl --unsafe-allow-all
 
 Each line in `trace.jsonl` is a JSON object representing one trace event (tool calls, statement execution, evidence, etc.). Use [`a0 trace`](./trace.md) to summarize the file.
 
+If the trace file path is invalid (e.g., a nonexistent directory), the command exits with code 4 and an `E_IO` error instead of crashing.
+
 ### Run with Pretty Errors
 
 When a program fails, `--pretty` produces human-readable diagnostics instead of raw JSON:

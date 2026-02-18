@@ -415,4 +415,18 @@ describe("A0 Parser", () => {
       assert.ok(result.program);
     }
   });
+
+  it("parses match with identPath subject", () => {
+    const src = `let r = { ok: 1 }\nlet x = match r { ok { v } { return { v: v } } err { e } { return { e: e } } }\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+  });
+
+  it("parses match with parenthesized expression subject", () => {
+    const src = `let x = match ({ ok: 42 }) { ok { v } { return { v: v } } err { e } { return { e: e } } }\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+  });
 });

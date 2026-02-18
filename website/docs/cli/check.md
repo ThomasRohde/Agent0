@@ -17,7 +17,6 @@ a0 check <file> [options]
 | Flag | Description |
 |------|-------------|
 | `--pretty` | Human-readable error output |
-| `--json` | JSON output (default) |
 
 ## Exit Codes
 

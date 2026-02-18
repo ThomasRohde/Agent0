@@ -79,6 +79,22 @@ describe("A0 Capabilities", () => {
       }
     });
 
+    it("loads deny list from policy file", () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-"));
+      const policyPath = path.join(tmpDir, ".a0policy.json");
+      fs.writeFileSync(policyPath, JSON.stringify({
+        version: 1,
+        allow: ["fs.read", "sh.exec"],
+        deny: ["sh.exec"],
+      }));
+      try {
+        const policy = loadPolicy(tmpDir);
+        assert.deepEqual(policy.deny, ["sh.exec"]);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true });
+      }
+    });
+
     it("filters non-string items from allow array", () => {
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-"));
       const policyPath = path.join(tmpDir, ".a0policy.json");
@@ -119,6 +135,28 @@ describe("A0 Capabilities", () => {
       const policy = { version: 1, allow: [] };
       const caps = buildAllowedCaps(policy, false);
       assert.equal(caps.size, 0);
+    });
+
+    it("deny list filters out allowed caps", () => {
+      const policy = { version: 1, allow: ["fs.read", "sh.exec"], deny: ["sh.exec"] };
+      const caps = buildAllowedCaps(policy, false);
+      assert.equal(caps.size, 1);
+      assert.ok(caps.has("fs.read"));
+      assert.ok(!caps.has("sh.exec"));
+    });
+
+    it("deny overrides allow", () => {
+      const policy = { version: 1, allow: ["fs.read", "fs.write", "http.get"], deny: ["fs.read", "http.get"] };
+      const caps = buildAllowedCaps(policy, false);
+      assert.equal(caps.size, 1);
+      assert.ok(caps.has("fs.write"));
+    });
+
+    it("deny is ignored with unsafeAllowAll", () => {
+      const policy = { version: 1, allow: ["fs.read"], deny: ["fs.read"] };
+      const caps = buildAllowedCaps(policy, true);
+      assert.ok(caps.has("fs.read"));
+      assert.equal(caps.size, 4);
     });
   });
 });

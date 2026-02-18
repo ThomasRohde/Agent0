@@ -9,6 +9,7 @@ import { KNOWN_CAPABILITIES } from "./validator.js";
 export interface Policy {
   version: number;
   allow: string[];
+  deny?: string[];
   limits?: Record<string, number>;
 }
 
@@ -58,12 +59,15 @@ function validatePolicyShape(data: unknown): Policy {
   const allow = Array.isArray(obj["allow"])
     ? (obj["allow"] as unknown[]).filter((x): x is string => typeof x === "string")
     : [];
+  const deny = Array.isArray(obj["deny"])
+    ? (obj["deny"] as unknown[]).filter((x): x is string => typeof x === "string")
+    : undefined;
   const limits =
     typeof obj["limits"] === "object" && obj["limits"] !== null
       ? (obj["limits"] as Record<string, number>)
       : undefined;
 
-  return { version, allow, limits };
+  return { version, allow, deny, limits };
 }
 
 /**
@@ -76,5 +80,6 @@ export function buildAllowedCaps(
   if (unsafeAllowAll) {
     return new Set(KNOWN_CAPABILITIES);
   }
-  return new Set(policy.allow);
+  const denySet = new Set(policy.deny ?? []);
+  return new Set(policy.allow.filter(c => !denySet.has(c)));
 }

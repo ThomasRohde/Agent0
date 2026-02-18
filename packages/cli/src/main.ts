@@ -26,7 +26,6 @@ program
   .description("Static validation without execution")
   .argument("<file>", "A0 source file to check")
   .option("--pretty", "Human-readable output", false)
-  .option("--json", "JSON output (default)", true)
   .action(async (file: string, opts: { pretty?: boolean }) => {
     const code = await runCheck(file, opts);
     process.exit(code);

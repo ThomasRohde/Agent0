@@ -63,9 +63,10 @@ When resolving a variable, the evaluator checks the current scope first, then wa
 The evaluator resolves names in this order:
 
 1. **Tool calls** (`call?` / `do`): Looked up in `ExecOptions.tools`
-2. **Stdlib functions**: Looked up in `ExecOptions.stdlib`
+2. **Built-in higher-order `map`**: Special-cased before generic function dispatch
 3. **User-defined functions**: Looked up in the `userFns` map (populated by `fn` definitions)
-4. **Variables**: Looked up in the current `Env` scope chain
+4. **Stdlib functions**: Looked up in `ExecOptions.stdlib`
+5. **Variables**: Looked up in the current `Env` scope chain
 
 ## Key interfaces
 
@@ -121,7 +122,7 @@ The evaluator emits 16 trace event types via the `trace` callback:
 | `evidence` | Each `assert` or `check` |
 | `budget_exceeded` | A budget limit is hit |
 | `for_start` / `for_end` | Loop lifecycle |
-| `fn_call_start` / `fn_call_end` | User function calls |
+| `fn_call_start` / `fn_call_end` | User function calls (including per-item `map` callbacks) |
 | `match_start` / `match_end` | Match expression evaluation |
 | `map_start` / `map_end` | Map operation |
 
@@ -136,7 +137,7 @@ Each event includes a timestamp, the run ID, source span, and event-specific dat
 | Capability denied by policy | `E_CAP_DENIED` | 3 |
 | Stdlib function error | `E_FN` | 4 |
 | Assert failure (fatal -- halts immediately) | `E_ASSERT` | 5 |
-| Check failure (non-fatal -- records evidence, continues; exit 5 after run) | `E_CHECK` | 5 |
+| Check failure (non-fatal -- records evidence, continues; exit 5 after run) | *(no dedicated diagnostic code)* | 5 |
 | Budget exceeded | `E_BUDGET` | 4 |
 | for input not a list | `E_FOR_NOT_LIST` | 4 |
 | match input not a record | `E_MATCH_NOT_RECORD` | 4 |

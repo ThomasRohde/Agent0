@@ -49,6 +49,7 @@ a0 run examples/hello.a0
 | `a0 check <file>` | Parse and validate without executing |
 | `a0 fmt <file>` | Canonical formatter (`--write` to overwrite) |
 | `a0 trace <file.jsonl>` | Summarize a JSONL trace file |
+| `a0 help [topic]` | Built-in language/runtime help topics |
 
 Flags: `--trace <file.jsonl>` on `run` to emit execution traces. `--pretty` for human-readable error output. `--unsafe-allow-all` to bypass capability checks during development.
 
@@ -251,6 +252,7 @@ Trace events: `run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `t
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
+| 1 | CLI usage/help error (unknown command/topic/option) |
 | 2 | Parse or validation error |
 | 3 | Capability denied |
 | 4 | Runtime or tool error |

@@ -6,7 +6,7 @@ sidebar_position: 100
 
 A0 is under active development. Here is the current status and planned direction.
 
-## Current: v0.3.6
+## Current: v0.5.1
 
 The current release includes the full core language:
 
@@ -21,9 +21,9 @@ The current release includes the full core language:
 - Budget system for resource limits
 - Evidence system with `assert` (fatal) and `check` (non-fatal)
 - JSONL trace output for auditing and debugging
-- CLI with `run`, `check`, `fmt`, and `trace` commands
+- CLI with `run`, `check`, `fmt`, `trace`, and `help` commands
 
-## v0.4 -- Go/WASM Runtime
+## Next -- Go/WASM Runtime
 
 Planned: a portable runtime written in Go, compilable to WebAssembly.
 
@@ -32,7 +32,7 @@ Planned: a portable runtime written in Go, compilable to WebAssembly.
 - Consistent execution semantics across platforms
 - WASI support for file and network access
 
-## v0.5 -- Plugin System
+## Later -- Plugin System
 
 Planned: extensibility through custom tool plugins.
 

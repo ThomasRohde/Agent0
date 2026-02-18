@@ -17,7 +17,7 @@ assert { that: true, msg: "this passes" }
 assert { that: false, msg: "this stops the program -- nothing after this runs" }
 ```
 
-The `that` field must be a boolean. The `msg` field is a string describing what is being asserted.
+The `that` field accepts any expression and uses A0 truthiness (`false`, `null`, `0`, and `""` are falsy). In practice, pass booleans for clarity. The `msg` field is a string describing what is being asserted.
 
 ### Binding the evidence record
 
@@ -31,7 +31,7 @@ The bound value is a record with the assertion result.
 
 ## check -- Non-Fatal
 
-`check` is **non-fatal**: it records evidence (ok or fail) and **continues execution** regardless of the result. If ANY `check` fails during the run, the program still completes all remaining statements, but the runner returns exit 5 after execution finishes (diagnostic `E_CHECK`).
+`check` is **non-fatal**: it records evidence (ok or fail) and **continues execution** regardless of the result. If ANY `check` fails during the run, the program still completes all remaining statements, but the runner returns exit 5 after execution finishes.
 
 Use `check` for validations the agent should know about but that should not prevent the program from finishing.
 
@@ -40,14 +40,14 @@ check { that: true, msg: "data structure valid" }
 check { that: false, msg: "this records a failure but execution continues" }
 ```
 
-Like `assert`, `check` accepts `that` (boolean) and `msg` (string) fields, and supports `->` binding.
+Like `assert`, `check` accepts `that` (truthiness-based) and `msg` (string) fields, and supports `->` binding.
 
 ## When to use each
 
 | Statement | On failure | Use when |
 |-----------|-----------|----------|
 | `assert`  | **Fatal**: stops immediately (exit 5, `E_ASSERT`) | An invariant MUST hold -- the program cannot continue |
-| `check`   | **Non-fatal**: records failure, continues (exit 5 after run, `E_CHECK`) | You want to gather all evidence before reporting |
+| `check`   | **Non-fatal**: records failure, continues (exit 5 after run) | You want to gather all evidence before reporting |
 
 ## Using predicates for meaningful conditions
 

@@ -290,9 +290,9 @@ return { content: content }
 
 ### E_TOOL
 
-**Tool execution failure** -- the tool ran but encountered an error (e.g., file not found, HTTP error, command failed).
+**Tool execution failure** -- the tool ran but threw unexpectedly (for example, file not found, network failure, or internal error).
 
-- **Common cause:** File does not exist, network error, command returned non-zero.
+- **Common cause:** File does not exist, network error, or an unexpected tool failure.
 - **Fix:** Verify inputs (file paths, URLs, commands) and use `match` to handle errors.
 
 ### E_FN
@@ -330,7 +330,7 @@ return { data: data }
 
 ```a0
 let data = { a: 1 }
-for item in data {
+for { in: data, as: "item" } {
   return { item: item }
 }
 return { done: true }
@@ -392,20 +392,11 @@ return { ok: true }
 error[E_ASSERT]: Assertion failed: something went wrong
 ```
 
-### E_CHECK
+### Check failures (no dedicated diagnostic code)
 
-**Check failed (non-fatal)** -- a `check` statement evaluated `that` to a falsy value. **An evidence record is produced but execution continues.** The program completes all remaining statements. If any check failed, the runner returns exit 5 after the program finishes.
+`check` failures are non-fatal. A failing `check` records evidence and execution continues. If any check fails, the runner returns exit 5 after the program finishes.
 
 Use `check` for validations the agent should know about but that should not prevent the program from finishing.
-
-- **Common cause:** A program property did not hold.
-- **Fix:** Investigate the failing condition using trace output and evidence records.
-
-```a0
-check { that: false, msg: "expected positive value" }
-# execution continues -- this return still runs
-return { ok: true }
-```
 
 ## Quick Reference Table
 
@@ -438,4 +429,3 @@ return { ok: true }
 | `E_MATCH_NO_ARM` | Runtime | 4 | No matching arm |
 | `E_TYPE` | Runtime | 4 | Type error |
 | `E_ASSERT` | Runtime | 5 | Assertion failed (fatal -- halts immediately) |
-| `E_CHECK` | Runtime | 5 | Check failed (non-fatal -- records evidence, continues) |

@@ -4,13 +4,14 @@ sidebar_position: 1
 
 # Exit Codes
 
-A0 CLI commands use a fixed set of exit codes to indicate the result of execution. These codes are consistent across all commands and can be used in scripts to determine what happened.
+A0 CLI commands use a fixed set of exit codes to indicate the result of execution. These codes are consistent across commands and can be used in scripts to determine what happened.
 
 ## Summary
 
 | Exit Code | Meaning | When It Occurs |
 |-----------|---------|----------------|
 | **0** | Success | Program completed normally |
+| **1** | CLI usage/help error | Unknown command/topic/option, command usage failure |
 | **2** | Parse or validation error | Compile-time issues caught by `a0 check` |
 | **3** | Capability denied | Program needs a capability not allowed by policy |
 | **4** | Runtime or tool error | Tool failure, budget exceeded, type error, etc. |
@@ -26,6 +27,18 @@ echo $?  # 0
 ```
 
 For `a0 check`, exit code 0 means the program has no compile-time errors. For `a0 fmt`, it means formatting succeeded.
+
+## Exit Code 1: CLI Usage/Help Error
+
+The CLI command itself failed before program parsing/execution due to invalid usage.
+
+Common cases:
+
+- Unknown command (for example, `a0 nope`)
+- Unknown `a0 help` topic
+- Unsupported option for a command
+
+These are command-surface errors, not A0 program diagnostics.
 
 ## Exit Code 2: Parse or Validation Error
 
@@ -115,7 +128,7 @@ An error occurred during program execution. The program was syntactically and se
 
 ```a0
 let data = "not a list"
-for item in data {
+for { in: data, as: "item" } {
   return { item: item }
 }
 return { done: true }
@@ -132,12 +145,12 @@ An `assert` or `check` statement evaluated to false. The two statements differ i
 - **`assert`** is **fatal** -- it halts execution immediately. No further statements run.
 - **`check`** is **non-fatal** -- it records the failure as evidence and continues execution. If any check failed, the runner returns exit 5 after the program finishes.
 
-**Diagnostic codes that produce exit 5:**
+**Diagnostics and conditions that produce exit 5:**
 
 | Code | Description |
 |------|-------------|
 | `E_ASSERT` | `assert` statement failed -- **fatal**, halts execution immediately |
-| `E_CHECK` | `check` statement failed -- **non-fatal**, records evidence and continues; exit 5 after run |
+| *(none)* | One or more `check` statements failed -- **non-fatal**, records evidence and continues; exit 5 after run |
 
 **Example (fatal assert):**
 

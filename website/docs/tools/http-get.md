@@ -59,7 +59,8 @@ return { status: resp.status }
 
 - **`E_TOOL_ARGS`** (exit 4) -- Missing or invalid arguments (e.g. no `url`).
 - **`E_TOOL`** (exit 4) -- Network error, DNS failure, or request timeout.
-- **`E_CAP_DENIED`** (exit 3) -- The `http.get` capability was not declared.
+- **`E_CAP_DENIED`** (exit 3) -- The active policy denied `http.get`.
+- **`E_UNDECLARED_CAP`** (exit 2) -- Program used `http.get` without declaring `cap { http.get: true }`.
 
 ## See Also
 

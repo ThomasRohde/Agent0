@@ -62,7 +62,8 @@ return { result: result }
 - **`E_TOOL_ARGS`** (exit 4) -- Missing or invalid arguments.
 - **`E_TOOL`** (exit 4) -- Cannot write to the path (permissions, disk full, etc.).
 - **`E_BUDGET`** (exit 4) -- `maxBytesWritten` budget exceeded.
-- **`E_CAP_DENIED`** (exit 3) -- The `fs.write` capability was not declared.
+- **`E_CAP_DENIED`** (exit 3) -- The active policy denied `fs.write`.
+- **`E_UNDECLARED_CAP`** (exit 2) -- Program used `fs.write` without declaring `cap { fs.write: true }`.
 - **`E_CALL_EFFECT`** (exit 2) -- Used `call?` instead of `do`.
 
 ## See Also

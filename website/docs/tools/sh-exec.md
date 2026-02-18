@@ -75,8 +75,9 @@ return { stdout: result.stdout }
 ## Errors
 
 - **`E_TOOL_ARGS`** (exit 4) -- Missing or invalid arguments (e.g. no `cmd`).
-- **`E_TOOL`** (exit 4) -- Command execution failed (e.g. timeout exceeded, command not found).
-- **`E_CAP_DENIED`** (exit 3) -- The `sh.exec` capability was not declared.
+- **`E_TOOL`** (exit 4) -- Rare unexpected tool failure.
+- **`E_CAP_DENIED`** (exit 3) -- The active policy denied `sh.exec`.
+- **`E_UNDECLARED_CAP`** (exit 2) -- Program used `sh.exec` without declaring `cap { sh.exec: true }`.
 - **`E_CALL_EFFECT`** (exit 2) -- Used `call?` instead of `do`.
 
 ## See Also

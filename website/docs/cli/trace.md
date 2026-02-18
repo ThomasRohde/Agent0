@@ -43,8 +43,8 @@ A0 emits 16 trace event types during execution. Each event is a JSON object writ
 | `budget_exceeded` | A budget limit was reached |
 | `for_start` | A `for` loop begins |
 | `for_end` | A `for` loop completes |
-| `fn_call_start` | A function call begins (user-defined or stdlib) |
-| `fn_call_end` | A function call completes |
+| `fn_call_start` | A user-function call begins (including per-item `map` callbacks) |
+| `fn_call_end` | A user-function call completes |
 | `match_start` | A `match` expression begins evaluation |
 | `match_end` | A `match` expression completes |
 | `map_start` | A `map` operation begins |

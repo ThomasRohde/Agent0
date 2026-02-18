@@ -50,7 +50,8 @@ return { content: content }
 
 - **`E_TOOL_ARGS`** (exit 4) -- Missing or invalid arguments (e.g. no `path`).
 - **`E_TOOL`** (exit 4) -- File does not exist or cannot be read.
-- **`E_CAP_DENIED`** (exit 3) -- The `fs.read` capability was not declared.
+- **`E_CAP_DENIED`** (exit 3) -- The active policy denied `fs.read`.
+- **`E_UNDECLARED_CAP`** (exit 2) -- Program used `fs.read` without declaring `cap { fs.read: true }`.
 
 ## See Also
 

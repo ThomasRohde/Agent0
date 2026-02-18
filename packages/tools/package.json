@@ -1,6 +1,6 @@
 {
   "name": "@a0/tools",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "A0 built-in tools: fs, http, sh",
   "type": "module",
   "main": "dist/index.js",

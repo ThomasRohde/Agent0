@@ -298,4 +298,58 @@ describe("A0 Validator", () => {
     const diags = validate(pr.program);
     assert.ok(!diags.some((d) => d.code === "E_CALL_EFFECT"));
   });
+
+  // --- E_UNKNOWN_FN static check tests ---
+
+  it("reports E_UNKNOWN_FN for forward function reference", () => {
+    const src = `let x = myFn { a: 1 }\nfn myFn { a } {\n  return { a: a }\n}\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_UNKNOWN_FN"));
+  });
+
+  it("no E_UNKNOWN_FN when function defined before use", () => {
+    const src = `fn myFn { a } {\n  return { a: a }\n}\nlet x = myFn { a: 1 }\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(!diags.some((d) => d.code === "E_UNKNOWN_FN"));
+  });
+
+  it("reports E_UNKNOWN_FN for completely unknown function", () => {
+    const src = `let x = nonexistent.fn { in: "hello" }\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_UNKNOWN_FN"));
+  });
+
+  it("no E_UNKNOWN_FN for known stdlib functions", () => {
+    const src = `let raw = "{\\"x\\": 1}"\nlet x = parse.json { in: raw }\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(!diags.some((d) => d.code === "E_UNKNOWN_FN"));
+  });
+
+  // --- E_UNKNOWN_TOOL static check tests ---
+
+  it("reports E_UNKNOWN_TOOL for unknown tool name", () => {
+    const src = `cap { fs.nope: true }\ncall? fs.nope { path: "test" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_UNKNOWN_TOOL"));
+    assert.ok(!diags.some((d) => d.code === "E_UNDECLARED_CAP"));
+  });
+
+  it("reports E_UNDECLARED_CAP for known tool without cap, not E_UNKNOWN_TOOL", () => {
+    const src = `call? fs.read { path: "test" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_UNDECLARED_CAP"));
+    assert.ok(!diags.some((d) => d.code === "E_UNKNOWN_TOOL"));
+  });
 });

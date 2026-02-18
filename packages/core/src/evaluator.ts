@@ -249,6 +249,7 @@ async function executeBlock(
     if (budget.timeMs !== undefined) {
       const elapsed = Date.now() - tracker.startMs;
       if (elapsed > budget.timeMs) {
+        emitTrace("budget_exceeded", stmt.span, { budget: "timeMs", limit: budget.timeMs, actual: elapsed });
         throw new A0RuntimeError(
           "E_BUDGET",
           `Budget exceeded: timeMs limit of ${budget.timeMs}ms exceeded (${elapsed}ms elapsed).`,
@@ -414,6 +415,7 @@ async function evalExpr(
       // Budget: maxToolCalls check
       tracker.toolCalls++;
       if (budget.maxToolCalls !== undefined && tracker.toolCalls > budget.maxToolCalls) {
+        emitTrace("budget_exceeded", expr.span, { budget: "maxToolCalls", limit: budget.maxToolCalls, actual: tracker.toolCalls });
         throw new A0RuntimeError(
           "E_BUDGET",
           `Budget exceeded: maxToolCalls limit of ${budget.maxToolCalls} reached.`,
@@ -440,6 +442,7 @@ async function evalExpr(
           if (typeof rec["bytes"] === "number") {
             tracker.bytesWritten += rec["bytes"] as number;
             if (budget.maxBytesWritten !== undefined && tracker.bytesWritten > budget.maxBytesWritten) {
+              emitTrace("budget_exceeded", expr.span, { budget: "maxBytesWritten", limit: budget.maxBytesWritten, actual: tracker.bytesWritten });
               throw new A0RuntimeError(
                 "E_BUDGET",
                 `Budget exceeded: maxBytesWritten limit of ${budget.maxBytesWritten} bytes exceeded (${tracker.bytesWritten} bytes written).`,
@@ -584,6 +587,7 @@ async function evalExpr(
         // Budget: maxIterations check
         tracker.iterations++;
         if (budget.maxIterations !== undefined && tracker.iterations > budget.maxIterations) {
+          emitTrace("budget_exceeded", expr.span, { budget: "maxIterations", limit: budget.maxIterations, actual: tracker.iterations });
           throw new A0RuntimeError(
             "E_BUDGET",
             `Budget exceeded: maxIterations limit of ${budget.maxIterations} reached.`,

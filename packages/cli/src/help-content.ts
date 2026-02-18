@@ -332,6 +332,8 @@ RULES
   - Only declare fields the program needs
   - Unknown fields produce E_UNKNOWN_BUDGET at validation time (exit 2)
   - Budget is enforced at runtime — checked after each tool call / iteration
+  - maxBytesWritten is enforced after each write completes (post-effect);
+    the write side effect occurs before the limit is checked
   - budget can appear before or after cap, but both must precede statements
 
 EXAMPLE

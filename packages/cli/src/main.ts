@@ -73,4 +73,13 @@ program
     runHelp(topic);
   });
 
+// Reject unknown commands before Commander parses (prevents --help from masking exit code)
+const knownCommands = new Set(["check", "run", "fmt", "trace", "help"]);
+const userArgs = process.argv.slice(2);
+const firstPositional = userArgs.find((a) => !a.startsWith("-"));
+if (firstPositional && !knownCommands.has(firstPositional)) {
+  console.error(`Unknown command: ${firstPositional}`);
+  process.exit(1);
+}
+
 program.parse();

@@ -20,6 +20,18 @@ export const KNOWN_TOOL_MODES: ReadonlyMap<string, "read" | "effect"> = new Map(
   ["sh.exec", "effect"],
 ]);
 
+export const KNOWN_STDLIB = new Set([
+  "parse.json",
+  "get",
+  "put",
+  "patch",
+  "eq",
+  "contains",
+  "not",
+  "and",
+  "or",
+]);
+
 export const KNOWN_BUDGET_FIELDS = new Set([
   "timeMs",
   "maxToolCalls",
@@ -261,7 +273,16 @@ function validateCapUsage(
     visitExprInStmt(stmt, (expr) => {
       if (expr.kind === "CallExpr" || expr.kind === "DoExpr") {
         const toolName = expr.tool.parts.join(".");
-        if (!declaredCaps.has(toolName)) {
+        if (!KNOWN_CAPABILITIES.has(toolName)) {
+          diags.push(
+            makeDiag(
+              "E_UNKNOWN_TOOL",
+              `Unknown tool '${toolName}'.`,
+              expr.tool.span,
+              `Valid tools: ${[...KNOWN_CAPABILITIES].join(", ")}`
+            )
+          );
+        } else if (!declaredCaps.has(toolName)) {
           diags.push(
             makeDiag(
               "E_UNDECLARED_CAP",
@@ -332,11 +353,23 @@ function validateExprBindings(
         validateExprBindings(p.value, bindings, fnNames, diags);
       }
       break;
-    case "FnCallExpr":
+    case "FnCallExpr": {
+      const fnName = expr.name.parts.join(".");
+      if (!fnNames.has(fnName) && !KNOWN_STDLIB.has(fnName)) {
+        diags.push(
+          makeDiag(
+            "E_UNKNOWN_FN",
+            `Unknown function '${fnName}'.`,
+            expr.name.span,
+            `Known stdlib functions: ${[...KNOWN_STDLIB].join(", ")}. User-defined functions must be declared before use.`
+          )
+        );
+      }
       for (const p of expr.args.pairs) {
         validateExprBindings(p.value, bindings, fnNames, diags);
       }
       break;
+    }
     case "IfExpr":
       validateExprBindings(expr.cond, bindings, fnNames, diags);
       validateExprBindings(expr.then, bindings, fnNames, diags);

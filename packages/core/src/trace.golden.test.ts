@@ -482,6 +482,45 @@ describe("Trace Golden Tests", () => {
     ]);
   });
 
+  it("budget exceeded emits budget_exceeded trace event", async () => {
+    const mockTool: ToolDef = {
+      name: "test.read",
+      mode: "read",
+      capabilityId: "test.read",
+      async execute(): Promise<A0Value> {
+        return "data";
+      },
+    };
+    const tools = new Map([["test.read", mockTool]]);
+    const caps = new Set(["test.read"]);
+    const events: TraceEvent[] = [];
+
+    const src = `budget { maxToolCalls: 1 }\ncap { test.read: true }\nlet a = call? test.read { key: "1" }\nlet b = call? test.read { key: "2" }\nreturn { a: a, b: b }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+
+    try {
+      await execute(
+        pr.program!,
+        makeOptions({
+          tools,
+          allowedCapabilities: caps,
+          trace: (ev) => events.push(ev),
+        })
+      );
+      assert.fail("Should have thrown");
+    } catch (e) {
+      assert.ok(e instanceof A0RuntimeError);
+      assert.equal((e as A0RuntimeError).code, "E_BUDGET");
+    }
+
+    const budgetEvents = events.filter((e) => e.event === "budget_exceeded");
+    assert.equal(budgetEvents.length, 1);
+    assert.equal((budgetEvents[0].data as A0Record)["budget"], "maxToolCalls");
+    assert.equal((budgetEvents[0].data as A0Record)["limit"], 1);
+    assert.equal((budgetEvents[0].data as A0Record)["actual"], 2);
+  });
+
   it("golden snapshot for tool call program", async () => {
     const mockTool: ToolDef = {
       name: "test.read",

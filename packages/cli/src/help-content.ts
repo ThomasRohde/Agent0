@@ -46,7 +46,7 @@ EVIDENCE
 
 CAPS: fs.read  fs.write  http.get  sh.exec
 BUDGET: timeMs  maxToolCalls  maxBytesWritten  maxIterations
-EXIT CODES: 0=ok  2=parse/validate  3=cap-denied  4=runtime  5=assert/check
+EXIT CODES: 0=ok  1=cli-usage/help  2=parse/validate  3=cap-denied  4=runtime  5=assert/check
 PROPERTY ACCESS: resp.body  result.exitCode  data.items
 
 MINIMAL EXAMPLE                        HTTP EXAMPLE
@@ -536,7 +536,7 @@ RUNTIME ERRORS (exit 3/4/5)
   E_MATCH_NOT_RECORD 4    match on non-record         Ensure subject is { ok: ... } or { err: ... }
   E_MATCH_NO_ARM    4     No ok/err key in subject   Subject must have ok or err key
   E_ASSERT          5     assert condition false (fatal, halts)        Fix condition or upstream data
-  E_CHECK           5     check condition false (non-fatal, continues) Fix condition or upstream data; exit 5 after run
+  check failed      5     non-fatal evidence failure                    Fix condition or upstream data; exit 5 after run
 
 DEBUGGING WORKFLOW
   1. a0 check file.a0              # catch compile-time errors first

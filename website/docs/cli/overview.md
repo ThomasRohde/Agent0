@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # CLI Overview
 
-The `a0` command-line interface provides four commands for working with A0 programs.
+The `a0` command-line interface provides five commands for working with A0 programs.
 
 ## Commands
 
@@ -14,6 +14,7 @@ The `a0` command-line interface provides four commands for working with A0 progr
 | [`a0 check`](./check.md) | Parse and validate without executing |
 | [`a0 fmt`](./fmt.md) | Canonically format A0 source code |
 | [`a0 trace`](./trace.md) | Summarize a JSONL execution trace |
+| `a0 help [topic]` | Show built-in language and runtime help topics |
 
 ## Quick Start
 
@@ -48,7 +49,7 @@ These flags are available on commands where applicable:
 | `--trace <file>` | `run` | Write execution trace to a JSONL file |
 | `--unsafe-allow-all` | `run` | Bypass all capability checks (development only) |
 | `--write` | `fmt` | Overwrite the source file in place |
-| `--json` | `check`, `trace` | Output as JSON |
+| `--json` | `trace` | Output as JSON |
 | `--evidence <file>` | `run` | Write evidence records to a JSON file |
 
 ## Exit Codes
@@ -58,6 +59,7 @@ All commands use a consistent set of exit codes. See [Exit Codes](../errors/exit
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
+| 1 | CLI usage/help error (unknown command/topic/option) |
 | 2 | Parse or validation error |
 | 3 | Capability denied |
 | 4 | Runtime or tool error |

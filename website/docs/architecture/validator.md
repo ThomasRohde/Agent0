@@ -32,6 +32,10 @@ The validator performs semantic checks on the AST before execution. It catches e
 - Capability values must be literal `true` (`E_CAP_VALUE`)
 - Tools used with `call?` or `do` must have their capability declared in `cap` (`E_UNDECLARED_CAP`)
 
+### Import headers
+
+- `import ... as ...` headers are currently reserved and rejected with `E_IMPORT_UNSUPPORTED`
+
 ### Tool mode enforcement
 
 - Read-mode tools (`fs.read`, `http.get`) can be used with either `call?` or `do`
@@ -69,6 +73,7 @@ The validator runs at compile time (during `a0 check` or before `a0 run`). It ca
 | Duplicate bindings | Compile | `E_DUP_BINDING` |
 | Unbound variables | Compile | `E_UNBOUND` |
 | Unknown capabilities | Compile | `E_UNKNOWN_CAP` |
+| Unsupported import headers | Compile | `E_IMPORT_UNSUPPORTED` |
 | Invalid capability value | Compile | `E_CAP_VALUE` |
 | Undeclared capabilities | Compile | `E_UNDECLARED_CAP` |
 | call? with effect tool | Compile | `E_CALL_EFFECT` |

@@ -61,7 +61,7 @@ let b = greet { name: "Bob" }
 
 - The body is a block `{ ... }` that **must end with `return`**
 - The body can contain any statements: `let` bindings, tool calls, other function calls, control flow
-- Variables from the outer scope are **not** accessible inside the function (no closures)
+- Function bodies can read bindings from parent scope (parent-chained scoping)
 
 ### Example: Shell Command Wrapper
 
@@ -149,7 +149,6 @@ Be mindful of stack depth -- A0 does not have tail-call optimization.
 
 ## Restrictions
 
-- **No closures**: functions cannot access variables from the scope where they were defined
 - **No hoisting**: functions must be defined before they are called
 - **No duplicate names**: defining two functions with the same name produces `E_FN_DUP`
 - **Record arguments only**: function arguments must be records `{ key: value }`

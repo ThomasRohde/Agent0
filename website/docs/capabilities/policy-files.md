@@ -40,7 +40,7 @@ When `a0 run` loads a policy, it checks these locations in order:
 2. **User-level**: `~/.a0/policy.json` in the user's home directory
 3. **Default**: deny all capabilities
 
-The first policy file found is used. If no file exists, the default deny-all policy applies -- every capability request will fail with `E_CAP_DENIED`.
+The first valid policy file is used. If a policy file exists but is malformed or has an invalid shape, it is ignored and resolution continues to the next location. If no valid file exists, the default deny-all policy applies -- every capability request will fail with `E_CAP_DENIED`.
 
 ```
 .a0policy.json          <-- checked first (project-local)

@@ -176,12 +176,12 @@ Map iterations count toward the [`maxIterations`](../capabilities/budgets.md) bu
 
 ```a0
 fn double { n } {
-  return n * 2
+  return { value: n * 2 }
 }
 
 let nums = [1, 2, 3, 4]
 let doubled = map { in: nums, fn: "double" }
-# -> [2, 4, 6, 8]
+# -> [{ value: 2 }, { value: 4 }, { value: 6 }, { value: 8 }]
 
 return { doubled: doubled }
 ```
@@ -190,7 +190,7 @@ Map with record destructuring:
 
 ```a0
 fn fullName { first, last } {
-  return str.concat { parts: [first, " ", last] }
+  return { name: str.concat { parts: [first, " ", last] } }
 }
 
 let people = [
@@ -198,7 +198,7 @@ let people = [
   { first: "Bob", last: "Jones" }
 ]
 let names = map { in: people, fn: "fullName" }
-# -> ["Alice Smith", "Bob Jones"]
+# -> [{ name: "Alice Smith" }, { name: "Bob Jones" }]
 
 return { names: names }
 ```

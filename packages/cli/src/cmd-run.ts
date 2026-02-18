@@ -21,6 +21,18 @@ export async function runRun(
   file: string,
   opts: { trace?: string; evidence?: string; pretty?: boolean; unsafeAllowAll?: boolean }
 ): Promise<number> {
+  const writeEvidenceFile = (records: Evidence[]): number | null => {
+    if (!opts.evidence) return null;
+    try {
+      fs.writeFileSync(opts.evidence, JSON.stringify(records, null, 2));
+      return null;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(JSON.stringify({ err: { code: "E_IO", message: `Error writing evidence file: ${msg}` } }));
+      return 4;
+    }
+  };
+
   // Read source
   let source: string;
   try {
@@ -99,9 +111,10 @@ export async function runRun(
       runId,
     });
 
-    // Write evidence
-    if (opts.evidence && result.evidence.length > 0) {
-      fs.writeFileSync(opts.evidence, JSON.stringify(result.evidence, null, 2));
+    // Write evidence (including empty list) when requested
+    const evidenceWriteCode = writeEvidenceFile(result.evidence);
+    if (evidenceWriteCode !== null) {
+      return evidenceWriteCode;
     }
 
     // Output result
@@ -114,9 +127,9 @@ export async function runRun(
     return 0;
   } catch (e) {
     if (e instanceof A0RuntimeError) {
-      // Write evidence from error if available (assert/check failures)
-      if (opts.evidence && e.evidence && e.evidence.length > 0) {
-        fs.writeFileSync(opts.evidence, JSON.stringify(e.evidence, null, 2));
+      const evidenceWriteCode = writeEvidenceFile(e.evidence ?? []);
+      if (evidenceWriteCode !== null) {
+        return evidenceWriteCode;
       }
 
       if (pretty) {
@@ -133,6 +146,10 @@ export async function runRun(
       return 4;
     }
     const msg = e instanceof Error ? e.message : String(e);
+    const evidenceWriteCode = writeEvidenceFile([]);
+    if (evidenceWriteCode !== null) {
+      return evidenceWriteCode;
+    }
     if (pretty) {
       console.error(formatDiagnostic({ code: "E_RUNTIME", message: msg }, true));
     } else {

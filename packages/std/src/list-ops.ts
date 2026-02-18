@@ -142,8 +142,8 @@ export const rangeFn: StdlibFn = {
   execute(args: A0Record): A0Value {
     const from = args["from"] ?? null;
     const to = args["to"] ?? null;
-    if (typeof from !== "number" || typeof to !== "number") {
-      throw new Error("range: 'from' and 'to' must be numbers");
+    if (typeof from !== "number" || typeof to !== "number" || !Number.isInteger(from) || !Number.isInteger(to)) {
+      throw new Error("range: 'from' and 'to' must be integers");
     }
     if (from >= to) return [];
     const result: number[] = [];

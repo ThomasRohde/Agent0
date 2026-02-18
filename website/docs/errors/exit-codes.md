@@ -54,6 +54,7 @@ The source file has structural or semantic problems that prevent execution. Thes
 | `E_NO_RETURN` | Missing return statement |
 | `E_RETURN_NOT_LAST` | Return is not the last statement |
 | `E_UNKNOWN_CAP` | Unknown capability name |
+| `E_IMPORT_UNSUPPORTED` | Import declarations are not yet supported |
 | `E_CAP_VALUE` | Capability value is not literal `true` |
 | `E_UNDECLARED_CAP` | Tool used without cap declaration |
 | `E_UNKNOWN_BUDGET` | Unknown budget field name |
@@ -118,7 +119,7 @@ An error occurred during program execution. The program was syntactically and se
 | `E_BUDGET` | Budget limit exceeded |
 | `E_UNKNOWN_FN` | Function not found at runtime |
 | `E_UNKNOWN_TOOL` | Tool not found at runtime |
-| `E_PATH` | Path operation error (invalid path in `get`/`put`) |
+| `E_PATH` | Dot-access on a non-record value |
 | `E_FOR_NOT_LIST` | `for` expression received a non-list value |
 | `E_MATCH_NOT_RECORD` | `match` expression received a non-record value |
 | `E_MATCH_NO_ARM` | `match` expression has no matching arm |

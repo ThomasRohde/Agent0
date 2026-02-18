@@ -478,7 +478,14 @@ describe("range", () => {
   it("throws on non-number", () => {
     assert.throws(
       () => rangeFn.execute({ from: "a", to: "b" }),
-      (err: Error) => err.message.includes("must be numbers")
+      (err: Error) => err.message.includes("must be integers")
+    );
+  });
+
+  it("throws on non-integer number", () => {
+    assert.throws(
+      () => rangeFn.execute({ from: 0.5, to: 3 }),
+      (err: Error) => err.message.includes("must be integers")
     );
   });
 });

@@ -103,6 +103,8 @@ The parser recognizes these top-level constructs:
 - **Control flow**: `for { in, as } { body }`, `match expr { arms }`
 - **Expressions**: Inline `if { cond, then, else }`, stdlib calls, arithmetic
 
+`import ... as ...` is currently parsed for forward compatibility but rejected by semantic validation (`E_IMPORT_UNSUPPORTED`).
+
 ### Error recovery
 
 The parser is configured with `recoveryEnabled: false`. Parse errors produce `E_PARSE` diagnostics and halt immediately. This design choice favors precise error messages over partial AST recovery.

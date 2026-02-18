@@ -31,6 +31,14 @@ describe("A0 Validator", () => {
     assert.ok(diags.some((d) => d.code === "E_UNKNOWN_CAP"));
   });
 
+  it("reports unsupported import declarations", () => {
+    const src = `import "utils" as u\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_IMPORT_UNSUPPORTED"));
+  });
+
   it("reports unbound variable", () => {
     const src = `return { x: undeclared }`;
     const pr = parse(src, "test.a0");
@@ -45,6 +53,22 @@ describe("A0 Validator", () => {
     assert.ok(pr.program);
     const diags = validate(pr.program);
     assert.ok(diags.some((d) => d.code === "E_DUP_BINDING"));
+  });
+
+  it("allows shadowing parent bindings inside nested scopes", () => {
+    const src = `let x = 1\nlet ys = for { in: [2], as: "i" } {\n  let x = i\n  return { x: x }\n}\nreturn { x: x, ys: ys }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(!diags.some((d) => d.code === "E_DUP_BINDING"));
+  });
+
+  it("allows function bodies to read outer-scope bindings", () => {
+    const src = `let x = 42\nfn show { } {\n  return { x: x }\n}\nlet out = show { }\nreturn { out: out }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(!diags.some((d) => d.code === "E_UNBOUND"));
   });
 
   it("accepts valid capabilities", () => {

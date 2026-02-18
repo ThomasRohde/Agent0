@@ -88,6 +88,18 @@ error[E_UNKNOWN_CAP]: Unknown capability 'http.post'.
   hint: Valid capabilities: fs.read, fs.write, http.get, sh.exec
 ```
 
+### E_IMPORT_UNSUPPORTED
+
+**Import declarations are not supported yet** -- `import "..." as ...` is currently reserved for a future release.
+
+- **Common cause:** Trying to use import headers before the feature is implemented.
+- **Fix:** Remove `import ... as ...` and inline the required logic for now.
+
+```a0
+import "utils" as u
+return {}
+```
+
 ### E_CAP_VALUE
 
 **Invalid capability value** -- capability declarations in `cap { ... }` must use literal `true`.
@@ -316,10 +328,10 @@ return { data: data }
 
 ### E_PATH
 
-**Path operation error** -- a `get` or `put` path operation failed.
+**Dot-access on non-record** -- property access (for example `x.y`) was attempted on a non-record value.
 
-- **Common cause:** Path does not exist in the data structure, invalid path syntax.
-- **Fix:** Verify the path exists in the input data.
+- **Common cause:** The base value is `null`, a number, a string, or a list rather than a record.
+- **Fix:** Ensure the base expression evaluates to a record before using dot-access.
 
 ### E_FOR_NOT_LIST
 
@@ -408,6 +420,7 @@ Use `check` for validations the agent should know about but that should not prev
 | `E_NO_RETURN` | Compile | 2 | Missing return statement |
 | `E_RETURN_NOT_LAST` | Compile | 2 | Return not last statement |
 | `E_UNKNOWN_CAP` | Compile | 2 | Unknown capability |
+| `E_IMPORT_UNSUPPORTED` | Compile | 2 | Import declarations are unsupported |
 | `E_CAP_VALUE` | Compile | 2 | Invalid capability value |
 | `E_UNDECLARED_CAP` | Compile | 2 | Undeclared capability |
 | `E_UNKNOWN_BUDGET` | Compile | 2 | Unknown budget field |
@@ -423,7 +436,7 @@ Use `check` for validations the agent should know about but that should not prev
 | `E_TOOL` | Runtime | 4 | Tool execution failure |
 | `E_FN` | Runtime | 4 | Stdlib function error |
 | `E_BUDGET` | Runtime | 4 | Budget limit exceeded |
-| `E_PATH` | Runtime | 4 | Path operation error |
+| `E_PATH` | Runtime | 4 | Dot-access on non-record |
 | `E_FOR_NOT_LIST` | Runtime | 4 | For loop on non-list |
 | `E_MATCH_NOT_RECORD` | Runtime | 4 | Match on non-record |
 | `E_MATCH_NO_ARM` | Runtime | 4 | No matching arm |

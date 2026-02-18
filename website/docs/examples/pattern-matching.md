@@ -115,7 +115,7 @@ let result = if { cond: some_condition, then: { ok: success_value }, else: { err
 # Dispatch on the key
 let handled = match result {
   ok { value } {
-    return value
+    return { value: value }
   }
   err { reason } {
     return { error: reason }

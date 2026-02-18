@@ -86,6 +86,14 @@ describe("A0 CLI Help Content", () => {
     assert.ok(TOPICS.budget.includes("E_BUDGET_TYPE"));
   });
 
+  it("diagnostics topic documents unsupported import headers", () => {
+    assert.ok(TOPICS.diagnostics.includes("E_IMPORT_UNSUPPORTED"));
+  });
+
+  it("syntax topic documents nested-scope shadowing", () => {
+    assert.ok(TOPICS.syntax.includes("Shadowing is allowed in nested scopes"));
+  });
+
   it("runHelp supports unique prefix matching", () => {
     const result = captureHelp("diag");
     assert.ok(result.stdout.includes("A0 DIAGNOSTICS REFERENCE"));

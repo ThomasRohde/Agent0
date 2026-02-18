@@ -123,6 +123,8 @@ Write evidence records (from `assert` and `check` statements) to a file:
 a0 run assertions.a0 --evidence evidence.json
 ```
 
+When `--evidence` is provided, the file is always written. If no `assert`/`check` events occur, the file contains `[]`.
+
 ## How It Works
 
 The `run` command performs these steps in order:

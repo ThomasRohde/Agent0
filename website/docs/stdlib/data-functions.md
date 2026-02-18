@@ -66,7 +66,7 @@ let updated = put { in: data, path: "user.email", value: "alice@example.com" }
 let withList = put { in: {}, path: "items[0]", value: "first" }
 # -> { items: ["first"] }
 
-return updated
+return { updated: updated }
 ```
 
 ## patch
@@ -97,8 +97,8 @@ let patched = patch {
   ]
 }
 
-return patched
-# -> { name: "bob", email: "bob@example.com" }
+return { patched: patched }
+# -> { patched: { name: "bob", email: "bob@example.com" } }
 ```
 
 Using `test` to assert a value before modifying:
@@ -114,8 +114,8 @@ let result = patch {
   ]
 }
 
-return result
-# -> { version: 2, name: "draft" }
+return { result: result }
+# -> { result: { version: 2, name: "draft" } }
 ```
 
 The `test` operation throws `E_FN` if the value at the path does not match.
@@ -133,8 +133,8 @@ let moved = patch {
   ]
 }
 
-return moved
-# -> { first: "alice", fullName: "alice", surname: "smith" }
+return { moved: moved }
+# -> { moved: { first: "alice", fullName: "alice", surname: "smith" } }
 ```
 
 ## See Also

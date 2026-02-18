@@ -44,6 +44,7 @@ a0 check <file> [options]
 | `E_NO_RETURN` | Program or function body missing `return` |
 | `E_RETURN_NOT_LAST` | `return` is not the last statement |
 | `E_UNKNOWN_CAP` | Unknown capability in `cap { ... }` declaration |
+| `E_IMPORT_UNSUPPORTED` | `import ... as ...` is reserved and not yet supported |
 | `E_CAP_VALUE` | Capability value is not literal `true` |
 | `E_UNDECLARED_CAP` | Tool used without declaring its capability |
 | `E_UNKNOWN_BUDGET` | Unknown field in `budget { ... }` declaration |

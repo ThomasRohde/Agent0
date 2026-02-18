@@ -71,6 +71,7 @@ COMMENTS
 PROGRAM HEADERS (must appear before any statements, any order)
   cap { capability.name: true, ... }     # declare required capabilities (value must be true)
   budget { field: value, ... }           # declare resource limits
+  import "path" as alias                 # reserved for future use (currently E_IMPORT_UNSUPPORTED)
 
 STATEMENTS
   let name = expr                        # bind a value
@@ -110,7 +111,8 @@ LINE RULES
 SCOPING
   - Top-level: cap, budget, fn definitions, then statements
   - fn/for/match bodies have their own scope (parent-chained)
-  - No variable reassignment — each let/-> creates a new binding
+  - No variable reassignment in the same scope — each let/-> creates a new binding
+  - Shadowing is allowed in nested scopes (for/fn/match bodies)
   - fn params and for loop variables are scoped to their body
 `.trimStart(),
 
@@ -447,7 +449,7 @@ fn — User-defined functions
   - Params are destructured from caller's record
   - Missing params default to null
   - Body MUST end with return { ... }
-  - Direct recursion allowed, no closures
+  - Direct recursion allowed; fn bodies can read outer-scope bindings
   - Duplicate fn names produce E_FN_DUP
   Example:
     fn greet { name, greeting } {
@@ -509,6 +511,7 @@ COMPILE-TIME ERRORS (exit 2) — caught by a0 check
   E_NO_RETURN       Missing return                  Add return { ... } as last stmt
   E_RETURN_NOT_LAST Statements after return          Move return to end
   E_UNKNOWN_CAP     Invalid capability name          Use: fs.read fs.write http.get sh.exec
+  E_IMPORT_UNSUPPORTED Import declarations are reserved Remove import headers for now
   E_CAP_VALUE       Capability value not true        Use capability declarations like fs.read: true
   E_UNDECLARED_CAP  Tool used without cap            Add capability to cap { ... }
   E_UNKNOWN_BUDGET  Invalid budget field             Use: timeMs maxToolCalls maxBytesWritten maxIterations

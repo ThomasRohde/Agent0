@@ -53,10 +53,16 @@ Using `call?` with an effect tool is a compile-time error (`E_CALL_EFFECT`):
 ```a0
 cap { fs.write: true }
 
-# This is a compile-time error:
+# Wrong: compile-time error
 call? fs.write { path: "out.txt", data: "hello" } -> result
+return { result: result }
+```
 
-# Correct:
+Correct usage:
+
+```a0
+cap { fs.write: true }
+
 do fs.write { path: "out.txt", data: "hello" } -> result
 
 return { result: result }

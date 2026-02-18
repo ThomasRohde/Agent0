@@ -60,6 +60,20 @@ export const KNOWN_BUDGET_FIELDS = new Set([
 export function validate(program: AST.Program): Diagnostic[] {
   const diags: Diagnostic[] = [];
 
+  // Import declarations are parsed but intentionally unsupported for now.
+  for (const h of program.headers) {
+    if (h.kind === "ImportDecl") {
+      diags.push(
+        makeDiag(
+          "E_IMPORT_UNSUPPORTED",
+          "Import declarations are not supported yet.",
+          h.span,
+          "Remove 'import ... as ...' for now."
+        )
+      );
+    }
+  }
+
   // Check return statement exists
   const hasReturn = program.statements.some((s) => s.kind === "ReturnStmt");
   if (!hasReturn) {
@@ -244,10 +258,12 @@ function validateBlockBindings(
   requireReturn: boolean,
   context: string
 ): void {
-  const bindings = new Set(parentBindings);
+  const lookupBindings = new Set(parentBindings);
+  const localBindings = new Set<string>();
   const fnNames = new Set(parentFnNames);
   for (const name of extraBindings) {
-    bindings.add(name);
+    localBindings.add(name);
+    lookupBindings.add(name);
   }
 
   if (requireReturn) {
@@ -280,7 +296,7 @@ function validateBlockBindings(
 
   for (const stmt of body) {
     if (stmt.kind === "FnDecl") {
-      if (fnNames.has(stmt.name) || bindings.has(stmt.name)) {
+      if (fnNames.has(stmt.name) || localBindings.has(stmt.name)) {
         diags.push(
           makeDiag(
             "E_FN_DUP",
@@ -302,9 +318,9 @@ function validateBlockBindings(
         );
       }
       fnNames.add(stmt.name);
-      validateBlockBindings(stmt.body, bindings, fnNames, [...stmt.params, stmt.name], diags, true, `function '${stmt.name}'`);
+      validateBlockBindings(stmt.body, lookupBindings, fnNames, [...stmt.params, stmt.name], diags, true, `function '${stmt.name}'`);
     } else if (stmt.kind === "LetStmt") {
-      if (bindings.has(stmt.name)) {
+      if (localBindings.has(stmt.name)) {
         diags.push(
           makeDiag(
             "E_DUP_BINDING",
@@ -314,13 +330,14 @@ function validateBlockBindings(
           )
         );
       }
-      validateExprBindings(stmt.value, bindings, fnNames, diags);
-      bindings.add(stmt.name);
+      validateExprBindings(stmt.value, lookupBindings, fnNames, diags);
+      localBindings.add(stmt.name);
+      lookupBindings.add(stmt.name);
     } else if (stmt.kind === "ExprStmt") {
-      validateExprBindings(stmt.expr, bindings, fnNames, diags);
+      validateExprBindings(stmt.expr, lookupBindings, fnNames, diags);
       if (stmt.target) {
         const targetName = stmt.target.parts[0];
-        if (bindings.has(targetName)) {
+        if (localBindings.has(targetName)) {
           diags.push(
             makeDiag(
               "E_DUP_BINDING",
@@ -330,10 +347,11 @@ function validateBlockBindings(
             )
           );
         }
-        bindings.add(targetName);
+        localBindings.add(targetName);
+        lookupBindings.add(targetName);
       }
     } else if (stmt.kind === "ReturnStmt") {
-      validateExprBindings(stmt.value, bindings, fnNames, diags);
+      validateExprBindings(stmt.value, lookupBindings, fnNames, diags);
     }
   }
 }

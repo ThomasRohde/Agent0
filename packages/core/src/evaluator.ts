@@ -120,9 +120,9 @@ function enforceTimeBudget(
 }
 
 function extractBudget(program: AST.Program): Budget {
+  const budget: Budget = {};
   for (const h of program.headers) {
     if (h.kind === "BudgetDecl") {
-      const budget: Budget = {};
       for (const p of h.budget.pairs) {
         if (p.key === "timeMs" && p.value.kind === "IntLiteral") {
           budget.timeMs = p.value.value;
@@ -137,10 +137,9 @@ function extractBudget(program: AST.Program): Budget {
           budget.maxIterations = p.value.value;
         }
       }
-      return budget;
     }
   }
-  return {};
+  return budget;
 }
 
 // --- Truthiness ---

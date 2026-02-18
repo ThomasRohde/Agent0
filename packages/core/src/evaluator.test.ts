@@ -512,6 +512,20 @@ describe("A0 Evaluator", () => {
 
   // --- Budget enforcement tests ---
 
+  it("merges budget fields across multiple budget headers", async () => {
+    const src = `budget { timeMs: 100000 }\nbudget { maxIterations: 1 }\nlet xs = [1, 2]\nlet ys = for { in: xs, as: "x" } {\n  return { v: x }\n}\nreturn { ys: ys }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_BUDGET");
+        assert.ok(err.message.includes("maxIterations"));
+        return true;
+      }
+    );
+  });
+
   it("enforces maxToolCalls budget", async () => {
     const mockTool: import("./evaluator.js").ToolDef = {
       name: "test.read",

@@ -92,6 +92,12 @@ JSON output (default):
 ]
 ```
 
+For non-pretty runtime/CLI failures, stderr emits a single JSON diagnostic object:
+
+```json
+{ "code": "E_IO", "message": "Error reading file: ..." }
+```
+
 Pretty output:
 
 ```

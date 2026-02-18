@@ -60,6 +60,20 @@ export const KNOWN_BUDGET_FIELDS = new Set([
 export function validate(program: AST.Program): Diagnostic[] {
   const diags: Diagnostic[] = [];
 
+  const budgetDecls = program.headers.filter((h): h is AST.BudgetDecl => h.kind === "BudgetDecl");
+  if (budgetDecls.length > 1) {
+    for (let i = 1; i < budgetDecls.length; i++) {
+      diags.push(
+        makeDiag(
+          "E_DUP_BUDGET",
+          "Only one budget header is allowed.",
+          budgetDecls[i].span,
+          "Combine all budget fields into a single 'budget { ... }' header."
+        )
+      );
+    }
+  }
+
   // Import declarations are parsed but intentionally unsupported for now.
   for (const h of program.headers) {
     if (h.kind === "ImportDecl") {
@@ -491,6 +505,21 @@ function validateExprBindings(
             `Known stdlib functions: ${[...KNOWN_STDLIB].join(", ")}. User-defined functions must be declared before use.`
           )
         );
+      }
+      // map resolves callback names from user-defined functions only.
+      // If the callback is a string literal, validate eagerly at check-time.
+      if (fnName === "map") {
+        const fnArg = expr.args.pairs.find((p) => p.key === "fn");
+        if (fnArg?.value.kind === "StrLiteral" && !fnNames.has(fnArg.value.value)) {
+          diags.push(
+            makeDiag(
+              "E_UNKNOWN_FN",
+              `Unknown function '${fnArg.value.value}'.`,
+              fnArg.value.span,
+              "For map, define the user function with 'fn' before use and pass its name as a string."
+            )
+          );
+        }
       }
       for (const p of expr.args.pairs) {
         validateExprBindings(p.value, bindings, fnNames, diags);

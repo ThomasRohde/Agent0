@@ -86,6 +86,10 @@ describe("A0 CLI Help Content", () => {
     assert.ok(TOPICS.budget.includes("E_BUDGET_TYPE"));
   });
 
+  it("budget topic documents duplicate budget header restriction", () => {
+    assert.ok(TOPICS.budget.includes("E_DUP_BUDGET"));
+  });
+
   it("diagnostics topic documents unsupported import headers", () => {
     assert.ok(TOPICS.diagnostics.includes("E_IMPORT_UNSUPPORTED"));
   });
@@ -96,6 +100,10 @@ describe("A0 CLI Help Content", () => {
 
   it("diagnostics topic documents E_TRACE for invalid trace input", () => {
     assert.ok(TOPICS.diagnostics.includes("E_TRACE"));
+  });
+
+  it("diagnostics topic documents E_RUNTIME for unexpected runtime failures", () => {
+    assert.ok(TOPICS.diagnostics.includes("E_RUNTIME"));
   });
 
   it("tools topic documents unknown-tool validation behavior", () => {

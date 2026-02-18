@@ -8,7 +8,7 @@ Budgets constrain how many resources an A0 program can consume. They act as safe
 
 ## Syntax
 
-Declare a `budget` block at the top of your program, after `cap` declarations:
+Declare a single `budget` block at the top of your program, after `cap` declarations:
 
 ```a0
 cap { fs.read: true, fs.write: true }
@@ -92,6 +92,7 @@ return { doubled: doubled }
 ## Errors
 
 - **`E_BUDGET`** (exit 4) -- A budget limit was exceeded during execution. The trace event `budget_exceeded` is emitted with details about which field was exceeded, the limit, and the actual value.
+- **`E_DUP_BUDGET`** (exit 2) -- More than one `budget { ... }` header was declared. Merge all fields into one budget block.
 - **`E_UNKNOWN_BUDGET`** (exit 2) -- An unrecognized budget field was declared. This is a compile-time validation error. Valid fields are: `timeMs`, `maxToolCalls`, `maxBytesWritten`, `maxIterations`.
 - **`E_BUDGET_TYPE`** (exit 2) -- A budget field value was not an integer literal.
 

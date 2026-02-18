@@ -49,4 +49,13 @@ describe("CLI I/O errors", () => {
     assert.equal(result.code, 4);
     assert.ok(result.stderr.includes("error[E_IO]"));
   });
+
+  it("a0 run returns top-level JSON diagnostic for E_IO when --pretty is not set", async () => {
+    const missing = path.join(os.tmpdir(), `a0-missing-run-json-${Date.now()}.a0`);
+    const result = await captureCmd(() => runRun(missing, {}));
+    assert.equal(result.code, 4);
+    const diag = JSON.parse(result.stderr) as { code: string; err?: unknown };
+    assert.equal(diag.code, "E_IO");
+    assert.equal(diag.err, undefined);
+  });
 });

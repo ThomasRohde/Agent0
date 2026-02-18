@@ -57,6 +57,7 @@ The source file has structural or semantic problems that prevent execution. Thes
 | `E_IMPORT_UNSUPPORTED` | Import declarations are not yet supported |
 | `E_CAP_VALUE` | Capability value is not literal `true` |
 | `E_UNDECLARED_CAP` | Tool used without cap declaration |
+| `E_DUP_BUDGET` | Multiple budget headers declared |
 | `E_UNKNOWN_BUDGET` | Unknown budget field name |
 | `E_BUDGET_TYPE` | Budget value is not an integer literal |
 | `E_DUP_BINDING` | Duplicate variable name |
@@ -117,6 +118,7 @@ An error occurred during program execution, or the CLI failed to perform a requi
 | `E_TRACE` | Trace file had no valid JSONL events |
 | `E_TOOL` | Tool execution failed |
 | `E_TOOL_ARGS` | Invalid arguments passed to a tool |
+| `E_RUNTIME` | Unexpected runtime failure |
 | `E_FN` | Stdlib function threw an error |
 | `E_BUDGET` | Budget limit exceeded |
 | `E_UNKNOWN_FN` | Function not found at runtime (rare; usually caught at compile time) |

@@ -48,13 +48,14 @@ a0 check <file> [options]
 | `E_IMPORT_UNSUPPORTED` | `import ... as ...` is reserved and not yet supported |
 | `E_CAP_VALUE` | Capability value is not literal `true` |
 | `E_UNDECLARED_CAP` | Tool used without declaring its capability |
+| `E_DUP_BUDGET` | Multiple `budget { ... }` headers in one program |
 | `E_UNKNOWN_BUDGET` | Unknown field in `budget { ... }` declaration |
 | `E_BUDGET_TYPE` | Budget field value is not an integer literal |
 | `E_DUP_BINDING` | Variable name already used in scope |
 | `E_UNBOUND` | Variable referenced but never defined |
 | `E_CALL_EFFECT` | `call?` used with an effectful tool (use `do` instead) |
 | `E_FN_DUP` | Duplicate function definition |
-| `E_UNKNOWN_FN` | Unknown function name |
+| `E_UNKNOWN_FN` | Unknown function name (including `map` callback when provided as a string literal) |
 | `E_UNKNOWN_TOOL` | Unknown tool name in `call?` or `do` |
 
 ### What It Does NOT Catch
@@ -64,6 +65,7 @@ These errors only occur at runtime and will not be detected by `a0 check`:
 - `E_CAP_DENIED` -- capability denied by policy (exit 3)
 - `E_TOOL_ARGS` -- invalid arguments passed to a tool (exit 4)
 - `E_TOOL` -- tool execution failure (exit 4)
+- `E_RUNTIME` -- unexpected runtime failure (exit 4)
 - `E_FN` -- stdlib function error (exit 4)
 - `E_BUDGET` -- budget limit exceeded (exit 4)
 - `E_ASSERT` -- fatal assertion failure, halts immediately (exit 5)

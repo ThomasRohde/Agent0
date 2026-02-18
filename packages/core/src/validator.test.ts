@@ -305,6 +305,14 @@ describe("A0 Validator", () => {
     assert.equal(typeDiags.length, 2);
   });
 
+  it("reports E_DUP_BUDGET for multiple budget headers", () => {
+    const src = `budget { timeMs: 5000 }\nbudget { maxToolCalls: 3 }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_DUP_BUDGET"));
+  });
+
   // --- E_CALL_EFFECT static check tests ---
 
   it("reports E_CALL_EFFECT for call? on fs.write", () => {
@@ -459,6 +467,22 @@ describe("A0 Validator", () => {
     assert.ok(pr.program);
     const diags = validate(pr.program);
     assert.ok(!diags.some((d) => d.code === "E_UNKNOWN_FN"));
+  });
+
+  it("reports E_UNKNOWN_FN for map callback not declared yet", () => {
+    const src = `let result = map { in: [1, 2], fn: "double" }\nfn double { x } {\n  return { val: x * 2 }\n}\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_UNKNOWN_FN" && d.message.includes("double")));
+  });
+
+  it("reports E_UNKNOWN_FN for map callback targeting stdlib name", () => {
+    const src = `let result = map { in: [1, 2], fn: "len" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_UNKNOWN_FN" && d.message.includes("len")));
   });
 
   it("accepts str.concat without E_UNKNOWN_FN", () => {

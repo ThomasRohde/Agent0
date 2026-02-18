@@ -44,12 +44,14 @@ The validator performs semantic checks on the AST before execution. It catches e
 
 ### Budget fields
 
+- Only one `budget { ... }` header is allowed per program (`E_DUP_BUDGET`)
 - Only known budget fields are allowed: `timeMs`, `maxToolCalls`, `maxBytesWritten`, `maxIterations` (`E_UNKNOWN_BUDGET`)
 - Budget field values must be integer literals (`E_BUDGET_TYPE`)
 
 ### Known functions and tools
 
 - Stdlib function calls must reference known stdlib names (`E_UNKNOWN_FN`)
+- `map` callback names (when provided as string literals) must refer to user-defined functions declared earlier (`E_UNKNOWN_FN`)
 - Tool calls must reference known tool names (`E_UNKNOWN_TOOL`)
 - User-defined function names must be unique (`E_FN_DUP`)
 
@@ -77,6 +79,7 @@ The validator runs at compile time (during `a0 check` or before `a0 run`). It ca
 | Invalid capability value | Compile | `E_CAP_VALUE` |
 | Undeclared capabilities | Compile | `E_UNDECLARED_CAP` |
 | call? with effect tool | Compile | `E_CALL_EFFECT` |
+| Duplicate budget header | Compile | `E_DUP_BUDGET` |
 | Unknown budget fields | Compile | `E_UNKNOWN_BUDGET` |
 | Invalid budget value type | Compile | `E_BUDGET_TYPE` |
 | Unknown functions | Compile | `E_UNKNOWN_FN` |

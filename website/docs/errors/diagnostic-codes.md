@@ -150,6 +150,24 @@ error[E_UNKNOWN_BUDGET]: Unknown budget field 'maxTime'.
   hint: Valid budget fields: timeMs, maxToolCalls, maxBytesWritten, maxIterations
 ```
 
+### E_DUP_BUDGET
+
+**Duplicate budget header** -- only one `budget { ... }` header is allowed per program.
+
+- **Common cause:** Splitting budget fields across multiple `budget` blocks.
+- **Fix:** Merge all budget fields into a single `budget { ... }` declaration.
+
+```a0
+budget { timeMs: 5000 }
+budget { maxToolCalls: 3 }
+return {}
+```
+
+```
+error[E_DUP_BUDGET]: Only one budget header is allowed.
+  hint: Combine all budget fields into a single 'budget { ... }' header.
+```
+
 ### E_BUDGET_TYPE
 
 **Invalid budget value type** -- budget fields must use integer literals.
@@ -321,6 +339,13 @@ return { content: content }
 - **Common cause:** File does not exist, network error, or an unexpected tool failure.
 - **Fix:** Verify inputs (file paths, URLs, commands) and use `match` to handle errors.
 
+### E_RUNTIME
+
+**Unexpected runtime failure** -- an unclassified error escaped normal runtime handling.
+
+- **Common cause:** Internal bug or unexpected edge case in runtime/tool integration.
+- **Fix:** Re-run with `--trace` and report a reproducible case with the emitted diagnostic and trace.
+
 ### E_FN
 
 **Stdlib function error** -- a stdlib function threw an error during execution.
@@ -437,6 +462,7 @@ Use `check` for validations the agent should know about but that should not prev
 | `E_IMPORT_UNSUPPORTED` | Compile | 2 | Import declarations are unsupported |
 | `E_CAP_VALUE` | Compile | 2 | Invalid capability value |
 | `E_UNDECLARED_CAP` | Compile | 2 | Undeclared capability |
+| `E_DUP_BUDGET` | Compile | 2 | Duplicate budget header |
 | `E_UNKNOWN_BUDGET` | Compile | 2 | Unknown budget field |
 | `E_BUDGET_TYPE` | Compile | 2 | Invalid budget value type |
 | `E_DUP_BINDING` | Compile | 2 | Duplicate variable name |
@@ -450,6 +476,7 @@ Use `check` for validations the agent should know about but that should not prev
 | `E_TRACE` | Runtime | 4 | Trace file has no valid JSONL events |
 | `E_TOOL_ARGS` | Runtime | 4 | Invalid tool arguments |
 | `E_TOOL` | Runtime | 4 | Tool execution failure |
+| `E_RUNTIME` | Runtime | 4 | Unexpected runtime failure |
 | `E_FN` | Runtime | 4 | Stdlib function error |
 | `E_BUDGET` | Runtime | 4 | Budget limit exceeded |
 | `E_PATH` | Runtime | 4 | Dot-access on non-record |

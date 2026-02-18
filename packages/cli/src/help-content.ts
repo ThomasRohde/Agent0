@@ -398,6 +398,7 @@ FIELDS
 
 RULES
   - Only declare fields the program needs
+  - Declare at most one budget header (E_DUP_BUDGET)
   - Unknown fields produce E_UNKNOWN_BUDGET at validation time (exit 2)
   - Budget fields must be integer literals (E_BUDGET_TYPE)
   - timeMs is enforced during expression and statement evaluation
@@ -514,6 +515,7 @@ COMPILE-TIME ERRORS (exit 2) — caught by a0 check
   E_IMPORT_UNSUPPORTED Import declarations are reserved Remove import headers for now
   E_CAP_VALUE       Capability value not true        Use capability declarations like fs.read: true
   E_UNDECLARED_CAP  Tool used without cap            Add capability to cap { ... }
+  E_DUP_BUDGET      Multiple budget headers          Merge fields into one budget { ... }
   E_UNKNOWN_BUDGET  Invalid budget field             Use: timeMs maxToolCalls maxBytesWritten maxIterations
   E_BUDGET_TYPE     Budget value not int literal     Use integer literals in budget { ... }
   E_DUP_BINDING     Duplicate let name               Rename one binding
@@ -531,6 +533,7 @@ RUNTIME ERRORS (exit 3/4/5)
   E_UNKNOWN_TOOL    4     Unknown tool at runtime (rare) Usually caught by validation (exit 2)
   E_TOOL_ARGS       4     Invalid tool arguments     Check args match tool schema
   E_TOOL            4     Tool execution failed       Check args, paths, URLs, perms
+  E_RUNTIME         4     Unexpected runtime error    Report bug with repro; inspect trace/output context
   E_BUDGET          4     Budget limit exceeded       Increase limit or reduce usage
   E_UNKNOWN_FN      4     Unknown function at runtime (rare) Check: parse.json get put patch eq contains not and or
                                                      len append concat sort filter find range join map

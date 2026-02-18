@@ -27,7 +27,7 @@ export async function runRun(
       console.error(formatDiagnostic({ code, message }, true));
       return;
     }
-    console.error(JSON.stringify({ err: { code, message } }));
+    console.error(formatDiagnostic({ code, message }, false));
   };
 
   const writeEvidenceFile = (records: Evidence[]): number | null => {
@@ -67,7 +67,7 @@ export async function runRun(
   if (!parseResult.program) {
     console.error(pretty
       ? "error: Parse produced no program."
-      : JSON.stringify({ err: { code: "E_PARSE", message: "Parse produced no program." } }));
+      : formatDiagnostic({ code: "E_PARSE", message: "Parse produced no program." }, false));
     return 2;
   }
 
@@ -144,7 +144,10 @@ export async function runRun(
       } else {
         console.error(
           JSON.stringify({
-            err: { code: e.code, message: e.message, span: e.span, details: e.details },
+            code: e.code,
+            message: e.message,
+            span: e.span,
+            details: e.details,
           })
         );
       }
@@ -160,7 +163,7 @@ export async function runRun(
     if (pretty) {
       console.error(formatDiagnostic({ code: "E_RUNTIME", message: msg }, true));
     } else {
-      console.error(JSON.stringify({ err: { code: "E_RUNTIME", message: msg } }));
+      console.error(formatDiagnostic({ code: "E_RUNTIME", message: msg }, false));
     }
     return 4;
   } finally {

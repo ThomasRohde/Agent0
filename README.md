@@ -9,7 +9,6 @@
   <a href="#examples">Examples</a> &middot;
   <a href="#built-in-tools">Tools</a> &middot;
   <a href="#capabilities-and-policy">Capabilities</a> &middot;
-  <a href="FUTURE.md">Roadmap</a>
 </p>
 
 ---

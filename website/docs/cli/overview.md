@@ -1,0 +1,100 @@
+---
+sidebar_position: 1
+---
+
+# CLI Overview
+
+The `a0` command-line interface provides four commands for working with A0 programs.
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| [`a0 run`](./run.md) | Execute an A0 program and print its result |
+| [`a0 check`](./check.md) | Parse and validate without executing |
+| [`a0 fmt`](./fmt.md) | Canonically format A0 source code |
+| [`a0 trace`](./trace.md) | Summarize a JSONL execution trace |
+
+## Quick Start
+
+```bash
+# Validate a program (no execution)
+a0 check program.a0
+
+# Run a program
+a0 run program.a0
+
+# Run with human-readable errors
+a0 run program.a0 --pretty
+
+# Format source code
+a0 fmt program.a0
+
+# Format and overwrite in place
+a0 fmt program.a0 --write
+
+# Run with trace output, then summarize
+a0 run program.a0 --trace trace.jsonl
+a0 trace trace.jsonl
+```
+
+## Common Flags
+
+These flags are available on commands where applicable:
+
+| Flag | Commands | Description |
+|------|----------|-------------|
+| `--pretty` | `run`, `check` | Human-readable error output instead of JSON |
+| `--trace <file>` | `run` | Write execution trace to a JSONL file |
+| `--unsafe-allow-all` | `run` | Bypass all capability checks (development only) |
+| `--write` | `fmt` | Overwrite the source file in place |
+| `--json` | `check`, `trace` | Output as JSON |
+| `--evidence <file>` | `run` | Write evidence records to a JSON file |
+
+## Exit Codes
+
+All commands use a consistent set of exit codes. See [Exit Codes](../errors/exit-codes.md) for details.
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 2 | Parse or validation error |
+| 3 | Capability denied |
+| 4 | Runtime or tool error |
+| 5 | Assertion or check failed |
+
+## Installation
+
+After building the A0 monorepo, install the CLI globally:
+
+```bash
+npm install
+npm run build
+npm install -g ./packages/cli
+```
+
+Verify the installation:
+
+```bash
+a0 --version
+```
+
+## Built-in Help
+
+The CLI includes a built-in help system with language reference topics:
+
+```bash
+# General help
+a0 --help
+
+# Topic-specific help
+a0 help syntax
+a0 help types
+a0 help tools
+a0 help stdlib
+a0 help caps
+a0 help budget
+a0 help flow
+a0 help diagnostics
+a0 help examples
+```

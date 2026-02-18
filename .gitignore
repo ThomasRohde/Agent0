@@ -6,3 +6,8 @@ dist/
 coverage/
 .nyc_output/
 experiments/
+
+# Docusaurus
+website/build/
+website/.docusaurus/
+website/.cache-loader/

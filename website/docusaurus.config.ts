@@ -8,7 +8,7 @@ const config: Config = {
   favicon: 'img/favicon.ico',
 
   url: 'https://thomasrohde.github.io',
-  baseUrl: '/Agent0/',
+  baseUrl: process.env.NODE_ENV === 'production' ? '/Agent0/' : '/',
 
   organizationName: 'ThomasRohde',
   projectName: 'Agent0',

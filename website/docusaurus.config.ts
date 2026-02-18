@@ -8,10 +8,10 @@ const config: Config = {
   favicon: 'img/favicon.ico',
 
   url: 'https://thomasrohde.github.io',
-  baseUrl: '/agent0/',
+  baseUrl: '/Agent0/',
 
   organizationName: 'ThomasRohde',
-  projectName: 'agent0',
+  projectName: 'Agent0',
 
   onBrokenLinks: 'throw',
 

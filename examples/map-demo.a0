@@ -1,0 +1,25 @@
+# map-demo.a0 — Demonstrates the map higher-order function
+
+# Define a function that doubles a number
+fn double { x } {
+  return { val: x * 2 }
+}
+
+# Map over a list of numbers
+let nums = [1, 2, 3, 4, 5]
+let doubled = map { in: nums, fn: "double" }
+
+# Define a function that formats a user record
+fn formatUser { name, age } {
+  let label = str.concat { parts: [name, " (age ", age, ")"] }
+  return { label: label, name: name }
+}
+
+# Map over a list of records with multi-param destructuring
+let users = [
+  { name: "Alice", age: 30 },
+  { name: "Bob", age: 25 }
+]
+let formatted = map { in: users, fn: "formatUser" }
+
+return { doubled: doubled, formatted: formatted }

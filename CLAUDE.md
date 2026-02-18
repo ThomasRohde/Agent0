@@ -80,7 +80,7 @@ Note: `ok`, `err`, `in`, `cond`, `then`, `else` are NOT keywords — they are pa
 
 ## Trace Events
 
-`run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `tool_end`, `evidence`, `budget_exceeded`, `for_start`, `for_end`, `fn_call_start`, `fn_call_end`, `match_start`, `match_end`.
+`run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `tool_end`, `evidence`, `budget_exceeded`, `for_start`, `for_end`, `fn_call_start`, `fn_call_end`, `match_start`, `match_end`, `map_start`, `map_end`.
 
 ## Budget Fields
 

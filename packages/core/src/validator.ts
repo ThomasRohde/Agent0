@@ -32,6 +32,8 @@ export const KNOWN_STDLIB = new Set([
   "or",
   // v0.35: list, string, record operations
   "len",
+  // v0.36: higher-order
+  "map",
   "append",
   "concat",
   "sort",

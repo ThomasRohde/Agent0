@@ -307,7 +307,9 @@ The tool ran but threw an error.
 
 The function name is not a recognized stdlib function.
 
-**Valid functions**: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or`, `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `str.concat`, `str.split`, `str.starts`, `str.replace`, `keys`, `values`, `merge`
+**Valid functions**: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or`, `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `str.concat`, `str.split`, `str.starts`, `str.replace`, `keys`, `values`, `merge`, `map`
+
+**Note for `map`**: `E_UNKNOWN_FN` also occurs when `map { in: list, fn: "name" }` references a function that hasn't been defined with `fn`. Ensure the function is declared before the `map` call.
 
 **Before** (broken):
 ```

@@ -138,6 +138,7 @@ Predicates use A0 truthiness: `false`, `null`, `0`, and `""` are falsy; everythi
 | `find` | First element where key matches value | `{ in: list, key: str, value: any }` -> `any\|null` |
 | `range` | Generate integer list | `{ from: int, to: int }` -> `list` |
 | `join` | Join list of strings | `{ in: list, sep?: str }` -> `str` |
+| `map` | Transform list via named function | `{ in: list, fn: str }` -> `list` |
 
 ### String Operations
 
@@ -209,6 +210,30 @@ let results = for { in: items, as: "item" } {
 
 Body must end with `return`. Budget-aware via `maxIterations`. The loop variable (`item`) is scoped to the body.
 
+### map — Higher-order list transformation
+
+Apply a user-defined function to every element of a list, collecting results. The function must be defined with `fn` before use and referenced by name as a string.
+
+```
+fn double { x } {
+  return { val: x * 2 }
+}
+let doubled = map { in: [1, 2, 3], fn: "double" }
+# doubled == [{ val: 2 }, { val: 4 }, { val: 6 }]
+```
+
+Multi-param functions work with record items — params are destructured from record keys:
+
+```
+fn fullName { first, last } {
+  let name = str.concat { parts: [first, " ", last] }
+  return { name: name }
+}
+let names = map { in: users, fn: "fullName" }
+```
+
+Budget-aware via `maxIterations` (shared counter with `for`). Errors propagate immediately — no partial results.
+
 ### fn — User-defined functions
 
 Define before use. Called with record-style arguments. Direct recursion allowed, no closures.
@@ -252,7 +277,7 @@ budget { timeMs: 30000, maxToolCalls: 10, maxBytesWritten: 1048576, maxIteration
 | `timeMs` | int | Maximum wall-clock time in milliseconds |
 | `maxToolCalls` | int | Maximum number of tool invocations |
 | `maxBytesWritten` | int | Maximum bytes written via `fs.write` |
-| `maxIterations` | int | Maximum `for` loop iterations (cumulative) |
+| `maxIterations` | int | Maximum `for` loop and `map` iterations (cumulative) |
 
 Only declare budget fields the program needs. Unknown fields produce `E_UNKNOWN_BUDGET` at validation time.
 
@@ -284,6 +309,9 @@ Avoid these frequent errors:
 - **Budget exceeded** → `E_BUDGET`. Increase the budget limit or reduce resource usage.
 - **Unknown budget field** → `E_UNKNOWN_BUDGET`. Valid fields: `timeMs`, `maxToolCalls`, `maxBytesWritten`, `maxIterations`.
 - **Duplicate function name** → `E_FN_DUP`. Each `fn` name must be unique.
+- **`map` with non-list `in`** → `E_TYPE`. The `in:` value must be a list.
+- **`map` with non-string `fn`** → `E_TYPE`. The `fn:` value must be a function name string.
+- **`map` with unknown function** → `E_UNKNOWN_FN`. The named function must be defined with `fn` before the `map` call.
 - **`for` on non-list** → `E_FOR_NOT_LIST`. The `in:` value must evaluate to a list.
 - **`match` on non-record** → `E_MATCH_NOT_RECORD`. The subject must be a record with `ok` or `err` key.
 - **`match` missing arm** → `E_MATCH_NO_ARM`. Subject record must have `ok` or `err` key.
@@ -353,3 +381,4 @@ Working `.a0` programs in `examples/`:
 - **`examples/for-demo.a0`** — List iteration with `for`
 - **`examples/fn-demo.a0`** — User-defined functions with `fn`
 - **`examples/match-demo.a0`** — ok/err discrimination with `match`
+- **`examples/map-demo.a0`** — Higher-order list transformation with `map`

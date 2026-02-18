@@ -27,7 +27,7 @@ export interface Evidence {
 }
 
 // --- Trace events ---
-export type TraceEventType = "run_start" | "run_end" | "stmt_start" | "stmt_end" | "tool_start" | "tool_end" | "evidence" | "budget_exceeded" | "for_start" | "for_end" | "fn_call_start" | "fn_call_end" | "match_start" | "match_end";
+export type TraceEventType = "run_start" | "run_end" | "stmt_start" | "stmt_end" | "tool_start" | "tool_end" | "evidence" | "budget_exceeded" | "for_start" | "for_end" | "fn_call_start" | "fn_call_end" | "match_start" | "match_end" | "map_start" | "map_end";
 
 export interface TraceEvent {
   ts: string;
@@ -511,6 +511,82 @@ async function evalExpr(
 
     case "FnCallExpr": {
       const fnName = expr.name.parts.join(".");
+
+      // Built-in higher-order: map
+      if (fnName === "map") {
+        const mapArgs: A0Record = {};
+        for (const p of expr.args.pairs) {
+          mapArgs[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
+        }
+
+        const listVal = mapArgs["in"];
+        if (!Array.isArray(listVal)) {
+          throw new A0RuntimeError(
+            "E_TYPE",
+            `map 'in' must be a list, got ${listVal === null ? "null" : typeof listVal}.`,
+            expr.span
+          );
+        }
+
+        const fnNameVal = mapArgs["fn"];
+        if (typeof fnNameVal !== "string") {
+          throw new A0RuntimeError(
+            "E_TYPE",
+            `map 'fn' must be a string, got ${fnNameVal === null ? "null" : typeof fnNameVal}.`,
+            expr.span
+          );
+        }
+
+        const mapFn = userFns.get(fnNameVal);
+        if (!mapFn) {
+          throw new A0RuntimeError(
+            "E_UNKNOWN_FN",
+            `Unknown function '${fnNameVal}'.`,
+            expr.span
+          );
+        }
+
+        emitTrace("map_start", expr.span, { fn: fnNameVal, listLength: listVal.length });
+
+        const results: A0Value[] = [];
+        for (const item of listVal) {
+          // Budget: maxIterations check (shared with for)
+          tracker.iterations++;
+          if (budget.maxIterations !== undefined && tracker.iterations > budget.maxIterations) {
+            emitTrace("budget_exceeded", expr.span, { budget: "maxIterations", limit: budget.maxIterations, actual: tracker.iterations });
+            throw new A0RuntimeError(
+              "E_BUDGET",
+              `Budget exceeded: maxIterations limit of ${budget.maxIterations} reached.`,
+              expr.span,
+              { budget: "maxIterations", limit: budget.maxIterations, actual: tracker.iterations }
+            );
+          }
+
+          emitTrace("fn_call_start", expr.span, { fn: fnNameVal });
+          const fnEnv = env.child();
+
+          // Param binding: single-param → bind item directly; multi-param with record → destructure
+          if (mapFn.params.length === 1) {
+            fnEnv.set(mapFn.params[0], item);
+          } else if (item !== null && typeof item === "object" && !Array.isArray(item)) {
+            const rec = item as A0Record;
+            for (const param of mapFn.params) {
+              fnEnv.set(param, rec[param] ?? null);
+            }
+          } else {
+            for (const param of mapFn.params) {
+              fnEnv.set(param, null);
+            }
+          }
+
+          const iterResult = await executeBlock(mapFn.body, fnEnv, options, evidence, emitTrace, budget, tracker, userFns);
+          emitTrace("fn_call_end", expr.span, { fn: fnNameVal });
+          results.push(iterResult);
+        }
+
+        emitTrace("map_end", expr.span, { fn: fnNameVal, iterations: listVal.length });
+        return results;
+      }
 
       // Check user-defined functions first, then stdlib
       const userFn = userFns.get(fnName);

@@ -65,7 +65,7 @@ Map exit codes to error categories:
 | `E_TOOL_ARGS` | Invalid tool arguments | Check required fields in tool signature |
 | `E_TOOL` | Tool execution failed | Check tool args, file paths, URLs, permissions |
 | `E_BUDGET` | Budget limit exceeded | Increase budget limit or reduce resource usage |
-| `E_UNKNOWN_FN` | Stdlib function not found | Check spelling: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or`, `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `str.concat`, `str.split`, `str.starts`, `str.replace`, `keys`, `values`, `merge` |
+| `E_UNKNOWN_FN` | Stdlib/user function not found | Check spelling: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or`, `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `str.concat`, `str.split`, `str.starts`, `str.replace`, `keys`, `values`, `merge`, `map`. For `map`, ensure the `fn` name matches a defined `fn` |
 | `E_FN` | Stdlib function threw | Check function args (e.g., invalid JSON to `parse.json`) |
 | `E_PATH` | Property access on non-record | Verify the variable holds a record before dot access |
 | `E_FOR_NOT_LIST` | `for` `in:` value is not a list | Ensure `in:` evaluates to a list `[...]` |

@@ -395,6 +395,14 @@ describe("A0 Validator", () => {
     assert.ok(!diags.some((d) => d.code === "E_UNKNOWN_FN"));
   });
 
+  it("accepts map without E_UNKNOWN_FN", () => {
+    const src = `fn double { x } {\n  return { val: x * 2 }\n}\nlet result = map { in: [1, 2], fn: "double" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(!diags.some((d) => d.code === "E_UNKNOWN_FN"));
+  });
+
   it("accepts str.concat without E_UNKNOWN_FN", () => {
     const src = `let x = str.concat { parts: ["a", "b"] }\nreturn { x: x }`;
     const pr = parse(src, "test.a0");

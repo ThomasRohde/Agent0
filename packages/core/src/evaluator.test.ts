@@ -907,6 +907,140 @@ describe("A0 Evaluator", () => {
     assert.equal(val["c"], 16);
   });
 
+  // --- map tests ---
+
+  it("map with single-param function", async () => {
+    const src = `fn double { x } {\n  return { val: x * 2 }\n}\nlet nums = [1, 2, 3]\nlet result = map { in: nums, fn: "double" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const mapped = val["result"] as A0Record[];
+    assert.equal(mapped.length, 3);
+    assert.equal(mapped[0]["val"], 2);
+    assert.equal(mapped[1]["val"], 4);
+    assert.equal(mapped[2]["val"], 6);
+  });
+
+  it("map with empty list returns []", async () => {
+    const src = `fn double { x } {\n  return { val: x * 2 }\n}\nlet result = map { in: [], fn: "double" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.deepEqual(val["result"], []);
+  });
+
+  it("map E_TYPE when in is not a list", async () => {
+    const src = `fn double { x } {\n  return { val: x * 2 }\n}\nlet result = map { in: 42, fn: "double" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        assert.ok(err.message.includes("list"));
+        return true;
+      }
+    );
+  });
+
+  it("map E_TYPE when fn is not a string", async () => {
+    const src = `let result = map { in: [1, 2], fn: 42 }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        assert.ok(err.message.includes("string"));
+        return true;
+      }
+    );
+  });
+
+  it("map E_UNKNOWN_FN when function does not exist", async () => {
+    const src = `let result = map { in: [1, 2], fn: "nonexistent" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_UNKNOWN_FN");
+        assert.ok(err.message.includes("nonexistent"));
+        return true;
+      }
+    );
+  });
+
+  it("map propagates errors from mapped function", async () => {
+    const src = `fn boom { x } {\n  assert { that: false, msg: "fail" }\n  return { x: x }\n}\nlet result = map { in: [1], fn: "boom" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_ASSERT");
+        return true;
+      }
+    );
+  });
+
+  it("map respects maxIterations budget", async () => {
+    const src = `budget { maxIterations: 2 }\nfn double { x } {\n  return { val: x * 2 }\n}\nlet result = map { in: [1, 2, 3], fn: "double" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_BUDGET");
+        assert.ok(err.message.includes("maxIterations"));
+        return true;
+      }
+    );
+  });
+
+  it("map emits map_start/map_end and fn_call_start/fn_call_end trace events", async () => {
+    const events: import("./evaluator.js").TraceEvent[] = [];
+    const src = `fn double { x } {\n  return { val: x * 2 }\n}\nlet result = map { in: [1, 2], fn: "double" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await execute(pr.program, makeOptions({ trace: (ev) => events.push(ev) }));
+
+    const eventNames = events.map((e) => e.event);
+    assert.ok(eventNames.includes("map_start"));
+    assert.ok(eventNames.includes("map_end"));
+    assert.ok(eventNames.includes("fn_call_start"));
+    assert.ok(eventNames.includes("fn_call_end"));
+
+    const mapStart = events.find((e) => e.event === "map_start");
+    assert.ok(mapStart!.data);
+    assert.equal(mapStart!.data!["fn"], "double");
+    assert.equal(mapStart!.data!["listLength"], 2);
+  });
+
+  it("map with multi-param function on record items", async () => {
+    const src = `fn fullName { first, last } {\n  let name = str.concat { parts: [first, " ", last] }\n  return { name: name }\n}\nlet people = [{ first: "Alice", last: "Smith" }, { first: "Bob", last: "Jones" }]\nlet result = map { in: people, fn: "fullName" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+
+    // Provide str.concat stdlib
+    const strConcat: StdlibFn = {
+      name: "str.concat",
+      execute(args: A0Record): A0Value {
+        const parts = args["parts"] as A0Value[];
+        return parts.map(String).join("");
+      },
+    };
+    const stdlib = new Map([["str.concat", strConcat]]);
+
+    const result = await execute(pr.program, makeOptions({ stdlib }));
+    const val = result.value as A0Record;
+    const mapped = val["result"] as A0Record[];
+    assert.deepEqual(mapped[0]["name"], "Alice Smith");
+    assert.deepEqual(mapped[1]["name"], "Bob Jones");
+  });
+
   it("tool_start trace includes mode", async () => {
     const mockTool: import("./evaluator.js").ToolDef = {
       name: "test.read",

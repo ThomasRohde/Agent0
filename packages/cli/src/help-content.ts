@@ -38,6 +38,7 @@ CONTROL FLOW
   let results = for { in: list, as: "item" } { ... return { } }
   fn name { params } { ... return { } }    # define before use
   let x = match expr { ok {v} { return {} } err {e} { return {} } }
+  let out = map { in: list, fn: "fnName" } # apply fn to each element
 
 EVIDENCE
   assert { that: bool_expr, msg: "..." }   # false -> exit 5, stops execution
@@ -266,6 +267,67 @@ PREDICATE FUNCTIONS (use A0 truthiness: false/null/0/"" are falsy)
   or { a: any, b: any } -> bool
     Logical OR with truthiness coercion.
     Example: let either = or { a: cached, b: fetched }
+
+LIST FUNCTIONS
+
+  len { in: list|str } -> int
+    Length of a list or string.
+
+  append { in: list, value: any } -> list
+    Return new list with value added at end.
+
+  concat { a: list, b: list } -> list
+    Concatenate two lists.
+
+  sort { in: list, by?: str, order?: "asc"|"desc" } -> list
+    Sort a list (optionally by field). Default order: asc.
+
+  filter { in: list, fn: "fnName" } -> list
+    Keep elements where named function returns truthy.
+
+  find { in: list, fn: "fnName" } -> any|null
+    Return first element where named function returns truthy.
+
+  range { start?: int, end: int, step?: int } -> list
+    Generate a list of integers. Defaults: start=0, step=1.
+
+  join { in: list, sep?: str } -> str
+    Join list elements into a string. Default sep: ",".
+
+  map { in: list, fn: "fnName" } -> list
+    Apply a named user-defined function to each element, return results list.
+    The fn must be defined with fn before use. Single-param fn gets each item;
+    multi-param fn destructures record items by key.
+    Shares maxIterations budget with for loops.
+    Example:
+      fn double { x } { return { val: x * 2 } }
+      let nums = [1, 2, 3]
+      let doubled = map { in: nums, fn: "double" }
+
+STRING FUNCTIONS
+
+  str.concat { parts: list } -> str
+    Concatenate a list of values into a string.
+
+  str.split { in: str, sep: str } -> list
+    Split a string by separator.
+
+  str.starts { in: str, prefix: str } -> bool
+    Test whether string starts with prefix.
+
+  str.replace { in: str, from: str, to: str } -> str
+    Replace first occurrence of substring.
+
+RECORD FUNCTIONS
+
+  keys { in: record } -> list
+    Return list of record keys.
+
+  values { in: record } -> list
+    Return list of record values.
+
+  merge { a: record, b: record } -> record
+    Shallow-merge two records (b overwrites a).
 `.trimStart(),
 
 // ─── CAPS ───────────────────────────────────────────────────────────────────
@@ -326,7 +388,7 @@ FIELDS
   timeMs            int    Maximum wall-clock time in milliseconds
   maxToolCalls      int    Maximum number of tool invocations
   maxBytesWritten   int    Maximum bytes written via fs.write
-  maxIterations     int    Maximum for-loop iterations (cumulative across all loops)
+  maxIterations     int    Maximum for/map iterations (cumulative across all loops and maps)
 
 RULES
   - Only declare fields the program needs
@@ -403,6 +465,23 @@ match — ok/err discrimination
         return { error: e }
       }
     }
+
+map — Higher-order list transformation
+  Syntax: map { in: list_expr, fn: "fnName" }
+  - Calls the named user-defined function on each list element
+  - Returns a new list of results
+  - fn must be defined before use (with fn keyword)
+  - Single-param fn receives each item directly
+  - Multi-param fn destructures record items by key name
+  - Shares maxIterations budget with for loops (cumulative)
+  - E_TYPE if in: is not a list or fn: is not a string
+  - E_UNKNOWN_FN if the named function doesn't exist
+  Example:
+    fn double { x } {
+      return { val: x * 2 }
+    }
+    let nums = [1, 2, 3]
+    let doubled = map { in: nums, fn: "double" }
 `.trimStart(),
 
 // ─── DIAGNOSTICS ────────────────────────────────────────────────────────────
@@ -437,9 +516,13 @@ RUNTIME ERRORS (exit 3/4/5)
   E_TOOL_ARGS       4     Invalid tool arguments     Check args match tool schema
   E_TOOL            4     Tool execution failed       Check args, paths, URLs, perms
   E_BUDGET          4     Budget limit exceeded       Increase limit or reduce usage
-  E_UNKNOWN_FN      4     Unknown stdlib function     Check: parse.json get put patch eq contains not and or
+  E_UNKNOWN_FN      4     Unknown function            Check: parse.json get put patch eq contains not and or
+                                                     len append concat sort filter find range join map
+                                                     str.concat str.split str.starts str.replace
+                                                     keys values merge  (or user-defined fn names)
   E_FN              4     Stdlib function threw        Check function args (e.g. invalid JSON)
   E_PATH            4     Dot-access on non-record   Verify variable holds a record
+  E_TYPE            4     Type mismatch at runtime   Check arg types (e.g. map in:/fn: types)
   E_FOR_NOT_LIST    4     for in: is not a list      Ensure in: evaluates to [...]
   E_MATCH_NOT_RECORD 4    match on non-record         Ensure subject is { ok: ... } or { err: ... }
   E_MATCH_NO_ARM    4     No ok/err key in subject   Subject must have ok or err key
@@ -526,7 +609,15 @@ A0 EXAMPLE PROGRAMS
   do fs.write { path: "result.json", data: body, format: "json" } -> artifact
   return { artifact: artifact }
 
-8. MATCH OK/ERR
+8. MAP — HIGHER-ORDER LIST TRANSFORM
+  fn double { x } {
+    return { val: x * 2 }
+  }
+  let nums = [1, 2, 3, 4, 5]
+  let doubled = map { in: nums, fn: "double" }
+  return { doubled: doubled }
+
+9. MATCH OK/ERR
   let result = { ok: { name: "Alice", score: 95 } }
   let output = match result {
     ok { val } {

@@ -283,6 +283,38 @@ do fs.write { path: "summary.json", data: summary, format: "json" } -> artifact
 return { summary: summary, artifact: artifact }
 ```
 
+## Pattern 16: Higher-Order Map
+
+Use `map` to apply a user-defined function to every element of a list, replacing explicit `for` loops for simple element-wise transforms.
+
+```
+# map-transform.a0
+fn double { x } {
+  return { val: x * 2 }
+}
+
+let nums = [1, 2, 3, 4, 5]
+let doubled = map { in: nums, fn: "double" }
+
+# Multi-param: destructure record fields into fn params
+fn formatEntry { name, score } {
+  let label = str.concat { parts: [name, ": ", score] }
+  return { label: label }
+}
+
+let entries = [
+  { name: "Alice", score: 95 },
+  { name: "Bob", score: 87 }
+]
+let labels = map { in: entries, fn: "formatEntry" }
+
+return { doubled: doubled, labels: labels }
+```
+
+**When to use `map` vs `for`**:
+- Use `map` when each element transforms independently via a reusable function
+- Use `for` when the body needs `let` bindings, tool calls, or multi-step logic
+
 ## Anti-Patterns to Avoid
 
 ### Missing return

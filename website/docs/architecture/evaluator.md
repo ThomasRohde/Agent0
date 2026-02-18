@@ -104,7 +104,7 @@ The evaluator tracks resource usage against declared budget limits:
 | `timeMs` | Wall-clock elapsed time from run start |
 | `maxToolCalls` | Number of tool invocations |
 | `maxBytesWritten` | Bytes written by `fs.write` |
-| `maxIterations` | Number of `for` loop iterations |
+| `maxIterations` | Cumulative iterations across all `for` loops and `map` calls |
 
 When a limit is exceeded, the evaluator emits a `budget_exceeded` trace event and throws an `A0RuntimeError` with code `E_BUDGET`.
 

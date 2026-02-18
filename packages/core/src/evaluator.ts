@@ -458,6 +458,20 @@ async function evalExpr(
           }
         }
 
+        // Budget: timeMs check after tool call
+        if (budget.timeMs !== undefined) {
+          const elapsed = Date.now() - tracker.startMs;
+          if (elapsed > budget.timeMs) {
+            emitTrace("budget_exceeded", expr.span, { budget: "timeMs", limit: budget.timeMs, actual: elapsed });
+            throw new A0RuntimeError(
+              "E_BUDGET",
+              `Budget exceeded: timeMs limit of ${budget.timeMs}ms exceeded (${elapsed}ms elapsed).`,
+              expr.span,
+              { budget: "timeMs", limit: budget.timeMs, actual: elapsed }
+            );
+          }
+        }
+
         return result;
       } catch (e) {
         if (e instanceof A0RuntimeError) {

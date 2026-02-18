@@ -410,4 +410,82 @@ describe("A0 Validator", () => {
     const diags = validate(pr.program);
     assert.ok(!diags.some((d) => d.code === "E_UNKNOWN_FN"));
   });
+
+  // --- Issue 2: Self-referential let x = x ---
+
+  it("reports E_UNBOUND for self-referential let x = x", () => {
+    const src = `let x = x\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_UNBOUND"));
+  });
+
+  it("allows let x = y when y is already bound", () => {
+    const src = `let y = 1\nlet x = y\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.equal(diags.length, 0);
+  });
+
+  it("reports E_UNBOUND for self-referential let in fn body", () => {
+    const src = `fn myFn { a } {\n  let x = x\n  return { x: x }\n}\nlet r = myFn { a: 1 }\nreturn { r: r }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_UNBOUND"));
+  });
+
+  // --- Issue 5: Arrow target rebinding ---
+
+  it("reports E_DUP_BINDING for arrow target rebinding", () => {
+    const src = `let x = 1\n{ y: 2 } -> x\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_DUP_BINDING"));
+  });
+
+  it("reports E_DUP_BINDING for duplicate arrow targets", () => {
+    const src = `{ a: 1 } -> x\n{ b: 2 } -> x\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_DUP_BINDING"));
+  });
+
+  it("accepts distinct arrow targets", () => {
+    const src = `{ a: 1 } -> x\n{ b: 2 } -> y\nreturn { x: x, y: y }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.equal(diags.length, 0);
+  });
+
+  // --- Issue 4: fn name collides with stdlib ---
+
+  it("reports E_FN_DUP when fn name collides with stdlib 'map'", () => {
+    const src = `fn map { x } {\n  return { x: x }\n}\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_FN_DUP" && d.message.includes("stdlib")));
+  });
+
+  it("reports E_FN_DUP when fn name collides with stdlib 'len'", () => {
+    const src = `fn len { x } {\n  return { x: x }\n}\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_FN_DUP" && d.message.includes("stdlib")));
+  });
+
+  it("accepts fn names that do not collide with stdlib", () => {
+    const src = `fn myFunc { x } {\n  return { x: x }\n}\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(!diags.some((d) => d.code === "E_FN_DUP"));
+  });
 });

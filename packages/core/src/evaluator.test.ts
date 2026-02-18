@@ -1077,6 +1077,32 @@ describe("A0 Evaluator", () => {
     assert.equal(x["e"], "fail");
   });
 
+  it("enforces timeMs budget after tool call in return expression", async () => {
+    const mockTool: import("./evaluator.js").ToolDef = {
+      name: "test.slow",
+      mode: "read",
+      capabilityId: "test.slow",
+      async execute(): Promise<A0Value> {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return "done";
+      },
+    };
+    const tools = new Map([["test.slow", mockTool]]);
+    const caps = new Set(["test.slow"]);
+
+    const src = `budget { timeMs: 10 }\ncap { test.slow: true }\nreturn { result: call? test.slow { key: "1" } }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions({ tools, allowedCapabilities: caps })),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_BUDGET");
+        assert.ok(err.message.includes("timeMs"));
+        return true;
+      }
+    );
+  });
+
   it("tool_start trace includes mode", async () => {
     const mockTool: import("./evaluator.js").ToolDef = {
       name: "test.read",

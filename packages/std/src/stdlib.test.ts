@@ -191,6 +191,22 @@ describe("patch", () => {
     assert.equal((result["a"] as A0Record)["b"], 99);
   });
 
+  it("applies replace on array element (overwrites, not inserts)", () => {
+    const result = patchFn.execute({
+      in: [10, 20, 30],
+      ops: [{ op: "replace", path: "/1", value: 99 }],
+    }) as A0Value[];
+    assert.deepEqual(result, [10, 99, 30]);
+  });
+
+  it("applies add on array element (inserts)", () => {
+    const result = patchFn.execute({
+      in: [10, 20, 30],
+      ops: [{ op: "add", path: "/1", value: 99 }],
+    }) as A0Value[];
+    assert.deepEqual(result, [10, 99, 20, 30]);
+  });
+
   it("handles null input doc", () => {
     const result = patchFn.execute({
       in: null,

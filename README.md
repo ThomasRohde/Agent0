@@ -231,7 +231,7 @@ budget { timeMs: 30000, maxToolCalls: 10, maxBytesWritten: 1048576, maxIteration
 | `timeMs` | Wall-clock timeout for the entire run |
 | `maxToolCalls` | Total tool invocations |
 | `maxBytesWritten` | Cumulative bytes written via `fs.write` |
-| `maxIterations` | Iterations per `for` loop |
+| `maxIterations` | Cumulative iterations across all `for` loops and `map` calls |
 
 ## Traces
 
@@ -242,7 +242,7 @@ a0 run program.a0 --trace run.jsonl
 a0 trace run.jsonl   # summarize: events, tools used, failures, duration
 ```
 
-Trace events: `run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `tool_end`, `evidence`, `budget_exceeded`, `for_start`, `for_end`, `fn_call_start`, `fn_call_end`, `match_start`, `match_end`.
+Trace events: `run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `tool_end`, `evidence`, `budget_exceeded`, `for_start`, `for_end`, `fn_call_start`, `fn_call_end`, `match_start`, `match_end`, `map_start`, `map_end`.
 
 ## Exit Codes
 

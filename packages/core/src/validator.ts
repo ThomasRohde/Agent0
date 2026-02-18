@@ -140,6 +140,16 @@ export function validate(program: AST.Program): Diagnostic[] {
           )
         );
       }
+      if (KNOWN_STDLIB.has(stmt.name)) {
+        diags.push(
+          makeDiag(
+            "E_FN_DUP",
+            `Function name '${stmt.name}' conflicts with a built-in stdlib function.`,
+            stmt.span,
+            "Use a different function name to avoid shadowing the stdlib."
+          )
+        );
+      }
       fnNames.add(stmt.name);
       // Validate body with params + fn name (for recursion) as extra bindings
       validateBlockBindings(stmt.body, bindings, fnNames, [...stmt.params, stmt.name], diags, true, `function '${stmt.name}'`);
@@ -154,12 +164,23 @@ export function validate(program: AST.Program): Diagnostic[] {
           )
         );
       }
-      bindings.add(stmt.name);
       validateExprBindings(stmt.value, bindings, fnNames, diags);
+      bindings.add(stmt.name);
     } else if (stmt.kind === "ExprStmt") {
       validateExprBindings(stmt.expr, bindings, fnNames, diags);
       if (stmt.target) {
-        bindings.add(stmt.target.parts[0]);
+        const targetName = stmt.target.parts[0];
+        if (bindings.has(targetName)) {
+          diags.push(
+            makeDiag(
+              "E_DUP_BINDING",
+              `Duplicate binding '${targetName}'.`,
+              stmt.target.span,
+              "Use a different variable name."
+            )
+          );
+        }
+        bindings.add(targetName);
       }
     } else if (stmt.kind === "ReturnStmt") {
       validateExprBindings(stmt.value, bindings, fnNames, diags);
@@ -248,6 +269,16 @@ function validateBlockBindings(
           )
         );
       }
+      if (KNOWN_STDLIB.has(stmt.name)) {
+        diags.push(
+          makeDiag(
+            "E_FN_DUP",
+            `Function name '${stmt.name}' conflicts with a built-in stdlib function.`,
+            stmt.span,
+            "Use a different function name to avoid shadowing the stdlib."
+          )
+        );
+      }
       fnNames.add(stmt.name);
       validateBlockBindings(stmt.body, bindings, fnNames, [...stmt.params, stmt.name], diags, true, `function '${stmt.name}'`);
     } else if (stmt.kind === "LetStmt") {
@@ -261,12 +292,23 @@ function validateBlockBindings(
           )
         );
       }
-      bindings.add(stmt.name);
       validateExprBindings(stmt.value, bindings, fnNames, diags);
+      bindings.add(stmt.name);
     } else if (stmt.kind === "ExprStmt") {
       validateExprBindings(stmt.expr, bindings, fnNames, diags);
       if (stmt.target) {
-        bindings.add(stmt.target.parts[0]);
+        const targetName = stmt.target.parts[0];
+        if (bindings.has(targetName)) {
+          diags.push(
+            makeDiag(
+              "E_DUP_BINDING",
+              `Duplicate binding '${targetName}'.`,
+              stmt.target.span,
+              "Use a different variable name."
+            )
+          );
+        }
+        bindings.add(targetName);
       }
     } else if (stmt.kind === "ReturnStmt") {
       validateExprBindings(stmt.value, bindings, fnNames, diags);

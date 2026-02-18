@@ -37,7 +37,7 @@ function getAtPointer(doc: A0Value, segments: string[]): A0Value {
   return current;
 }
 
-function setAtPointer(doc: A0Value, segments: string[], value: A0Value): A0Value {
+function setAtPointer(doc: A0Value, segments: string[], value: A0Value, mode: "add" | "replace" = "add"): A0Value {
   if (segments.length === 0) return value;
   const [head, ...rest] = segments;
 
@@ -45,9 +45,13 @@ function setAtPointer(doc: A0Value, segments: string[], value: A0Value): A0Value
     const idx = head === "-" ? doc.length : parseInt(head, 10);
     const arr = [...doc];
     if (rest.length === 0) {
-      arr.splice(idx, 0, value);
+      if (mode === "replace") {
+        arr[idx] = value;
+      } else {
+        arr.splice(idx, 0, value);
+      }
     } else {
-      arr[idx] = setAtPointer(arr[idx] ?? null, rest, value);
+      arr[idx] = setAtPointer(arr[idx] ?? null, rest, value, mode);
     }
     return arr;
   }
@@ -57,7 +61,7 @@ function setAtPointer(doc: A0Value, segments: string[], value: A0Value): A0Value
   if (rest.length === 0) {
     rec[head] = value;
   } else {
-    rec[head] = setAtPointer(rec[head] ?? null, rest, value);
+    rec[head] = setAtPointer(rec[head] ?? null, rest, value, mode);
   }
   return rec;
 }
@@ -104,7 +108,7 @@ function applyOp(doc: A0Value, op: PatchOp): A0Value {
     case "remove":
       return removeAtPointer(doc, segments);
     case "replace":
-      return setAtPointer(doc, segments, op.value ?? null);
+      return setAtPointer(doc, segments, op.value ?? null, "replace");
     case "move": {
       const fromSegs = parsePointer(op.from ?? "");
       const val = getAtPointer(doc, fromSegs);

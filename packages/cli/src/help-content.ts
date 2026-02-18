@@ -4,7 +4,7 @@
  */
 
 export const QUICKREF = `
-A0 QUICK REFERENCE (v0.3)
+A0 QUICK REFERENCE (v0.5)
 =========================
 
 PROGRAM STRUCTURE
@@ -121,8 +121,8 @@ A0 TYPE SYSTEM
 
 PRIMITIVES
   Type    Literals              Notes
-  int     42, -1, 0             arbitrary precision integer
-  float   3.14, -0.5            IEEE 754 double
+  int     42, -1, 0             64-bit double (JavaScript number)
+  float   3.14, -0.5            64-bit double (JavaScript number)
   bool    true, false
   str     "hello", "a\\nb"      double-quoted, JSON escapes
   null    null
@@ -252,9 +252,9 @@ PREDICATE FUNCTIONS (use A0 truthiness: false/null/0/"" are falsy)
     Example: let same = eq { a: actual, b: expected }
 
   contains { in: str|list|record, value: any } -> bool
-    str:    substring check (value coerced to string)
+    str:    substring check (value must be a string; returns false otherwise)
     list:   element membership (deep equality)
-    record: key existence (value coerced to string)
+    record: key existence (value must be a string; returns false otherwise)
     Example: let has = contains { in: config, value: "name" }
 
   not { in: any } -> bool

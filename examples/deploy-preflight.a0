@@ -1,0 +1,55 @@
+# deploy-preflight.a0 — Pre-deployment checks for a Node.js project
+#
+# Validates that the repo is in a deployable state: clean working
+# tree, tests pass, build succeeds, and required files exist. Halts
+# on any failed assertion so agents know the deploy is unsafe.
+
+cap { sh.exec: true, fs.read: true }
+budget { timeMs: 120000, maxToolCalls: 10 }
+
+# 1. Git working tree must be clean
+do sh.exec { cmd: "git status --porcelain", timeoutMs: 5000 } -> git_status
+let dirty_files = str.replace { in: git_status.stdout, from: "\n", to: "" }
+let is_clean = eq { a: dirty_files, b: "" }
+assert { that: is_clean, msg: "working tree is clean — no uncommitted changes" }
+
+# 2. package.json must exist and be valid
+call? fs.read { path: "package.json" } -> pkg_raw
+let pkg = parse.json { in: pkg_raw }
+let has_name = contains { in: pkg, value: "name" }
+assert { that: has_name, msg: "package.json has a name field" }
+let has_version = contains { in: pkg, value: "version" }
+assert { that: has_version, msg: "package.json has a version field" }
+let pkg_name = get { in: pkg, path: "name" }
+let pkg_version = get { in: pkg, path: "version" }
+
+# 3. Build must succeed
+do sh.exec { cmd: "npm run build", timeoutMs: 60000 } -> build_result
+let build_ok = eq { a: build_result.exitCode, b: 0 }
+assert { that: build_ok, msg: "build succeeded" }
+
+# 4. Tests must pass
+do sh.exec { cmd: "npm test", timeoutMs: 60000 } -> test_result
+let tests_ok = eq { a: test_result.exitCode, b: 0 }
+assert { that: tests_ok, msg: "all tests pass" }
+
+# 5. Current branch
+do sh.exec { cmd: "git rev-parse --abbrev-ref HEAD", timeoutMs: 5000 } -> branch_result
+let branch = str.replace { in: branch_result.stdout, from: "\n", to: "" }
+
+# 6. Latest commit hash
+do sh.exec { cmd: "git rev-parse --short HEAD", timeoutMs: 5000 } -> hash_result
+let commit_hash = str.replace { in: hash_result.stdout, from: "\n", to: "" }
+
+let report = {
+  ready: true,
+  package: pkg_name,
+  version: pkg_version,
+  branch: branch,
+  commit: commit_hash,
+  build_duration_ms: build_result.durationMs,
+  test_duration_ms: test_result.durationMs,
+  checks_passed: 5
+}
+
+return { deploy_ready: report }

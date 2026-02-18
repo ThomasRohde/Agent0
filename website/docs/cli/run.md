@@ -31,7 +31,7 @@ The `<file>` argument is the path to an A0 source file. Use `-` to read from std
 | 2 | Parse or validation error | Syntax error, missing return, unbound variable |
 | 3 | Capability denied | Tool used without policy approval |
 | 4 | Runtime or tool error | Tool failure, budget exceeded, type error |
-| 5 | Assertion or check failed | `assert` or `check` evaluated to false |
+| 5 | Assertion or check failed | `assert` (fatal -- halts) or `check` (non-fatal -- continues; exit 5 after run) evaluated to false |
 
 ## Examples
 

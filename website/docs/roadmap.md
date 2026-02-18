@@ -19,7 +19,7 @@ The current release includes the full core language:
 - Standard library: data manipulation, predicates, list/string/record operations
 - Capability-gated execution with deny-by-default policy
 - Budget system for resource limits
-- Evidence system with `assert` and `check`
+- Evidence system with `assert` (fatal) and `check` (non-fatal)
 - JSONL trace output for auditing and debugging
 - CLI with `run`, `check`, `fmt`, and `trace` commands
 

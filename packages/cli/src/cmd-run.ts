@@ -129,7 +129,7 @@ export async function runRun(
         );
       }
       if (e.code === "E_CAP_DENIED") return 3;
-      if (e.code === "E_ASSERT" || e.code === "E_CHECK") return 5;
+      if (e.code === "E_ASSERT") return 5;
       return 4;
     }
     const msg = e instanceof Error ? e.message : String(e);

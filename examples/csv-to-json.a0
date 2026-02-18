@@ -1,0 +1,64 @@
+# csv-to-json.a0 — Parse CSV data into structured JSON records
+#
+# Reads a CSV file, splits it into headers and rows, maps each row
+# to a keyed record, and writes the result as JSON. Demonstrates
+# string manipulation, for-loops, and data pipeline patterns.
+
+cap { fs.read: true, fs.write: true }
+budget { maxIterations: 500 }
+
+call? fs.read { path: "examples/data.csv" } -> raw_csv
+
+# Split into lines and separate header from data rows
+let all_lines = str.split { in: raw_csv, sep: "\n" }
+let header_line = get { in: all_lines, path: "[0]" }
+let headers = str.split { in: header_line, sep: "," }
+let header_count = len { in: headers }
+
+# Build data rows (skip header, skip empty trailing lines)
+let line_count = len { in: all_lines }
+let data_indices = range { from: 1, to: line_count }
+
+let rows = for { in: data_indices, as: "i" } {
+  let line = get { in: all_lines, path: str.concat { parts: ["[", i, "]"] } }
+  let not_empty = not { in: eq { a: line, b: "" } }
+  let cells = str.split { in: line, sep: "," }
+  return { cells: cells, valid: not_empty }
+}
+
+# Keep only non-empty rows
+let valid_rows = filter { in: rows, by: "valid" }
+
+# Map each row's cells to header-keyed records
+# (builds a record from parallel header/cell lists)
+let records = for { in: valid_rows, as: "row" } {
+  let cell_count = len { in: row.cells }
+  let pairs = for { in: range { from: 0, to: cell_count }, as: "j" } {
+    let key = get { in: headers, path: str.concat { parts: ["[", j, "]"] } }
+    let val = get { in: row.cells, path: str.concat { parts: ["[", j, "]"] } }
+    return { key: key, value: val }
+  }
+  # Assemble record from key-value pairs
+  let record = for { in: pairs, as: "pair" } {
+    return { k: pair.key, v: pair.value }
+  }
+  return { data: record }
+}
+
+let record_count = len { in: records }
+
+# Evidence
+let has_headers = header_count > 0
+assert { that: has_headers, msg: "CSV has header row" }
+let has_data = record_count > 0
+assert { that: has_data, msg: "CSV has data rows" }
+
+let output = {
+  headers: headers,
+  row_count: record_count,
+  records: records
+}
+
+do fs.write { path: "data.json", data: output, format: "json" } -> artifact
+
+return { converted: output, artifact: artifact }

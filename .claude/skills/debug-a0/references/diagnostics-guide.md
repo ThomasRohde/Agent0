@@ -370,7 +370,9 @@ return { data: data }
 **Phase**: Runtime
 **Exit code**: 5
 
-An `assert { that: <expr>, msg: "..." }` evaluated to false.
+An `assert { that: <expr>, msg: "..." }` evaluated to false. **Fatal: halts execution immediately.** No further statements execute after a failed assert.
+
+Use `assert` for invariants that MUST hold — the program cannot continue meaningfully if these fail.
 
 **Fix**: Either the assertion condition is wrong, or the data producing the condition is wrong. Trace the data flow backward from the assertion to find the root cause.
 
@@ -381,9 +383,11 @@ An `assert { that: <expr>, msg: "..." }` evaluated to false.
 **Phase**: Runtime
 **Exit code**: 5
 
-A `check { that: <expr>, msg: "..." }` evaluated to false.
+A `check { that: <expr>, msg: "..." }` evaluated to false. **Non-fatal: records the failure as evidence and continues execution.** The program completes all remaining statements, but the runner returns exit 5 after execution finishes if any check failed.
 
-Same debugging approach as `E_ASSERT`.
+Use `check` for validations the agent should know about but that should not prevent the program from finishing.
+
+Same debugging approach as `E_ASSERT` — trace the data flow backward from the check to find the root cause.
 
 ---
 

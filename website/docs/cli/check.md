@@ -62,7 +62,8 @@ These errors only occur at runtime and will not be detected by `a0 check`:
 - `E_TOOL` -- tool execution failure (exit 4)
 - `E_FN` -- stdlib function error (exit 4)
 - `E_BUDGET` -- budget limit exceeded (exit 4)
-- `E_ASSERT`, `E_CHECK` -- assertion/check failures (exit 5)
+- `E_ASSERT` -- fatal assertion failure, halts immediately (exit 5)
+- `E_CHECK` -- non-fatal check failure, records evidence and continues; exit 5 after run (exit 5)
 
 ## Examples
 

@@ -1,0 +1,73 @@
+# data-pipeline.a0 — Fetch, transform, filter, rank, and export data
+#
+# Fetches users from a REST API, retrieves each user's todos,
+# computes productivity scores, and exports a ranked report.
+# Demonstrates multi-stage pipelines with API calls inside loops.
+
+cap { http.get: true, fs.write: true }
+budget { timeMs: 60000, maxToolCalls: 12, maxIterations: 100 }
+
+# Stage 1: Fetch the user directory
+call? http.get { url: "https://jsonplaceholder.typicode.com/users" } -> users_resp
+let users_ok = eq { a: users_resp.status, b: 200 }
+assert { that: users_ok, msg: "fetched users" }
+let all_users = parse.json { in: users_resp.body }
+let total_users = len { in: all_users }
+
+# Stage 2: For each user, fetch their todos and compute stats
+# JSONPlaceholder supports per-user todo endpoints
+let user_stats = for { in: all_users, as: "user" } {
+  let todo_url = str.concat { parts: [
+    "https://jsonplaceholder.typicode.com/users/", user.id, "/todos"
+  ] }
+  call? http.get { url: todo_url } -> todo_resp
+  let todos = parse.json { in: todo_resp.body }
+  let todo_count = len { in: todos }
+
+  # Count completed todos
+  let completed_list = filter { in: todos, by: "completed" }
+  let completed_count = len { in: completed_list }
+
+  # Compute completion percentage
+  let pct = if {
+    cond: todo_count > 0,
+    then: (completed_count * 100) / todo_count,
+    else: 0
+  }
+
+  # Extract user metadata
+  let city = get { in: user, path: "address.city" }
+  let company = get { in: user, path: "company.name" }
+
+  return {
+    name: user.name,
+    email: user.email,
+    city: city,
+    company: company,
+    total_todos: todo_count,
+    completed: completed_count,
+    completion_pct: pct,
+    productive: pct >= 50
+  }
+}
+
+# Stage 3: Filter to productive users and sort by completion rate
+let productive = filter { in: user_stats, by: "productive" }
+let ranked = sort { in: productive, by: "completion_pct" }
+let productive_count = len { in: ranked }
+
+# Stage 4: Build the final report
+let report = {
+  total_users: total_users,
+  productive_users: productive_count,
+  productivity_rate_pct: (productive_count * 100) / total_users,
+  top_performers: ranked,
+  all_stats: sort { in: user_stats, by: "completion_pct" }
+}
+
+check { that: productive_count > 0, msg: "found productive users" }
+
+do fs.write { path: "productivity-report.json", data: report, format: "json" } -> artifact
+assert { that: true, msg: "report exported" }
+
+return { report: report, artifact: artifact }

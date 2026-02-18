@@ -1,0 +1,47 @@
+# api-health-check.a0 — Check multiple API endpoints and produce a status report
+#
+# Fetches a list of endpoints, classifies each response as healthy
+# or degraded, and writes a structured health report. Demonstrates
+# for-loops with tool calls, match-based error handling, and
+# budget-constrained execution.
+
+cap { http.get: true, fs.write: true }
+budget { timeMs: 60000, maxToolCalls: 10, maxIterations: 20 }
+
+let endpoints = [
+  { name: "JSONPlaceholder Posts", url: "https://jsonplaceholder.typicode.com/posts/1" },
+  { name: "JSONPlaceholder Users", url: "https://jsonplaceholder.typicode.com/users/1" },
+  { name: "JSONPlaceholder Todos", url: "https://jsonplaceholder.typicode.com/todos/1" }
+]
+
+# Check each endpoint
+let results = for { in: endpoints, as: "ep" } {
+  call? http.get { url: ep.url } -> resp
+  let healthy = eq { a: resp.status, b: 200 }
+  let status_label = if { cond: healthy, then: "healthy", else: "degraded" }
+  return { name: ep.name, url: ep.url, status: resp.status, health: status_label }
+}
+
+# Classify results
+let healthy_list = filter { in: results, by: "health" }
+let healthy_count = len { in: healthy_list }
+let total = len { in: results }
+let all_healthy = eq { a: healthy_count, b: total }
+let degraded_count = total - healthy_count
+
+# Build summary
+let summary = {
+  total_endpoints: total,
+  healthy: healthy_count,
+  degraded: degraded_count,
+  all_systems_go: all_healthy,
+  details: results
+}
+
+# Evidence
+assert { that: true, msg: "all endpoints checked" }
+check { that: all_healthy, msg: "all endpoints are healthy" }
+
+do fs.write { path: "health-report.json", data: summary, format: "json" } -> artifact
+
+return { summary: summary, artifact: artifact }

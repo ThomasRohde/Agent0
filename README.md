@@ -87,7 +87,7 @@ do fs.write { path: "out.json", data: response.body, format: "json" } -> result
 
 ### Evidence
 
-`assert` and `check` produce evidence records and emit trace events. A failing assertion stops the program (exit code 5).
+`assert` and `check` both take `{ that: bool, msg: str }` and produce evidence records in the trace. `assert` is **fatal** — it halts execution immediately on failure (exit 5). `check` is **non-fatal** — it records evidence and continues execution; the runner returns exit 5 after the program finishes if any check failed.
 
 ```text
 assert { that: response.status, msg: "got response" } -> evStatus
@@ -252,7 +252,7 @@ Trace events: `run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `t
 | 2 | Parse or validation error |
 | 3 | Capability denied |
 | 4 | Runtime or tool error |
-| 5 | Assertion or check failed |
+| 5 | Assertion or check failed (`assert` = fatal/halts, `check` = non-fatal/continues) |
 
 ## Project Structure
 

@@ -64,7 +64,7 @@ When adding language features, you must update all of: lexer tokens, parser rule
 
 ## Exit Codes
 
-0 = success, 2 = parse/validation, 3 = capability denied, 4 = runtime/tool error, 5 = assertion/check failed.
+0 = success, 2 = parse/validation, 3 = capability denied, 4 = runtime/tool error, 5 = assertion/check failed. `assert` is fatal (halts immediately), `check` is non-fatal (records evidence and continues; runner returns exit 5 after execution if any check failed).
 
 ## Diagnostic Codes
 

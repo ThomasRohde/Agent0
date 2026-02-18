@@ -171,9 +171,12 @@ let full = str.concat { parts: ["hello", " ", "world"] }
 
 ## Evidence — assert & check
 
-Both take `{ that: bool, msg: str }`. A failed assertion stops execution (exit 5).
+Both take `{ that: bool, msg: str }` and produce evidence records in the trace.
 
-Use predicate functions to produce meaningful boolean values for assertions:
+- **`assert`** — Fatal. Halts execution immediately on failure (exit 5, `E_ASSERT`). Use for invariants that MUST hold — the program cannot continue meaningfully if these fail.
+- **`check`** — Non-fatal. Records evidence (ok/fail) and continues execution. If ANY check fails, the program still completes but the runner returns exit 5 after execution finishes. Use for validations the agent should know about but that should not prevent the program from finishing.
+
+Use predicate functions to produce meaningful boolean values:
 
 ```
 let same = eq { a: actual, b: expected }
@@ -183,7 +186,7 @@ let has_name = contains { in: record, value: "name" }
 check { that: has_name, msg: "record has name field" }
 ```
 
-You can also use `assert { that: true, msg: "..." }` as an evidence marker to document that a step completed.
+You can also use `assert { that: true, msg: "..." }` as an evidence marker to document that a step completed, or `check { that: true, msg: "..." }` to record non-fatal evidence.
 
 ## Control Flow (v0.3)
 
@@ -374,7 +377,8 @@ a0 fmt file.a0                       # canonical format to stdout
 a0 fmt file.a0 --write               # format in place
 ```
 
-Exit codes: `0` ok, `2` parse error, `3` capability denied, `4` runtime error, `5` assertion failed.
+Exit codes: `0` ok, `2` parse error, `3` capability denied, `4` runtime error, `5` assert/check failed.
+`assert` = fatal (halts immediately), `check` = non-fatal (records evidence, continues; exit 5 after run if any check failed).
 
 ## Additional Resources
 

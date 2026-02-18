@@ -1,0 +1,93 @@
+# dependency-audit.a0 — Analyze package.json dependencies
+#
+# Reads package.json, inventories dependencies, checks for common
+# issues (missing lock file, no scripts, pinned vs range versions),
+# and produces a structured audit report. Demonstrates deep data
+# extraction, list operations, and predicate-based validation.
+
+cap { fs.read: true, sh.exec: true }
+budget { timeMs: 30000, maxToolCalls: 5, maxIterations: 100 }
+
+# Read and parse package.json
+call? fs.read { path: "package.json" } -> pkg_raw
+let pkg = parse.json { in: pkg_raw }
+
+# Extract metadata
+let name = get { in: pkg, path: "name" }
+let version = get { in: pkg, path: "version" }
+let has_name = contains { in: pkg, value: "name" }
+assert { that: has_name, msg: "package.json has name" }
+
+# Dependencies
+let has_deps = contains { in: pkg, value: "dependencies" }
+let deps = if { cond: has_deps, then: get { in: pkg, path: "dependencies" }, else: {} }
+let dep_names = keys { in: deps }
+let dep_versions = values { in: deps }
+let dep_count = len { in: dep_names }
+
+# Dev dependencies
+let has_dev = contains { in: pkg, value: "devDependencies" }
+let dev_deps = if { cond: has_dev, then: get { in: pkg, path: "devDependencies" }, else: {} }
+let dev_names = keys { in: dev_deps }
+let dev_count = len { in: dev_names }
+
+# Scripts
+let has_scripts = contains { in: pkg, value: "scripts" }
+let scripts = if { cond: has_scripts, then: get { in: pkg, path: "scripts" }, else: {} }
+let script_names = keys { in: scripts }
+let script_count = len { in: script_names }
+
+# Check for common required scripts
+let has_test = contains { in: scripts, value: "test" }
+let has_build = contains { in: scripts, value: "build" }
+let has_start = contains { in: scripts, value: "start" }
+
+# Analyze version specifiers for caret/tilde usage
+fn classify_version { name } {
+  let ver = get { in: deps, path: name }
+  let uses_caret = str.starts { in: ver, value: "^" }
+  let uses_tilde = str.starts { in: ver, value: "~" }
+  let is_range = or { a: uses_caret, b: uses_tilde }
+  let kind = if { cond: uses_caret, then: "caret",
+    else: if { cond: uses_tilde, then: "tilde", else: "pinned" } }
+  return { name: name, version: ver, kind: kind, is_range: is_range }
+}
+let dep_analysis = map { in: dep_names, fn: "classify_version" }
+let ranged = filter { in: dep_analysis, by: "is_range" }
+let ranged_count = len { in: ranged }
+
+# Check for lock file
+do sh.exec { cmd: "test -f package-lock.json && echo yes || echo no", timeoutMs: 3000 } -> lock_check
+let has_lock = contains { in: lock_check.stdout, value: "yes" }
+
+# Outdated check
+do sh.exec { cmd: "npm outdated --json 2>/dev/null || true", timeoutMs: 30000 } -> outdated_result
+let outdated_raw = str.replace { in: outdated_result.stdout, from: "\n", to: "" }
+let has_outdated = not { in: eq { a: outdated_raw, b: "" } }
+
+# Evidence trail
+check { that: has_test, msg: "has test script" }
+check { that: has_build, msg: "has build script" }
+check { that: has_lock, msg: "lock file exists" }
+
+let report = {
+  package: name,
+  version: version,
+  dependencies: dep_count,
+  devDependencies: dev_count,
+  total: dep_count + dev_count,
+  scripts: script_names,
+  script_count: script_count,
+  has_test_script: has_test,
+  has_build_script: has_build,
+  has_start_script: has_start,
+  has_lock_file: has_lock,
+  version_analysis: {
+    ranged: ranged_count,
+    pinned: dep_count - ranged_count,
+    details: dep_analysis
+  },
+  has_outdated_deps: has_outdated
+}
+
+return { audit: report }

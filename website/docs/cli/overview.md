@@ -61,7 +61,7 @@ All commands use a consistent set of exit codes. See [Exit Codes](../errors/exit
 | 2 | Parse or validation error |
 | 3 | Capability denied |
 | 4 | Runtime or tool error |
-| 5 | Assertion or check failed |
+| 5 | Assertion or check failed (`assert` = fatal/halts, `check` = non-fatal/continues) |
 
 ## Installation
 

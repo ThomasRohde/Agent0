@@ -343,13 +343,16 @@ return { done: true }
 
 ### E_ASSERT
 
-**Assertion failed** -- an `assert` statement evaluated `that` to a falsy value. Execution halts immediately.
+**Assertion failed (fatal)** -- an `assert` statement evaluated `that` to a falsy value. **Execution halts immediately.** No further statements run after a failed assert.
+
+Use `assert` for invariants that MUST hold -- the program cannot continue meaningfully if these fail.
 
 - **Common cause:** A program invariant was violated.
 - **Fix:** Fix the condition or the data that caused the assertion to fail.
 
 ```a0
 assert { that: false, msg: "something went wrong" }
+# nothing after this line executes
 return { ok: true }
 ```
 
@@ -359,13 +362,16 @@ error[E_ASSERT]: Assertion failed: something went wrong
 
 ### E_CHECK
 
-**Check failed** -- a `check` statement evaluated `that` to a falsy value. An evidence record is produced.
+**Check failed (non-fatal)** -- a `check` statement evaluated `that` to a falsy value. **An evidence record is produced but execution continues.** The program completes all remaining statements. If any check failed, the runner returns exit 5 after the program finishes.
+
+Use `check` for validations the agent should know about but that should not prevent the program from finishing.
 
 - **Common cause:** A program property did not hold.
 - **Fix:** Investigate the failing condition using trace output and evidence records.
 
 ```a0
 check { that: false, msg: "expected positive value" }
+# execution continues -- this return still runs
 return { ok: true }
 ```
 
@@ -397,5 +403,5 @@ return { ok: true }
 | `E_MATCH_NOT_RECORD` | Runtime | 4 | Match on non-record |
 | `E_MATCH_NO_ARM` | Runtime | 4 | No matching arm |
 | `E_TYPE` | Runtime | 4 | Type error |
-| `E_ASSERT` | Runtime | 5 | Assertion failed |
-| `E_CHECK` | Runtime | 5 | Check failed |
+| `E_ASSERT` | Runtime | 5 | Assertion failed (fatal -- halts immediately) |
+| `E_CHECK` | Runtime | 5 | Check failed (non-fatal -- records evidence, continues) |

@@ -1,8 +1,24 @@
-# assertions.a0 - Demonstrate assert and check
+# assertions.a0 — Demonstrate assert (fatal) vs check (non-fatal)
+#
+# assert halts execution on failure — use for invariants.
+# check records evidence and continues — use for observations.
+# If any check fails, the runner still returns exit 5.
+
 let data = { count: 42, items: [1, 2, 3] }
 let count = get { in: data, path: "count" }
 
-assert { that: true, msg: "count is defined" }
-check { that: true, msg: "data structure valid" }
+# Fatal: if this fails, execution stops immediately
+let count_ok = eq { a: count, b: 42 }
+assert { that: count_ok, msg: "count must be 42" }
 
-return { ok: true, count: count }
+# Non-fatal: records the result, program continues either way
+let has_items = contains { in: data, value: "items" }
+check { that: has_items, msg: "data has items field" }
+
+let items = get { in: data, path: "items" }
+let item_count = len { in: items }
+let enough = item_count >= 5
+check { that: enough, msg: "has at least 5 items" }
+
+# Program completes even though the second check fails
+return { ok: true, count: count, items: item_count }

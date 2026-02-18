@@ -4,7 +4,7 @@ sidebar_position: 5
 
 # Shell Commands
 
-This example runs shell commands, enforces budget constraints, validates results with predicate assertions, and builds an evidence trail. It demonstrates `sh.exec`, `budget`, and the interplay between `assert` and `check`.
+This example runs shell commands, enforces budget constraints, validates results with predicate assertions, and builds an evidence trail. It demonstrates `sh.exec`, `budget`, and the interplay between `assert` (fatal -- halts on failure) and `check` (non-fatal -- records evidence and continues).
 
 ## Source: system-check.a0
 
@@ -75,7 +75,7 @@ The assertion uses two stdlib predicates composed together:
 1. `eq { a: node_ver.stdout, b: "" }` -- checks if stdout is empty (returns a boolean)
 2. `not { in: ... }` -- negates the result
 
-If `has_output` is `false`, `assert` stops the program immediately (exit 5, `E_ASSERT`).
+If `has_output` is `false`, `assert` is **fatal** -- it stops the program immediately (exit 5, `E_ASSERT`). No further statements execute.
 
 ### Lines 9-11: Another command with assertion
 
@@ -107,7 +107,7 @@ do fs.write { path: "system-check.json", data: report, format: "json" } -> artif
 check { that: true, msg: "report written" }
 ```
 
-Writes the report to a JSON file. The `check` statement records evidence that the write happened. Unlike `assert`, `check` does not stop execution on failure -- it just records the result.
+Writes the report to a JSON file. The `check` statement records evidence that the write happened. Unlike `assert`, `check` is **non-fatal** -- it records the result and continues execution. If any check fails, the program still completes but the runner returns exit 5 after execution finishes.
 
 ### Line 23: Return
 
@@ -126,5 +126,5 @@ a0 run --unsafe-allow-all examples/system-check.a0
 - `budget` sets runtime resource limits (time, tool calls, bytes, iterations)
 - `sh.exec` returns `{ stdout, stderr, exitCode }`
 - Predicate functions (`eq`, `not`, `and`, `or`, `contains`) compose to build meaningful boolean checks
-- `assert` stops on failure, `check` records and continues
+- `assert` is fatal (halts immediately on failure), `check` is non-fatal (records evidence and continues; exit 5 after run if any failed)
 - Both produce evidence records visible in the [trace output](../evidence/traces.md)

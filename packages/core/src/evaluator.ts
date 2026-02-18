@@ -502,14 +502,15 @@ async function evalExpr(
       evidence.push(ev);
       emitTrace("evidence", expr.span, ev as unknown as A0Record);
 
-      if (!ok) {
+      if (!ok && expr.kind === "AssertExpr") {
         throw new A0RuntimeError(
-          expr.kind === "AssertExpr" ? "E_ASSERT" : "E_CHECK",
-          `${expr.kind === "AssertExpr" ? "Assertion" : "Check"} failed: ${msg}`,
+          "E_ASSERT",
+          `Assertion failed: ${msg}`,
           expr.span,
           { evidence: ev as unknown as A0Record }
         );
       }
+      // check is non-fatal: records evidence but continues execution
 
       return ev as unknown as A0Value;
     }

@@ -4,15 +4,17 @@ sidebar_position: 1
 
 # Assert and Check
 
-A0 provides two evidence statements for validating program behavior: `assert` and `check`. Both produce evidence records in the trace output, but they differ in how they handle failures.
+A0 provides two evidence statements for validating program behavior: `assert` and `check`. Both produce evidence records in the trace output, but they differ critically in how they handle failures.
 
-## assert
+## assert -- Fatal
 
-`assert` stops execution immediately if the condition is false. It exits with code 5 and diagnostic `E_ASSERT`.
+`assert` is **fatal**: it stops execution immediately if the condition is false. It exits with code 5 and diagnostic `E_ASSERT`. No further statements execute after a failed assert.
+
+Use `assert` for invariants that MUST hold -- the program cannot continue meaningfully if these fail.
 
 ```a0
 assert { that: true, msg: "this passes" }
-assert { that: false, msg: "this stops the program" }
+assert { that: false, msg: "this stops the program -- nothing after this runs" }
 ```
 
 The `that` field must be a boolean. The `msg` field is a string describing what is being asserted.
@@ -27,13 +29,15 @@ assert { that: true, msg: "step completed" } -> evidence
 
 The bound value is a record with the assertion result.
 
-## check
+## check -- Non-Fatal
 
-`check` records evidence but does **not** stop execution when the condition is false. If any `check` fails, the program exits with code 5 and diagnostic `E_CHECK` after completing all statements.
+`check` is **non-fatal**: it records evidence (ok or fail) and **continues execution** regardless of the result. If ANY `check` fails during the run, the program still completes all remaining statements, but the runner returns exit 5 after execution finishes (diagnostic `E_CHECK`).
+
+Use `check` for validations the agent should know about but that should not prevent the program from finishing.
 
 ```a0
 check { that: true, msg: "data structure valid" }
-check { that: false, msg: "this records a failure but continues" }
+check { that: false, msg: "this records a failure but execution continues" }
 ```
 
 Like `assert`, `check` accepts `that` (boolean) and `msg` (string) fields, and supports `->` binding.
@@ -42,8 +46,8 @@ Like `assert`, `check` accepts `that` (boolean) and `msg` (string) fields, and s
 
 | Statement | On failure | Use when |
 |-----------|-----------|----------|
-| `assert`  | Stops immediately (exit 5, `E_ASSERT`) | A precondition must hold for later steps to make sense |
-| `check`   | Records failure, continues (exit 5, `E_CHECK`) | You want to gather all evidence before reporting |
+| `assert`  | **Fatal**: stops immediately (exit 5, `E_ASSERT`) | An invariant MUST hold -- the program cannot continue |
+| `check`   | **Non-fatal**: records failure, continues (exit 5 after run, `E_CHECK`) | You want to gather all evidence before reporting |
 
 ## Using predicates for meaningful conditions
 

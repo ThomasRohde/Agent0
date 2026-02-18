@@ -1,37 +1,46 @@
-**Findings**  
+**Findings (website excluded)**
 
-1. **High**: `a0 run --trace <path>` can hard-crash on invalid/uncreatable trace paths instead of returning structured CLI error output.  
-`packages/cli/src/cmd-run.ts:75`, `packages/cli/src/cmd-run.ts:76`, `packages/cli/src/cmd-run.ts:87`  
-Repro: `node packages/cli/dist/main.js run examples/hello.a0 --trace no_such_dir/trace.jsonl` -> uncaught `ENOENT`, exit `1`.
+1. **High**: `patch` `"replace"` on arrays is implemented as insert, so it corrupts array shape.  
+`packages/std/src/patch.ts:48` uses `arr.splice(idx, 0, value)` for array leaf writes, and `packages/std/src/patch.ts:106` routes `"replace"` through the same path.  
+Repro I ran: replacing `/1` in `[1,2,3]` returned `[1,9,2,3]` (expected `[1,9,3]`).
 
-2. **High**: Help docs describe a policy `deny` list, but runtime policy enforcement ignores `deny` entirely and uses only `allow`. This is a security/expectation mismatch.  
-`packages/cli/src/help-content.ts:357`, `packages/core/src/capabilities.ts:11`, `packages/core/src/capabilities.ts:58`, `packages/core/src/capabilities.ts:79`  
-Quick proof: `buildAllowedCaps({allow:["sh.exec"],deny:["sh.exec"]}, false)` still allows `sh.exec`.
+2. **High**: `a0 check` misses self-referential `let` bindings (`let x = x`), which then fail at runtime.  
+`packages/core/src/validator.ts:157` adds the binding before validating RHS at `packages/core/src/validator.ts:158`.  
+Repro I ran: `check` returned success, `run` failed with `E_UNBOUND`.
 
-3. **Medium**: Help stdlib reference is materially out of sync with implementation/tests (multiple signatures/semantics).  
-Examples:  
-`packages/cli/src/help-content.ts:282`, `packages/cli/src/help-content.ts:285`, `packages/cli/src/help-content.ts:288`, `packages/cli/src/help-content.ts:291`, `packages/cli/src/help-content.ts:295`, `packages/cli/src/help-content.ts:315`, `packages/cli/src/help-content.ts:319`, `packages/cli/src/help-content.ts:254`  
-vs code/tests:  
-`packages/std/src/list-ops.ts:58`, `packages/std/src/list-ops.ts:94`, `packages/std/src/list-ops.ts:116`, `packages/std/src/list-ops.ts:143`, `packages/std/src/list-ops.ts:144`, `packages/std/src/list-ops.ts:165`, `packages/std/src/string-ops.ts:49`, `packages/std/src/string-ops.ts:79`, `packages/std/src/predicates.ts:35`, `packages/std/src/stdlib.test.ts:379`, `packages/std/src/stdlib.test.ts:400`, `packages/std/src/stdlib.test.ts:419`, `packages/std/src/stdlib.test.ts:444`, `packages/std/src/stdlib.test.ts:483`, `packages/std/src/stdlib.test.ts:500`.
+3. **High**: `timeMs` budget can be bypassed by long work inside the final statement expression (including tool calls).  
+Time budget is checked only at statement entry (`packages/core/src/evaluator.ts:249`), and `ReturnStmt` exits immediately after expression eval (`packages/core/src/evaluator.ts:279`).  
+Repro I ran: `budget { timeMs: 10 }` with `do sh.exec` sleep inside `return { ... }` finished after ~948ms and exited `0` (no `E_BUDGET`).
 
-4. **Medium**: Help says `match expr ...`, but grammar only permits `match <identPath> ...`.  
-`packages/cli/src/help-content.ts:40`, `packages/cli/src/help-content.ts:92`, `packages/cli/src/help-content.ts:453`, `packages/core/src/parser.ts:263`  
-Repro from stdin with `match { ok: 1 } ...` returns `E_PARSE` (expected `Ident`, found `{`).
+4. **Medium**: `fn map { ... }` is allowed by validator but effectively uncallable due runtime precedence.  
+Built-in `map` is hard-special-cased before user functions at `packages/core/src/evaluator.ts:521`; user fn dispatch starts later at `packages/core/src/evaluator.ts:596`.  
+Validator does not block stdlib name collisions (`packages/core/src/validator.ts:133`, `packages/core/src/validator.ts:376`).  
+Repro I ran: `check` passes, `run` fails with `E_TYPE` (`map 'in' must be a list`).
 
-5. **Medium**: Arrow-binding accepts dotted targets syntactically, but runtime/validator only use the first segment. README examples use dotted targets, which silently do something different than they suggest.  
-`packages/core/src/parser.ts:123`, `packages/core/src/evaluator.ts:270`, `packages/core/src/validator.ts:162`, `README.md:93`, `README.md:94`  
-Observed behavior: `... -> ev.status` binds `ev`, not `ev.status`.
+5. **Medium**: Rebinding via `expr -> name` is currently allowed, contradicting documented semantics.  
+Docs say no reassignment at `packages/cli/src/help-content.ts:113`.  
+Validator does not duplicate-check `ExprStmt.target` (`packages/core/src/validator.ts:160`, `packages/core/src/validator.ts:162`), and runtime overwrites with `env.set` (`packages/core/src/evaluator.ts:275`).  
+Repro I ran: `let x = 1` then `2 -> x` passes and returns `x = 2`.
 
-6. **Low**: `clean` scripts are not Windows-compatible (`rm -rf`) and fail in this environment.  
-`packages/core/package.json:10`, `packages/std/package.json:10`, `packages/tools/package.json:10`, `packages/cli/package.json:13`  
-Repro: `npm run clean -w packages/core` -> `'rm' is not recognized`.
+6. **Low (consistency)**: Help/docs drift from implementation.  
+`packages/cli/src/help-content.ts:7` says `v0.3`, while repo version is `0.5.0` at `package.json:3`.  
+`packages/cli/src/help-content.ts:124` says ints are arbitrary precision, but runtime numeric type is JS `number` (`packages/core/src/evaluator.ts:13`; parse at `packages/core/src/parser.ts:888`).  
+`packages/cli/src/help-content.ts:255` and `packages/cli/src/help-content.ts:257` say `contains` coerces to string, but implementation requires string (`packages/std/src/predicates.ts:35`, `packages/std/src/predicates.ts:47`).  
+`README.md:234` says `maxIterations` is per `for` loop, but runtime is cumulative across for/map (`packages/core/src/evaluator.ts:559`, `packages/core/src/evaluator.ts:669`).  
+`README.md:245` omits `map_start`/`map_end`, which are emitted (`packages/core/src/evaluator.ts:30`).
 
-7. **Low**: `a0 check --json` is effectively dead surface area; option is declared but not consumed, and CLI package has no tests.  
-`packages/cli/src/main.ts:29`, `packages/cli/src/main.ts:30`, `packages/cli/src/cmd-check.ts:9`, `packages/cli/src/cmd-check.ts:37`, `packages/cli/src/cmd-check.ts:40`, `packages/cli/package.json:14`  
-`npm test` currently reports `0` tests for `a0` (CLI workspace).
+7. **Low (testing gap)**: CLI/help surface is effectively untested.  
+`packages/cli/package.json:14` defines tests, but there are no CLI test files under `packages/cli/src`, and `npm test` reported `0` tests for workspace `a0`.
 
-**Open Questions / Assumptions**
+**Open questions**
 
-1. Should docs align to current stdlib behavior, or should stdlib be changed to match documented signatures?  YES!
-2. Should `match` accept full expressions as documented, or should docs be narrowed to identifier paths?  YES!
-3. Should `expr -> target` support nested targets (`a.b`) semantically, or should parser restrict target to a bare identifier? Nested!
+1. Should `timeMs` be a hard runtime limit (including mid-expression/tool), or statement-boundary best-effort?  
+2. Should `->` rebinding be legal, or should it raise `E_DUP_BINDING` like `let` duplicates?  
+3. Should `map` be reserved/un-overridable (validator error), or should user-defined `map` take precedence?
+
+**Review coverage**
+
+1. Ran full non-website build/test: `npm run build`, `npm test` (all passing; CLI had 0 tests).  
+2. Ran `a0 check` across all `examples/*.a0` (all passed).  
+3. Executed targeted repros for each issue above.  
+4. No code changes made.

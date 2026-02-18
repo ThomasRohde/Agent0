@@ -1,0 +1,53 @@
+# git-summary.a0 — Generate a structured git repository report
+#
+# Gathers branch info, recent commits, file stats, and uncommitted
+# changes, then writes a JSON report. Useful for CI dashboards or
+# agent-driven code-review pipelines.
+
+cap { sh.exec: true, fs.write: true }
+budget { timeMs: 30000, maxToolCalls: 8 }
+
+# Current branch name
+do sh.exec { cmd: "git rev-parse --abbrev-ref HEAD", timeoutMs: 5000 } -> branch_result
+let branch = str.replace { in: branch_result.stdout, from: "\n", to: "" }
+
+# Last 10 commits (one-line format)
+do sh.exec { cmd: "git log --oneline -10", timeoutMs: 5000 } -> log_result
+let log_lines = str.split { in: log_result.stdout, sep: "\n" }
+let log_entries = filter { in: log_lines, by: "length" }
+
+# Uncommitted changes (porcelain for machine parsing)
+do sh.exec { cmd: "git status --porcelain", timeoutMs: 5000 } -> status_result
+let status_lines = str.split { in: status_result.stdout, sep: "\n" }
+let changes = filter { in: status_lines, by: "length" }
+let change_count = len { in: changes }
+let is_clean = eq { a: change_count, b: 0 }
+
+# Contributor count
+do sh.exec { cmd: "git shortlog -sn --all | wc -l", timeoutMs: 5000 } -> contrib_result
+let contrib_raw = str.replace { in: contrib_result.stdout, from: "\n", to: "" }
+let contrib_trimmed = str.replace { in: contrib_raw, from: " ", to: "" }
+
+# Repo root for context
+do sh.exec { cmd: "git rev-parse --show-toplevel", timeoutMs: 5000 } -> root_result
+let repo_root = str.replace { in: root_result.stdout, from: "\n", to: "" }
+
+# Build the report
+let report = {
+  branch: branch,
+  clean: is_clean,
+  uncommitted_changes: change_count,
+  recent_commits: log_entries,
+  repo_root: repo_root,
+  contributors: contrib_trimmed
+}
+
+# Evidence trail
+let branch_ok = not { in: eq { a: branch, b: "" } }
+assert { that: branch_ok, msg: "detected current branch" }
+check { that: is_clean, msg: "working tree is clean" }
+
+do fs.write { path: "git-report.json", data: report, format: "json" } -> artifact
+assert { that: true, msg: "report written" }
+
+return { report: report, artifact: artifact }

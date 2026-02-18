@@ -35,7 +35,7 @@ Map exit codes to error categories:
 | `2` | Parse/validation error | Fix syntax or semantic issues |
 | `3` | Capability denied | Add capability to `cap {}` or update policy |
 | `4` | Runtime/tool error | Fix tool arguments or external dependency |
-| `5` | Assertion/check failed | Review assert/check conditions |
+| `5` | Assertion/check failed | `assert` = fatal (halts), `check` = non-fatal (continues; exit 5 after run) |
 
 ## Quick Diagnostic Reference
 
@@ -72,8 +72,8 @@ Map exit codes to error categories:
 | `E_MATCH_NOT_RECORD` | `match` subject is not a record | Ensure subject evaluates to `{ ok: ... }` or `{ err: ... }` |
 | `E_MATCH_NO_ARM` | `match` subject has no `ok`/`err` key | Subject record must contain an `ok` or `err` key |
 | `E_TYPE` | Type error in expression | Ensure arithmetic operands are numbers; avoid division/modulo by zero; compare compatible types |
-| `E_ASSERT` | `assert` condition is false | Fix the condition or the data producing it |
-| `E_CHECK` | `check` condition is false | Fix the condition or the data producing it |
+| `E_ASSERT` | `assert` condition is false (fatal — halts immediately) | Fix the condition or the data producing it |
+| `E_CHECK` | `check` condition is false (non-fatal — records evidence, continues) | Fix the condition or upstream data; runner returns exit 5 after execution |
 
 For detailed repair strategies per error code, see `references/diagnostics-guide.md`.
 
@@ -132,7 +132,7 @@ When understanding existing A0 programs:
 2. **Follow the data flow** — `let` and `->` bindings create the variable chain
 3. **Identify tool calls** — `call?` (reads data) vs `do` (has effects)
 4. **Check `return`** — the program's output is always the return record
-5. **Note assert/check** — these are the program's correctness claims
+5. **Note assert/check** — `assert` is fatal (halts on failure), `check` is non-fatal (records evidence, continues)
 
 ## Capability Policy
 

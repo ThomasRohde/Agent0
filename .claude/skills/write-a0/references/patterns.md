@@ -84,7 +84,7 @@ return { report: report, artifact: artifact }
 
 ## Pattern 6: Data Validation with Evidence
 
-Validate data and assert expectations.
+Validate data using `assert` (fatal — halts on failure) and `check` (non-fatal — records evidence, continues).
 
 ```
 # validate.a0
@@ -92,9 +92,12 @@ cap { fs.read: true }
 
 call? fs.read { path: "data.json" } -> raw
 let data = parse.json { in: raw }
-let count = get { in: data, path: "items" }
+let has_items = contains { in: data, value: "items" }
 
-assert { that: true, msg: "data has items field" }
+# Fatal: program cannot continue without items
+assert { that: has_items, msg: "data has items field" }
+
+# Non-fatal: record evidence but let program finish
 check { that: true, msg: "data structure valid" }
 
 return { valid: true, data: data }
@@ -139,7 +142,7 @@ return { status: resp.status, data: data }
 
 ## Pattern 9: Predicate-Based Validation
 
-Use predicate functions with assert/check for meaningful runtime checks.
+Use predicate functions with `assert` (fatal) and `check` (non-fatal) for meaningful runtime checks.
 
 ```
 # validate-data.a0
@@ -148,12 +151,14 @@ cap { fs.read: true }
 call? fs.read { path: "config.json" } -> raw
 let config = parse.json { in: raw }
 
+# Fatal — can't continue without a name field
 let has_name = contains { in: config, value: "name" }
 assert { that: has_name, msg: "config must have name field" }
 
+# Non-fatal — record evidence that name is non-empty, but continue either way
 let name = get { in: config, path: "name" }
 let not_empty = not { in: eq { a: name, b: "" } }
-assert { that: not_empty, msg: "name must not be empty" }
+check { that: not_empty, msg: "name should not be empty" }
 
 return { valid: true, name: name }
 ```

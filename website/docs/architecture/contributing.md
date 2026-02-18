@@ -98,6 +98,6 @@ Codes must be documented in `packages/core/src/diagnostics.ts` and added to the 
 | 2 | Parse or validation error |
 | 3 | Capability denied |
 | 4 | Runtime or tool error |
-| 5 | Assertion or check failure |
+| 5 | Assertion or check failure (`assert` = fatal/halts, `check` = non-fatal/continues) |
 
 New features should map to existing exit codes where possible. Adding a new exit code requires updating the CLI, both skills, and this documentation.

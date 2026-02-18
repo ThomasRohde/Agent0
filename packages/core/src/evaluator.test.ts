@@ -213,17 +213,15 @@ describe("A0 Evaluator", () => {
     assert.equal(result.evidence[0].msg, "all good");
   });
 
-  it("evaluates check with ok=false (throws E_CHECK)", async () => {
+  it("evaluates check with ok=false (non-fatal, records evidence)", async () => {
     const src = `check { that: false, msg: "check fails" }\nreturn {}`;
     const pr = parse(src, "test.a0");
     assert.ok(pr.program);
-    await assert.rejects(
-      () => execute(pr.program!, makeOptions()),
-      (err: A0RuntimeError) => {
-        assert.equal(err.code, "E_CHECK");
-        return true;
-      }
-    );
+    const result = await execute(pr.program!, makeOptions());
+    assert.equal(result.evidence.length, 1);
+    assert.equal(result.evidence[0].ok, false);
+    assert.equal(result.evidence[0].kind, "check");
+    assert.equal(result.evidence[0].msg, "check fails");
   });
 
   it("evaluates assert with details", async () => {
@@ -501,17 +499,15 @@ describe("A0 Evaluator", () => {
     );
   });
 
-  it("coerces null to false in check", async () => {
+  it("coerces null to false in check (non-fatal)", async () => {
     const src = `check { that: null, msg: "null is falsy" }\nreturn {}`;
     const pr = parse(src, "test.a0");
     assert.ok(pr.program);
-    await assert.rejects(
-      () => execute(pr.program!, makeOptions()),
-      (err: A0RuntimeError) => {
-        assert.equal(err.code, "E_CHECK");
-        return true;
-      }
-    );
+    const result = await execute(pr.program!, makeOptions());
+    assert.equal(result.evidence.length, 1);
+    assert.equal(result.evidence[0].ok, false);
+    assert.equal(result.evidence[0].kind, "check");
+    assert.equal(result.evidence[0].msg, "null is falsy");
   });
 
   // --- Budget enforcement tests ---

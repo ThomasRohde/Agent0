@@ -110,7 +110,7 @@ do fs.write { path: "examples/package-report.json", data: report, format: "json"
 assert { that: true, msg: "project report generated" }
 ```
 
-`fs.write` is an effect-mode tool (used with `do`). The `assert` statement records evidence that the report was generated.
+`fs.write` is an effect-mode tool (used with `do`). The `assert` statement records evidence that the report was generated. Since `assert` is fatal, if the condition were false, execution would halt immediately.
 
 ### Line 34: Return
 

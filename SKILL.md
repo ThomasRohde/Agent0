@@ -64,7 +64,10 @@ let patched = patch { in: doc, ops: [{ op: "replace", path: "/name", value: "new
 
 ## Evidence
 
-`assert` and `check` take `{ that: bool, msg: str }`. Failed assert/check stops execution (exit 5).
+Both `assert` and `check` take `{ that: bool, msg: str }` and produce evidence records in the trace.
+
+- **`assert`** — Fatal. Halts execution immediately on failure (exit 5, `E_ASSERT`). Use for invariants that MUST hold.
+- **`check`** — Non-fatal. Records evidence and continues execution. If any check fails, the runner returns exit 5 after the program finishes. Use for validations that should not prevent the program from completing.
 
 ```
 assert { that: true, msg: "value exists" }
@@ -110,4 +113,5 @@ a0 fmt file.a0               # canonical format to stdout
 a0 fmt file.a0 --write       # format in place
 ```
 
-Exit codes: `0` ok, `2` parse error, `3` capability denied, `4` runtime error, `5` assertion failed.
+Exit codes: `0` ok, `2` parse error, `3` capability denied, `4` runtime error, `5` assert/check failed.
+`assert` = fatal (halts immediately), `check` = non-fatal (records evidence, continues; exit 5 after run if any check failed).

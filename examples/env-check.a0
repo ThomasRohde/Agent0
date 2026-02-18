@@ -1,0 +1,59 @@
+# env-check.a0 — Verify system prerequisites are installed
+#
+# Checks that required CLI tools are available and reports their
+# versions. Useful as a setup validator for onboarding or CI.
+# Demonstrates fn, for, match, and structured error handling.
+
+cap { sh.exec: true }
+budget { timeMs: 30000, maxToolCalls: 15, maxIterations: 20 }
+
+# Define a reusable version-checker function
+fn check_tool { name, cmd } {
+  do sh.exec { cmd: cmd, timeoutMs: 5000 } -> result
+  let ok = eq { a: result.exitCode, b: 0 }
+  let version = str.replace { in: result.stdout, from: "\n", to: "" }
+  let status = if { cond: ok, then: "installed", else: "missing" }
+  return { name: name, status: status, version: version, ok: ok }
+}
+
+# Tools every Node.js project needs
+let node_check = check_tool { name: "node", cmd: "node --version" }
+let npm_check = check_tool { name: "npm", cmd: "npm --version" }
+let git_check = check_tool { name: "git", cmd: "git --version" }
+let tsc_check = check_tool { name: "tsc", cmd: "tsc --version" }
+
+let all_results = [node_check, npm_check, git_check, tsc_check]
+
+# Count installed vs missing
+let installed = filter { in: all_results, by: "ok" }
+let installed_count = len { in: installed }
+let total = len { in: all_results }
+let missing_count = total - installed_count
+let all_ok = eq { a: missing_count, b: 0 }
+
+# Build summary lines
+let summary_lines = for { in: all_results, as: "tool" } {
+  let icon = if { cond: tool.ok, then: "OK", else: "MISSING" }
+  let line = str.concat { parts: ["[", icon, "] ", tool.name, " ", tool.version] }
+  return { line: line, ok: tool.ok }
+}
+
+let summary_text = join {
+  in: for { in: summary_lines, as: "s" } {
+    return { val: s.line }
+  },
+  sep: "\n"
+}
+
+# Evidence — assert that critical tools are present
+assert { that: node_check.ok, msg: "node is installed" }
+assert { that: npm_check.ok, msg: "npm is installed" }
+assert { that: git_check.ok, msg: "git is installed" }
+check { that: tsc_check.ok, msg: "tsc is installed" }
+
+return {
+  all_ok: all_ok,
+  installed: installed_count,
+  missing: missing_count,
+  tools: all_results
+}

@@ -19,6 +19,7 @@ The validator performs semantic checks on the AST before execution. It catches e
 
 - No two `let` bindings in the same scope may have the same name (`E_DUP_BINDING`)
 - `->` bindings (from tool calls, assert, check) also count as bindings
+- Note: `assert` is fatal (halts on failure), `check` is non-fatal (records evidence and continues)
 
 ### Unbound variables
 

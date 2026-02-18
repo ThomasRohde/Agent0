@@ -1,0 +1,20 @@
+{
+  "app": {
+    "name": "my-service",
+    "port": 3000
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "mydb"
+  },
+  "logging": {
+    "level": "debug",
+    "format": "json"
+  },
+  "cache": {
+    "driver": "redis",
+    "host": "localhost",
+    "port": 6379
+  }
+}

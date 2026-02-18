@@ -1,0 +1,99 @@
+# config-migrate.a0 — Migrate a config file from v1 to v2 schema
+#
+# Reads a legacy config file, validates it, applies structured
+# transformations to match a new schema, and writes the migrated
+# version. Demonstrates JSON Patch, put/get, merge, and thorough
+# validation with evidence.
+
+cap { fs.read: true, fs.write: true }
+
+# Read legacy config
+call? fs.read { path: "examples/config.v1.json" } -> raw
+let v1 = parse.json { in: raw }
+
+# Validate v1 has expected structure
+let has_app = contains { in: v1, value: "app" }
+assert { that: has_app, msg: "v1 has app section" }
+let has_db = contains { in: v1, value: "database" }
+assert { that: has_db, msg: "v1 has database section" }
+
+# Extract v1 fields
+let app_name = get { in: v1, path: "app.name" }
+let app_port = get { in: v1, path: "app.port" }
+let db_host = get { in: v1, path: "database.host" }
+let db_port = get { in: v1, path: "database.port" }
+let db_name = get { in: v1, path: "database.name" }
+
+# Build v2 structure with new layout:
+# v2 moves database under "services", adds metadata, renames fields
+let v2_base = {
+  schema_version: 2,
+  metadata: {
+    migrated_from: 1,
+    source_file: "examples/config.v1.json"
+  },
+  server: {
+    name: app_name,
+    port: app_port,
+    host: "0.0.0.0"
+  },
+  services: {
+    database: {
+      driver: "postgres",
+      connection: {
+        host: db_host,
+        port: db_port,
+        database: db_name
+      }
+    }
+  }
+}
+
+# Carry over optional v1 fields if present
+let has_logging = contains { in: v1, value: "logging" }
+let v2_with_logging = if {
+  cond: has_logging,
+  then: put { in: v2_base, path: "observability.logging", value: get { in: v1, path: "logging" } },
+  else: put { in: v2_base, path: "observability.logging", value: { level: "info" } }
+}
+
+let has_cache = contains { in: v1, value: "cache" }
+let v2_with_cache = if {
+  cond: has_cache,
+  then: put { in: v2_with_logging, path: "services.cache", value: get { in: v1, path: "cache" } },
+  else: v2_with_logging
+}
+
+# Apply final patches: add defaults for new v2 fields
+let v2_final = patch {
+  in: v2_with_cache,
+  ops: [
+    { op: "add", path: "/server/graceful_shutdown_ms", value: 5000 },
+    { op: "add", path: "/services/database/connection/pool_size", value: 10 },
+    { op: "add", path: "/services/database/connection/ssl", value: true }
+  ]
+}
+
+# Validate the migration
+let v2_version = get { in: v2_final, path: "schema_version" }
+let version_ok = eq { a: v2_version, b: 2 }
+assert { that: version_ok, msg: "migrated config is schema v2" }
+
+let v2_name = get { in: v2_final, path: "server.name" }
+let name_preserved = eq { a: v2_name, b: app_name }
+assert { that: name_preserved, msg: "app name preserved during migration" }
+
+let v2_db = get { in: v2_final, path: "services.database.connection.host" }
+let db_preserved = eq { a: v2_db, b: db_host }
+assert { that: db_preserved, msg: "database host preserved during migration" }
+
+# Write migrated config
+do fs.write { path: "config.v2.json", data: v2_final, format: "json" } -> artifact
+assert { that: true, msg: "v2 config written" }
+
+return {
+  migrated: true,
+  v1_fields: keys { in: v1 },
+  v2_fields: keys { in: v2_final },
+  artifact: artifact
+}

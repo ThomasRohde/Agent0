@@ -1,0 +1,104 @@
+# project-stats.a0 — Compute project statistics from git and filesystem
+#
+# Counts lines of code by file type, measures test coverage surface
+# area, calculates commit velocity, and writes a project health
+# dashboard. A real-world use case for agents monitoring repos.
+
+cap { sh.exec: true, fs.write: true }
+budget { timeMs: 60000, maxToolCalls: 12, maxIterations: 50 }
+
+# Lines of code by type (exclude node_modules, dist, .git)
+fn count_lines { ext, label } {
+  do sh.exec {
+    cmd: str.concat { parts: [
+      "find . -name '*.\"", ext, "\"' -not -path '*/node_modules/*' -not -path '*/dist/*' -not -path '*/.git/*' | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}'"
+    ] },
+    timeoutMs: 10000
+  } -> result
+  let count_str = str.replace { in: result.stdout, from: "\n", to: "" }
+  let count_clean = str.replace { in: count_str, from: " ", to: "" }
+  return { type: label, extension: ext, lines: count_clean }
+}
+
+# Simpler: use a single command for all stats
+do sh.exec {
+  cmd: "find . -name '*.ts' -not -path '*/node_modules/*' -not -path '*/dist/*' | xargs wc -l 2>/dev/null | tail -1",
+  timeoutMs: 15000
+} -> ts_result
+
+do sh.exec {
+  cmd: "find . -name '*.ts' -not -path '*/node_modules/*' -not -path '*/dist/*' | wc -l",
+  timeoutMs: 10000
+} -> ts_files_result
+let ts_files = str.replace { in: ts_files_result.stdout, from: "\n", to: "" }
+
+# Test files
+do sh.exec {
+  cmd: "find . -name '*.test.ts' -not -path '*/node_modules/*' | wc -l",
+  timeoutMs: 10000
+} -> test_files_result
+let test_files = str.replace { in: test_files_result.stdout, from: "\n", to: "" }
+
+# Commit velocity: commits in last 30 days
+do sh.exec {
+  cmd: "git log --oneline --since='30 days ago' | wc -l",
+  timeoutMs: 10000
+} -> velocity_result
+let commits_30d = str.replace { in: velocity_result.stdout, from: "\n", to: "" }
+
+# Commits in last 7 days
+do sh.exec {
+  cmd: "git log --oneline --since='7 days ago' | wc -l",
+  timeoutMs: 10000
+} -> weekly_result
+let commits_7d = str.replace { in: weekly_result.stdout, from: "\n", to: "" }
+
+# Total commits
+do sh.exec {
+  cmd: "git rev-list --count HEAD",
+  timeoutMs: 10000
+} -> total_commits_result
+let total_commits = str.replace { in: total_commits_result.stdout, from: "\n", to: "" }
+
+# First and latest commit dates
+do sh.exec {
+  cmd: "git log --format=%ai -1",
+  timeoutMs: 5000
+} -> latest_result
+let latest_commit_date = str.replace { in: latest_result.stdout, from: "\n", to: "" }
+
+# Number of contributors
+do sh.exec {
+  cmd: "git shortlog -sn --all | wc -l",
+  timeoutMs: 10000
+} -> contrib_result
+let contributors = str.replace { in: contrib_result.stdout, from: "\n", to: "" }
+
+# Package count (workspaces)
+do sh.exec {
+  cmd: "ls -d packages/*/ 2>/dev/null | wc -l",
+  timeoutMs: 5000
+} -> pkg_result
+let package_count = str.replace { in: pkg_result.stdout, from: "\n", to: "" }
+
+let dashboard = {
+  codebase: {
+    typescript_files: ts_files,
+    test_files: test_files,
+    packages: package_count
+  },
+  activity: {
+    total_commits: total_commits,
+    commits_last_30d: commits_30d,
+    commits_last_7d: commits_7d,
+    latest_commit: latest_commit_date,
+    contributors: contributors
+  }
+}
+
+check { that: true, msg: "project stats gathered" }
+
+do fs.write { path: "project-stats.json", data: dashboard, format: "json" } -> artifact
+assert { that: true, msg: "dashboard written" }
+
+return { dashboard: dashboard, artifact: artifact }

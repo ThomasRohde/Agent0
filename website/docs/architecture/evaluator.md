@@ -135,8 +135,8 @@ Each event includes a timestamp, the run ID, source span, and event-specific dat
 | Invalid tool arguments | `E_TOOL_ARGS` | 4 |
 | Capability denied by policy | `E_CAP_DENIED` | 3 |
 | Stdlib function error | `E_FN` | 4 |
-| Assert failure | `E_ASSERT` | 5 |
-| Check failure (at run end) | `E_CHECK` | 5 |
+| Assert failure (fatal -- halts immediately) | `E_ASSERT` | 5 |
+| Check failure (non-fatal -- records evidence, continues; exit 5 after run) | `E_CHECK` | 5 |
 | Budget exceeded | `E_BUDGET` | 4 |
 | for input not a list | `E_FOR_NOT_LIST` | 4 |
 | match input not a record | `E_MATCH_NOT_RECORD` | 4 |

@@ -17,7 +17,7 @@ LLM agents that generate shell scripts or Python hit a wall: implicit side effec
 - **Explicit effects** — Read-only operations use `call?`, effectful operations use `do`. The distinction is enforced at compile time.
 - **Deny-by-default capabilities** — Every tool call requires an explicit capability grant. Programs declare what they need; the host decides what to allow.
 - **Machine-readable traces** — Every execution can produce a JSONL trace with 16 event types. Failures include structured diagnostics with stable error codes.
-- **Evidence-based execution** — `assert` and `check` create evidence records that appear in traces, making correctness claims explicit and auditable.
+- **Evidence-based execution** — `assert` (fatal) and `check` (non-fatal) create evidence records that appear in traces, making correctness claims explicit and auditable.
 
 ## What A0 Looks Like
 

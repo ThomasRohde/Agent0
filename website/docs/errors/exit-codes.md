@@ -14,7 +14,7 @@ A0 CLI commands use a fixed set of exit codes to indicate the result of executio
 | **2** | Parse or validation error | Compile-time issues caught by `a0 check` |
 | **3** | Capability denied | Program needs a capability not allowed by policy |
 | **4** | Runtime or tool error | Tool failure, budget exceeded, type error, etc. |
-| **5** | Assertion or check failed | `assert` or `check` evaluated to false |
+| **5** | Assertion or check failed | `assert` (fatal -- halts) or `check` (non-fatal -- continues) evaluated to false |
 
 ## Exit Code 0: Success
 
@@ -125,26 +125,40 @@ error[E_FOR_NOT_LIST]: for expression expected a list, got string.
 
 ## Exit Code 5: Assertion or Check Failed
 
-An `assert` or `check` statement evaluated to false. The program ran but its self-checks did not pass.
+An `assert` or `check` statement evaluated to false. The two statements differ in how they handle failure:
+
+- **`assert`** is **fatal** -- it halts execution immediately. No further statements run.
+- **`check`** is **non-fatal** -- it records the failure as evidence and continues execution. If any check failed, the runner returns exit 5 after the program finishes.
 
 **Diagnostic codes that produce exit 5:**
 
 | Code | Description |
 |------|-------------|
-| `E_ASSERT` | `assert` statement failed (halts execution) |
-| `E_CHECK` | `check` statement failed (records evidence, may halt) |
+| `E_ASSERT` | `assert` statement failed -- **fatal**, halts execution immediately |
+| `E_CHECK` | `check` statement failed -- **non-fatal**, records evidence and continues; exit 5 after run |
 
-**Example:**
+**Example (fatal assert):**
 
 ```a0
 let value = 0
 assert { that: false, msg: "value must be positive" }
+# nothing after this line executes
 return { value: value }
 ```
 
 ```
 error[E_ASSERT]: Assertion failed: value must be positive
 ```
+
+**Example (non-fatal check):**
+
+```a0
+check { that: false, msg: "expected positive value" }
+# execution continues -- this return still runs
+return { value: 0 }
+```
+
+The program completes and returns `{ value: 0 }`, but the runner exits with code 5 because a check failed.
 
 ## Using Exit Codes in Scripts
 

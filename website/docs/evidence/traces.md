@@ -125,7 +125,7 @@ Each line shows exactly what happened at each step, including tool arguments, re
 Traces are especially useful for:
 
 - **Tool failures**: `tool_start`/`tool_end` events show exact arguments passed and results returned
-- **Assertion failures**: `evidence` events show which `assert` or `check` failed and why
+- **Assertion/check failures**: `evidence` events show which `assert` (fatal -- halts) or `check` (non-fatal -- continues) failed and why
 - **Budget overruns**: `budget_exceeded` events show which limit was hit
 - **Loop issues**: `for_start`/`for_end` events show iteration counts
 - **Function call chains**: `fn_call_start`/`fn_call_end` events show the call stack

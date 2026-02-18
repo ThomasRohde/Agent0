@@ -41,12 +41,12 @@ CONTROL FLOW
   let out = map { in: list, fn: "fnName" } # apply fn to each element
 
 EVIDENCE
-  assert { that: bool_expr, msg: "..." }   # false -> exit 5, stops execution
-  check  { that: bool_expr, msg: "..." }   # false -> exit 5, stops execution
+  assert { that: bool_expr, msg: "..." }   # fatal: false -> exit 5, halts immediately
+  check  { that: bool_expr, msg: "..." }   # non-fatal: records evidence, continues; exit 5 if any failed
 
 CAPS: fs.read  fs.write  http.get  sh.exec
 BUDGET: timeMs  maxToolCalls  maxBytesWritten  maxIterations
-EXIT CODES: 0=ok  2=parse/validate  3=cap-denied  4=runtime  5=assert
+EXIT CODES: 0=ok  2=parse/validate  3=cap-denied  4=runtime  5=assert/check
 PROPERTY ACCESS: resp.body  result.exitCode  data.items
 
 MINIMAL EXAMPLE                        HTTP EXAMPLE
@@ -77,8 +77,8 @@ STATEMENTS
   call? tool.name { args } -> name       # read-only tool call, bind result
   do tool.name { args } -> name          # effectful tool call, bind result
   fn name { params } { body }            # define a function
-  assert { that: expr, msg: "str" }      # halt if falsy (exit 5)
-  check { that: expr, msg: "str" }       # record evidence (exit 5 if falsy)
+  assert { that: expr, msg: "str" }      # fatal: halt immediately if falsy (exit 5)
+  check { that: expr, msg: "str" }       # non-fatal: record evidence, continue; exit 5 if any failed
   return { key: val, ... }              # required, must be last statement
 
 EXPRESSIONS
@@ -528,8 +528,8 @@ RUNTIME ERRORS (exit 3/4/5)
   E_FOR_NOT_LIST    4     for in: is not a list      Ensure in: evaluates to [...]
   E_MATCH_NOT_RECORD 4    match on non-record         Ensure subject is { ok: ... } or { err: ... }
   E_MATCH_NO_ARM    4     No ok/err key in subject   Subject must have ok or err key
-  E_ASSERT          5     assert condition false      Fix condition or upstream data
-  E_CHECK           5     check condition false       Fix condition or upstream data
+  E_ASSERT          5     assert condition false (fatal, halts)        Fix condition or upstream data
+  E_CHECK           5     check condition false (non-fatal, continues) Fix condition or upstream data; exit 5 after run
 
 DEBUGGING WORKFLOW
   1. a0 check file.a0              # catch compile-time errors first

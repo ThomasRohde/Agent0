@@ -102,7 +102,7 @@ let items = range { from: 0, to: count - 1 }
 # In conditionals
 let msg = if { cond: score >= 60, then: "pass", else: "fail" }
 
-# In assertions
+# In assertions (fatal -- halts on failure)
 let valid = len { in: items } > 0
 assert { that: valid, msg: "list is not empty" }
 ```

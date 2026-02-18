@@ -81,4 +81,4 @@ if (firstPositional && !knownCommands.has(firstPositional)) {
   process.exit(1);
 }
 
-program.parse();
+program.parseAsync();

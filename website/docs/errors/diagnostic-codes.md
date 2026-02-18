@@ -88,6 +88,22 @@ error[E_UNKNOWN_CAP]: Unknown capability 'http.post'.
   hint: Valid capabilities: fs.read, fs.write, http.get, sh.exec
 ```
 
+### E_CAP_VALUE
+
+**Invalid capability value** -- capability declarations in `cap { ... }` must use literal `true`.
+
+- **Common cause:** Using `false`, numbers, strings, or expressions as capability values.
+- **Fix:** Use `true` for each declared capability.
+
+```a0
+cap { fs.read: false }
+```
+
+```
+error[E_CAP_VALUE]: Capability 'fs.read' must be set to true.
+  hint: Use capability declarations like 'cap { fs.read: true }'.
+```
+
 ### E_UNDECLARED_CAP
 
 **Undeclared capability** -- a tool is used in the program but its capability is not declared in a `cap` header.
@@ -120,6 +136,22 @@ budget { maxTime: 5000 }
 ```
 error[E_UNKNOWN_BUDGET]: Unknown budget field 'maxTime'.
   hint: Valid budget fields: timeMs, maxToolCalls, maxBytesWritten, maxIterations
+```
+
+### E_BUDGET_TYPE
+
+**Invalid budget value type** -- budget fields must use integer literals.
+
+- **Common cause:** Using strings, booleans, or non-integer expressions in `budget { ... }`.
+- **Fix:** Use integer literals for all budget values.
+
+```a0
+budget { timeMs: "5000" }
+```
+
+```
+error[E_BUDGET_TYPE]: Budget field 'timeMs' must be an integer literal.
+  hint: Use integer values, for example: budget { timeMs: 5000 }.
 ```
 
 ### E_DUP_BINDING
@@ -385,8 +417,10 @@ return { ok: true }
 | `E_NO_RETURN` | Compile | 2 | Missing return statement |
 | `E_RETURN_NOT_LAST` | Compile | 2 | Return not last statement |
 | `E_UNKNOWN_CAP` | Compile | 2 | Unknown capability |
+| `E_CAP_VALUE` | Compile | 2 | Invalid capability value |
 | `E_UNDECLARED_CAP` | Compile | 2 | Undeclared capability |
 | `E_UNKNOWN_BUDGET` | Compile | 2 | Unknown budget field |
+| `E_BUDGET_TYPE` | Compile | 2 | Invalid budget value type |
 | `E_DUP_BINDING` | Compile | 2 | Duplicate variable name |
 | `E_UNBOUND` | Compile | 2 | Unbound variable |
 | `E_CALL_EFFECT` | Compile | 2 | call? with effectful tool |

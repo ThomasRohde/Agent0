@@ -28,6 +28,7 @@ return { data: body }
 ```
 
 The `cap` block lists each capability the program needs. The validator checks that every `call?` and `do` statement in the program uses a tool whose capability is declared.
+Capability values must be literal `true`.
 
 ## Available Capabilities
 
@@ -70,6 +71,7 @@ The validator (`a0 check`) catches these capability errors:
 | Error | Description |
 |-------|-------------|
 | `E_UNKNOWN_CAP` | Capability name in `cap { ... }` is not recognized |
+| `E_CAP_VALUE` | Capability value is not literal `true` |
 | `E_UNDECLARED_CAP` | Tool is used but its capability is not declared |
 | `E_CALL_EFFECT` | `call?` used with an effectful tool |
 | `E_UNKNOWN_TOOL` | Tool name in `call?` or `do` is not recognized |

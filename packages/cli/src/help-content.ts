@@ -69,7 +69,7 @@ COMMENTS
   # single-line comment (own line or end of line)
 
 PROGRAM HEADERS (must appear before any statements, any order)
-  cap { capability.name: true, ... }     # declare required capabilities
+  cap { capability.name: true, ... }     # declare required capabilities (value must be true)
   budget { field: value, ... }           # declare resource limits
 
 STATEMENTS
@@ -346,6 +346,7 @@ VALID CAPABILITIES
 
 DECLARATION
   cap { fs.read: true, http.get: true }    # at top of file, before statements
+  # capability values must be literal true
 
 POLICY LOADING ORDER (first match wins)
   1. .a0policy.json       (project directory)
@@ -363,11 +364,13 @@ DEV OVERRIDE
 
 COMMON ERRORS
   E_UNKNOWN_CAP    — invalid capability name in cap { ... }
+  E_CAP_VALUE      — capability value is not true
   E_UNDECLARED_CAP — tool used but cap not declared (a0 check catches this)
   E_CAP_DENIED     — policy denies the capability at runtime (exit 3)
 
 RULES
   - Only declare capabilities the program actually uses
+  - Capability values must be literal true
   - cap must appear before any statements
   - Missing cap for a tool used -> E_UNDECLARED_CAP at validation time
   - cap declared but denied by policy -> E_CAP_DENIED at runtime
@@ -394,7 +397,9 @@ FIELDS
 RULES
   - Only declare fields the program needs
   - Unknown fields produce E_UNKNOWN_BUDGET at validation time (exit 2)
-  - Budget is enforced at runtime — checked after each tool call / iteration
+  - Budget fields must be integer literals (E_BUDGET_TYPE)
+  - timeMs is enforced during expression and statement evaluation
+  - maxToolCalls/maxIterations are checked during tool calls and loop/map iterations
   - maxBytesWritten is enforced after each write completes (post-effect);
     the write side effect occurs before the limit is checked
   - budget can appear before or after cap, but both must precede statements
@@ -504,8 +509,10 @@ COMPILE-TIME ERRORS (exit 2) — caught by a0 check
   E_NO_RETURN       Missing return                  Add return { ... } as last stmt
   E_RETURN_NOT_LAST Statements after return          Move return to end
   E_UNKNOWN_CAP     Invalid capability name          Use: fs.read fs.write http.get sh.exec
+  E_CAP_VALUE       Capability value not true        Use capability declarations like fs.read: true
   E_UNDECLARED_CAP  Tool used without cap            Add capability to cap { ... }
   E_UNKNOWN_BUDGET  Invalid budget field             Use: timeMs maxToolCalls maxBytesWritten maxIterations
+  E_BUDGET_TYPE     Budget value not int literal     Use integer literals in budget { ... }
   E_DUP_BINDING     Duplicate let name               Rename one binding
   E_UNBOUND         Undefined variable               Bind with let or -> first
   E_CALL_EFFECT     call? on effect tool              Use do for fs.write, sh.exec

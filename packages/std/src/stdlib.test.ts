@@ -207,12 +207,44 @@ describe("patch", () => {
     assert.deepEqual(result, [10, 99, 20, 30]);
   });
 
-  it("handles null input doc", () => {
-    const result = patchFn.execute({
-      in: null,
-      ops: [{ op: "add", path: "/key", value: "val" }],
-    }) as A0Record;
-    assert.equal(result["key"], "val");
+  it("throws when add path parent does not exist", () => {
+    assert.throws(
+      () => patchFn.execute({
+        in: null,
+        ops: [{ op: "add", path: "/key", value: "val" }],
+      }),
+      (err: Error) => err.message.includes("does not exist")
+    );
+  });
+
+  it("throws for invalid array index in remove", () => {
+    assert.throws(
+      () => patchFn.execute({
+        in: [1, 2],
+        ops: [{ op: "remove", path: "/x" }],
+      }),
+      (err: Error) => err.message.includes("Invalid array index")
+    );
+  });
+
+  it("throws for invalid array index in add", () => {
+    assert.throws(
+      () => patchFn.execute({
+        in: [1, 2],
+        ops: [{ op: "add", path: "/x", value: 9 }],
+      }),
+      (err: Error) => err.message.includes("Invalid array index")
+    );
+  });
+
+  it("throws when copy source path is missing", () => {
+    assert.throws(
+      () => patchFn.execute({
+        in: { a: 1 },
+        ops: [{ op: "copy", from: "/missing", path: "/b" }],
+      }),
+      (err: Error) => err.message.includes("does not exist")
+    );
   });
 });
 

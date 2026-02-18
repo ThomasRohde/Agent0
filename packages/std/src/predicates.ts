@@ -5,16 +5,46 @@
 import { isTruthy } from "@a0/core";
 import type { StdlibFn, A0Record, A0Value } from "@a0/core";
 
+function deepEqual(a: A0Value, b: A0Value): boolean {
+  if (a === b) return true;
+
+  if (a === null || b === null) return a === b;
+
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i] ?? null, b[i] ?? null)) return false;
+    }
+    return true;
+  }
+
+  if (typeof a === "object" && typeof b === "object") {
+    const aRec = a as A0Record;
+    const bRec = b as A0Record;
+    const aKeys = Object.keys(aRec);
+    const bKeys = Object.keys(bRec);
+    if (aKeys.length !== bKeys.length) return false;
+    for (const key of aKeys) {
+      if (!Object.prototype.hasOwnProperty.call(bRec, key)) return false;
+      if (!deepEqual(aRec[key] ?? null, bRec[key] ?? null)) return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * eq { a: <value>, b: <value> } -> boolean
- * Deep equality via JSON.stringify comparison.
+ * Deep structural equality.
  */
 export const eqFn: StdlibFn = {
   name: "eq",
   execute(args: A0Record): A0Value {
     const a = args["a"] ?? null;
     const b = args["b"] ?? null;
-    return JSON.stringify(a) === JSON.stringify(b);
+    return deepEqual(a, b);
   },
 };
 
@@ -38,8 +68,7 @@ export const containsFn: StdlibFn = {
 
     // list: deep element membership
     if (Array.isArray(input)) {
-      const needle = JSON.stringify(value);
-      return input.some((el) => JSON.stringify(el) === needle);
+      return input.some((el) => deepEqual(el ?? null, value));
     }
 
     // record: key existence (value must be string)

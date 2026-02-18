@@ -26,14 +26,14 @@ Only declare the budget fields you need. Omitted fields are unconstrained.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `timeMs` | `int` | Maximum wall-clock time in milliseconds. Checked before each statement executes. |
+| `timeMs` | `int` | Maximum wall-clock time in milliseconds. Enforced during statement and expression evaluation. |
 | `maxToolCalls` | `int` | Maximum total number of tool calls (both `call?` and `do`). |
 | `maxBytesWritten` | `int` | Maximum cumulative bytes written via `fs.write`. |
 | `maxIterations` | `int` | Maximum cumulative iterations across all `for` loops and `map` calls. |
 
 ### timeMs
 
-Limits how long the program can run. The elapsed time is checked at the start of each statement. If the program has exceeded `timeMs` milliseconds since it started, execution halts with `E_BUDGET`.
+Limits how long the program can run. Elapsed time is enforced during statement and expression execution. If the program exceeds `timeMs` milliseconds since start, execution halts with `E_BUDGET`.
 
 ```a0
 budget { timeMs: 5000 }
@@ -93,6 +93,7 @@ return { doubled: doubled }
 
 - **`E_BUDGET`** (exit 4) -- A budget limit was exceeded during execution. The trace event `budget_exceeded` is emitted with details about which field was exceeded, the limit, and the actual value.
 - **`E_UNKNOWN_BUDGET`** (exit 2) -- An unrecognized budget field was declared. This is a compile-time validation error. Valid fields are: `timeMs`, `maxToolCalls`, `maxBytesWritten`, `maxIterations`.
+- **`E_BUDGET_TYPE`** (exit 2) -- A budget field value was not an integer literal.
 
 ## Full Example
 

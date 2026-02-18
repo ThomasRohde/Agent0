@@ -829,7 +829,7 @@ describe("A0 Evaluator", () => {
   });
 
   it("evaluates deep equality with ==", async () => {
-    const src = `let a = [1, 2] == [1, 2]\nlet b = { x: 1 } == { x: 1 }\nlet c = [1, 2] != [1, 3]\nreturn { a: a, b: b, c: c }`;
+    const src = `let a = [1, 2] == [1, 2]\nlet b = { x: 1 } == { x: 1 }\nlet c = [1, 2] != [1, 3]\nlet d = { x: 1, y: 2 } == { y: 2, x: 1 }\nreturn { a: a, b: b, c: c, d: d }`;
     const pr = parse(src, "test.a0");
     assert.ok(pr.program);
     const result = await execute(pr.program, makeOptions());
@@ -837,6 +837,7 @@ describe("A0 Evaluator", () => {
     assert.equal(val["a"], true);
     assert.equal(val["b"], true);
     assert.equal(val["c"], true);
+    assert.equal(val["d"], true);
   });
 
   it("evaluates string comparison", async () => {
@@ -1095,6 +1096,32 @@ describe("A0 Evaluator", () => {
     assert.ok(pr.program);
     await assert.rejects(
       () => execute(pr.program!, makeOptions({ tools, allowedCapabilities: caps })),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_BUDGET");
+        assert.ok(err.message.includes("timeMs"));
+        return true;
+      }
+    );
+  });
+
+  it("enforces timeMs budget after stdlib call in return expression", async () => {
+    const slowFn: StdlibFn = {
+      name: "slow.fn",
+      execute(): A0Value {
+        const start = Date.now();
+        while (Date.now() - start < 30) {
+          // Intentional busy wait for budget test.
+        }
+        return "done";
+      },
+    };
+    const stdlib = new Map([["slow.fn", slowFn]]);
+
+    const src = `budget { timeMs: 1 }\nreturn { result: slow.fn { in: "x" } }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions({ stdlib })),
       (err: A0RuntimeError) => {
         assert.equal(err.code, "E_BUDGET");
         assert.ok(err.message.includes("timeMs"));

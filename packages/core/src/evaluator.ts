@@ -100,6 +100,25 @@ interface BudgetTracker {
   startMs: number;
 }
 
+function enforceTimeBudget(
+  budget: Budget,
+  tracker: BudgetTracker,
+  emitTrace: (event: TraceEventType, span?: Span, data?: A0Record) => void,
+  span: Span
+): void {
+  if (budget.timeMs === undefined) return;
+  const elapsed = Date.now() - tracker.startMs;
+  if (elapsed > budget.timeMs) {
+    emitTrace("budget_exceeded", span, { budget: "timeMs", limit: budget.timeMs, actual: elapsed });
+    throw new A0RuntimeError(
+      "E_BUDGET",
+      `Budget exceeded: timeMs limit of ${budget.timeMs}ms exceeded (${elapsed}ms elapsed).`,
+      span,
+      { budget: "timeMs", limit: budget.timeMs, actual: elapsed }
+    );
+  }
+}
+
 function extractBudget(program: AST.Program): Budget {
   for (const h of program.headers) {
     if (h.kind === "BudgetDecl") {
@@ -246,18 +265,7 @@ async function executeBlock(
   let result: A0Value = null;
 
   for (const stmt of stmts) {
-    if (budget.timeMs !== undefined) {
-      const elapsed = Date.now() - tracker.startMs;
-      if (elapsed > budget.timeMs) {
-        emitTrace("budget_exceeded", stmt.span, { budget: "timeMs", limit: budget.timeMs, actual: elapsed });
-        throw new A0RuntimeError(
-          "E_BUDGET",
-          `Budget exceeded: timeMs limit of ${budget.timeMs}ms exceeded (${elapsed}ms elapsed).`,
-          stmt.span,
-          { budget: "timeMs", limit: budget.timeMs, actual: elapsed }
-        );
-      }
-    }
+    enforceTimeBudget(budget, tracker, emitTrace, stmt.span);
 
     emitTrace("stmt_start", stmt.span);
 
@@ -293,7 +301,9 @@ function extractCapabilities(program: AST.Program): string[] {
   for (const h of program.headers) {
     if (h.kind === "CapDecl") {
       for (const p of h.capabilities.pairs) {
-        caps.push(p.key);
+        if (p.value.kind === "BoolLiteral" && p.value.value === true) {
+          caps.push(p.key);
+        }
       }
     }
   }
@@ -310,6 +320,8 @@ async function evalExpr(
   tracker: BudgetTracker,
   userFns: Map<string, AST.FnDecl>
 ): Promise<A0Value> {
+  enforceTimeBudget(budget, tracker, emitTrace, expr.span);
+
   switch (expr.kind) {
     case "IntLiteral":
     case "FloatLiteral":
@@ -645,8 +657,13 @@ async function evalExpr(
       }
 
       try {
-        return fn.execute(args);
+        const result = fn.execute(args);
+        enforceTimeBudget(budget, tracker, emitTrace, expr.span);
+        return result;
       } catch (e) {
+        if (e instanceof A0RuntimeError) {
+          throw e;
+        }
         const errMsg = e instanceof Error ? e.message : String(e);
         throw new A0RuntimeError(
           "E_FN",
@@ -785,7 +802,7 @@ function evalBinaryOp(op: string, left: A0Value, right: A0Value, span: Span): A0
 
   // Equality operators: any types via deep equality
   if (op === "==" || op === "!=") {
-    const equal = JSON.stringify(left) === JSON.stringify(right);
+    const equal = deepEqual(left, right);
     return op === "==" ? equal : !equal;
   }
 
@@ -815,4 +832,33 @@ function evalBinaryOp(op: string, left: A0Value, right: A0Value, span: Span): A0
   }
 
   throw new A0RuntimeError("E_TYPE", `Unknown operator '${op}'.`, span);
+}
+
+function deepEqual(a: A0Value, b: A0Value): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return a === b;
+
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i] ?? null, b[i] ?? null)) return false;
+    }
+    return true;
+  }
+
+  if (typeof a === "object" && typeof b === "object") {
+    const aRec = a as A0Record;
+    const bRec = b as A0Record;
+    const aKeys = Object.keys(aRec);
+    const bKeys = Object.keys(bRec);
+    if (aKeys.length !== bKeys.length) return false;
+    for (const key of aKeys) {
+      if (!Object.prototype.hasOwnProperty.call(bRec, key)) return false;
+      if (!deepEqual(aRec[key] ?? null, bRec[key] ?? null)) return false;
+    }
+    return true;
+  }
+
+  return false;
 }

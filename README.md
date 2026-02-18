@@ -202,6 +202,8 @@ Programs declare what they need:
 cap { http.get: true, fs.write: true }
 ```
 
+Capability values must be literal `true`.
+
 The host decides what to allow via policy files:
 
 ```json

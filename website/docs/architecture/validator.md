@@ -29,6 +29,7 @@ The validator performs semantic checks on the AST before execution. It catches e
 ### Capability declarations
 
 - All capabilities declared in `cap { ... }` must be known capabilities: `fs.read`, `fs.write`, `http.get`, `sh.exec` (`E_UNKNOWN_CAP`)
+- Capability values must be literal `true` (`E_CAP_VALUE`)
 - Tools used with `call?` or `do` must have their capability declared in `cap` (`E_UNDECLARED_CAP`)
 
 ### Tool mode enforcement
@@ -40,6 +41,7 @@ The validator performs semantic checks on the AST before execution. It catches e
 ### Budget fields
 
 - Only known budget fields are allowed: `timeMs`, `maxToolCalls`, `maxBytesWritten`, `maxIterations` (`E_UNKNOWN_BUDGET`)
+- Budget field values must be integer literals (`E_BUDGET_TYPE`)
 
 ### Known functions and tools
 
@@ -67,9 +69,11 @@ The validator runs at compile time (during `a0 check` or before `a0 run`). It ca
 | Duplicate bindings | Compile | `E_DUP_BINDING` |
 | Unbound variables | Compile | `E_UNBOUND` |
 | Unknown capabilities | Compile | `E_UNKNOWN_CAP` |
+| Invalid capability value | Compile | `E_CAP_VALUE` |
 | Undeclared capabilities | Compile | `E_UNDECLARED_CAP` |
 | call? with effect tool | Compile | `E_CALL_EFFECT` |
 | Unknown budget fields | Compile | `E_UNKNOWN_BUDGET` |
+| Invalid budget value type | Compile | `E_BUDGET_TYPE` |
 | Unknown functions | Compile | `E_UNKNOWN_FN` |
 | Unknown tools | Compile | `E_UNKNOWN_TOOL` |
 | Duplicate fn names | Compile | `E_FN_DUP` |

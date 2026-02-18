@@ -41,8 +41,10 @@ The source file has structural or semantic problems that prevent execution. Thes
 | `E_NO_RETURN` | Missing return statement |
 | `E_RETURN_NOT_LAST` | Return is not the last statement |
 | `E_UNKNOWN_CAP` | Unknown capability name |
+| `E_CAP_VALUE` | Capability value is not literal `true` |
 | `E_UNDECLARED_CAP` | Tool used without cap declaration |
 | `E_UNKNOWN_BUDGET` | Unknown budget field name |
+| `E_BUDGET_TYPE` | Budget value is not an integer literal |
 | `E_DUP_BINDING` | Duplicate variable name |
 | `E_UNBOUND` | Reference to undefined variable |
 | `E_CALL_EFFECT` | `call?` used with effectful tool |

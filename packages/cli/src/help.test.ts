@@ -45,4 +45,14 @@ describe("A0 CLI Help Content", () => {
   it("TOPIC_LIST length matches TOPICS key count", () => {
     assert.equal(TOPIC_LIST.length, Object.keys(TOPICS).length);
   });
+
+  it("caps topic documents literal true requirement", () => {
+    assert.ok(TOPICS.caps.includes("must be literal true"));
+    assert.ok(TOPICS.caps.includes("E_CAP_VALUE"));
+  });
+
+  it("budget topic documents integer literal requirement", () => {
+    assert.ok(TOPICS.budget.includes("integer literals"));
+    assert.ok(TOPICS.budget.includes("E_BUDGET_TYPE"));
+  });
 });

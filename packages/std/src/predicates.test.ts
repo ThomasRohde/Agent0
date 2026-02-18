@@ -33,6 +33,13 @@ describe("eq", () => {
     );
   });
 
+  it("equal records with different key order", () => {
+    assert.equal(
+      eqFn.execute({ a: { x: 1, y: 2 }, b: { y: 2, x: 1 } }),
+      true
+    );
+  });
+
   it("unequal records", () => {
     assert.equal(
       eqFn.execute({ a: { x: 1 }, b: { x: 2 } }),
@@ -97,6 +104,13 @@ describe("contains", () => {
   it("deep element membership in list (record)", () => {
     assert.equal(
       containsFn.execute({ in: [{ x: 1 }, { x: 2 }], value: { x: 1 } }),
+      true
+    );
+  });
+
+  it("deep element membership in list ignores record key order", () => {
+    assert.equal(
+      containsFn.execute({ in: [{ x: 1, y: 2 }], value: { y: 2, x: 1 } }),
       true
     );
   });

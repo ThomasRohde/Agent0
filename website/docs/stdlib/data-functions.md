@@ -83,6 +83,8 @@ Each operation is a record with:
 - `value` -- Value for add/replace/test
 - `from` -- Source path for move/copy
 
+Invalid pointers, missing required source paths, and out-of-bounds array indices are treated as errors (surface as `E_FN` at runtime).
+
 ```a0
 let data = { name: "alice", age: 30 }
 

@@ -12,95 +12,204 @@ interface PatchOp {
   from?: string;
 }
 
-function parsePointer(pointer: string): string[] {
-  if (pointer === "" || pointer === "/") return [];
+const MISSING = Symbol("missing");
+
+function parsePointer(pointer: string, label: "path" | "from"): string[] {
+  if (pointer === "") return [];
+  if (!pointer.startsWith("/")) {
+    throw new Error(`Invalid JSON Pointer '${pointer}' for '${label}'.`);
+  }
   return pointer
     .split("/")
     .slice(1)
     .map((s) => s.replace(/~1/g, "/").replace(/~0/g, "~"));
 }
 
-function getAtPointer(doc: A0Value, segments: string[]): A0Value {
-  let current = doc;
+function isRecord(value: A0Value): value is A0Record {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function cloneValue(value: A0Value): A0Value {
+  if (Array.isArray(value)) return value.map((v) => cloneValue(v ?? null));
+  if (isRecord(value)) {
+    const out: A0Record = {};
+    for (const [k, v] of Object.entries(value)) {
+      out[k] = cloneValue(v ?? null);
+    }
+    return out;
+  }
+  return value;
+}
+
+function deepEqual(a: A0Value, b: A0Value): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return a === b;
+
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i] ?? null, b[i] ?? null)) return false;
+    }
+    return true;
+  }
+
+  if (isRecord(a) && isRecord(b)) {
+    const aKeys = Object.keys(a);
+    const bKeys = Object.keys(b);
+    if (aKeys.length !== bKeys.length) return false;
+    for (const key of aKeys) {
+      if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+      if (!deepEqual(a[key] ?? null, b[key] ?? null)) return false;
+    }
+    return true;
+  }
+
+  return false;
+}
+
+function parseArrayIndex(
+  segment: string,
+  length: number,
+  allowAppend: boolean,
+  pointer: string,
+  op: string
+): number {
+  if (segment === "-") {
+    if (allowAppend) return length;
+    throw new Error(`Invalid array index '-' at '${pointer}' for op '${op}'.`);
+  }
+  if (!/^(0|[1-9]\d*)$/.test(segment)) {
+    throw new Error(`Invalid array index '${segment}' at '${pointer}' for op '${op}'.`);
+  }
+  const idx = Number(segment);
+  if (allowAppend) {
+    if (idx < 0 || idx > length) {
+      throw new Error(`Array index '${segment}' out of bounds at '${pointer}' for op '${op}'.`);
+    }
+    return idx;
+  }
+  if (idx < 0 || idx >= length) {
+    throw new Error(`Array index '${segment}' out of bounds at '${pointer}' for op '${op}'.`);
+  }
+  return idx;
+}
+
+function getAtPointer(doc: A0Value, segments: string[]): A0Value | typeof MISSING {
+  let current: A0Value | typeof MISSING = doc;
   for (const seg of segments) {
-    if (current === null) return null;
+    if (current === null) return MISSING;
     if (Array.isArray(current)) {
-      const idx = parseInt(seg, 10);
-      if (isNaN(idx)) return null;
+      if (!/^(0|[1-9]\d*)$/.test(seg)) return MISSING;
+      const idx = Number(seg);
+      if (idx < 0 || idx >= current.length) return MISSING;
       current = current[idx] ?? null;
-    } else if (typeof current === "object") {
-      current = (current as A0Record)[seg] ?? null;
+    } else if (isRecord(current)) {
+      if (!Object.prototype.hasOwnProperty.call(current, seg)) return MISSING;
+      current = current[seg] ?? null;
     } else {
-      return null;
+      return MISSING;
     }
   }
   return current;
 }
 
-function setAtPointer(doc: A0Value, segments: string[], value: A0Value, mode: "add" | "replace" = "add"): A0Value {
+function setAtPointer(
+  doc: A0Value,
+  segments: string[],
+  value: A0Value,
+  mode: "add" | "replace" = "add",
+  pointer: string = segments.length === 0 ? "" : `/${segments.join("/")}`
+): A0Value {
   if (segments.length === 0) return value;
   const [head, ...rest] = segments;
 
   if (Array.isArray(doc)) {
-    const idx = head === "-" ? doc.length : parseInt(head, 10);
     const arr = [...doc];
     if (rest.length === 0) {
+      const idx = parseArrayIndex(head, arr.length, mode === "add", pointer, mode);
       if (mode === "replace") {
         arr[idx] = value;
       } else {
         arr.splice(idx, 0, value);
       }
     } else {
+      const idx = parseArrayIndex(head, arr.length, false, pointer, mode);
       arr[idx] = setAtPointer(arr[idx] ?? null, rest, value, mode);
     }
     return arr;
   }
 
-  const rec: A0Record =
-    doc !== null && typeof doc === "object" ? { ...(doc as A0Record) } : {};
+  if (!isRecord(doc)) {
+    throw new Error(`Path '${pointer}' does not exist for op '${mode}'.`);
+  }
+
+  const rec: A0Record = { ...doc };
   if (rest.length === 0) {
+    if (mode === "replace" && !Object.prototype.hasOwnProperty.call(rec, head)) {
+      throw new Error(`Path '${pointer}' does not exist for op 'replace'.`);
+    }
     rec[head] = value;
   } else {
+    if (!Object.prototype.hasOwnProperty.call(rec, head)) {
+      throw new Error(`Path '${pointer}' does not exist for op '${mode}'.`);
+    }
     rec[head] = setAtPointer(rec[head] ?? null, rest, value, mode);
   }
   return rec;
 }
 
-function removeAtPointer(doc: A0Value, segments: string[]): A0Value {
+function removeAtPointer(
+  doc: A0Value,
+  segments: string[],
+  pointer: string = segments.length === 0 ? "" : `/${segments.join("/")}`
+): A0Value {
   if (segments.length === 0) return null;
   if (segments.length === 1) {
     const seg = segments[0];
     if (Array.isArray(doc)) {
-      const idx = parseInt(seg, 10);
+      const idx = parseArrayIndex(seg, doc.length, false, pointer, "remove");
       const arr = [...doc];
       arr.splice(idx, 1);
       return arr;
     }
-    if (doc !== null && typeof doc === "object") {
-      const rec = { ...(doc as A0Record) };
+    if (isRecord(doc)) {
+      if (!Object.prototype.hasOwnProperty.call(doc, seg)) {
+        throw new Error(`Path '${pointer}' does not exist for op 'remove'.`);
+      }
+      const rec = { ...doc };
       delete rec[seg];
       return rec;
     }
-    return doc;
+    throw new Error(`Path '${pointer}' does not exist for op 'remove'.`);
   }
 
   const [head, ...rest] = segments;
   if (Array.isArray(doc)) {
-    const idx = parseInt(head, 10);
+    const idx = parseArrayIndex(head, doc.length, false, pointer, "remove");
     const arr = [...doc];
-    arr[idx] = removeAtPointer(arr[idx], rest);
+    arr[idx] = removeAtPointer(arr[idx] ?? null, rest);
     return arr;
   }
-  if (doc !== null && typeof doc === "object") {
-    const rec = { ...(doc as A0Record) };
+  if (isRecord(doc)) {
+    if (!Object.prototype.hasOwnProperty.call(doc, head)) {
+      throw new Error(`Path '${pointer}' does not exist for op 'remove'.`);
+    }
+    const rec = { ...doc };
     rec[head] = removeAtPointer(rec[head] ?? null, rest);
     return rec;
   }
-  return doc;
+  throw new Error(`Path '${pointer}' does not exist for op 'remove'.`);
 }
 
 function applyOp(doc: A0Value, op: PatchOp): A0Value {
-  const segments = parsePointer(op.path);
+  if (typeof op.op !== "string") {
+    throw new Error("patch op requires an 'op' string.");
+  }
+  if (typeof op.path !== "string") {
+    throw new Error("patch op requires a 'path' string.");
+  }
+  const segments = parsePointer(op.path, "path");
 
   switch (op.op) {
     case "add":
@@ -110,21 +219,36 @@ function applyOp(doc: A0Value, op: PatchOp): A0Value {
     case "replace":
       return setAtPointer(doc, segments, op.value ?? null, "replace");
     case "move": {
-      const fromSegs = parsePointer(op.from ?? "");
+      if (typeof op.from !== "string") {
+        throw new Error("move op requires a 'from' string.");
+      }
+      const fromSegs = parsePointer(op.from, "from");
       const val = getAtPointer(doc, fromSegs);
+      if (val === MISSING) {
+        throw new Error(`Path '${op.from}' does not exist for op 'move'.`);
+      }
       doc = removeAtPointer(doc, fromSegs);
-      return setAtPointer(doc, segments, val);
+      return setAtPointer(doc, segments, cloneValue(val));
     }
     case "copy": {
-      const fromSegs = parsePointer(op.from ?? "");
+      if (typeof op.from !== "string") {
+        throw new Error("copy op requires a 'from' string.");
+      }
+      const fromSegs = parsePointer(op.from, "from");
       const val = getAtPointer(doc, fromSegs);
-      return setAtPointer(doc, segments, val);
+      if (val === MISSING) {
+        throw new Error(`Path '${op.from}' does not exist for op 'copy'.`);
+      }
+      return setAtPointer(doc, segments, cloneValue(val));
     }
     case "test": {
       const actual = getAtPointer(doc, segments);
-      if (JSON.stringify(actual) !== JSON.stringify(op.value)) {
+      if (actual === MISSING) {
+        throw new Error(`Test failed at '${op.path}': path does not exist.`);
+      }
+      if (!deepEqual(actual, op.value ?? null)) {
         throw new Error(
-          `Test failed at '${op.path}': expected ${JSON.stringify(op.value)}, got ${JSON.stringify(actual)}`
+          `Test failed at '${op.path}': expected ${JSON.stringify(op.value ?? null)}, got ${JSON.stringify(actual)}`
         );
       }
       return doc;

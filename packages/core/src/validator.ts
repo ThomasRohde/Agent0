@@ -102,6 +102,16 @@ export function validate(program: AST.Program): Diagnostic[] {
             )
           );
         }
+        if (pair.value.kind !== "BoolLiteral" || pair.value.value !== true) {
+          diags.push(
+            makeDiag(
+              "E_CAP_VALUE",
+              `Capability '${pair.key}' must be set to true.`,
+              pair.value.span,
+              "Use capability declarations like 'cap { fs.read: true }'."
+            )
+          );
+        }
       }
     }
   }
@@ -117,6 +127,16 @@ export function validate(program: AST.Program): Diagnostic[] {
               `Unknown budget field '${pair.key}'.`,
               pair.span,
               `Valid budget fields: ${[...KNOWN_BUDGET_FIELDS].join(", ")}`
+            )
+          );
+        }
+        if (KNOWN_BUDGET_FIELDS.has(pair.key) && pair.value.kind !== "IntLiteral") {
+          diags.push(
+            makeDiag(
+              "E_BUDGET_TYPE",
+              `Budget field '${pair.key}' must be an integer literal.`,
+              pair.value.span,
+              "Use integer values, for example: budget { timeMs: 5000 }."
             )
           );
         }
@@ -140,6 +160,7 @@ export function validate(program: AST.Program): Diagnostic[] {
           )
         );
       }
+      validateFnParams(stmt.name, stmt.params, stmt.span, diags);
       if (KNOWN_STDLIB.has(stmt.name)) {
         diags.push(
           makeDiag(
@@ -269,6 +290,7 @@ function validateBlockBindings(
           )
         );
       }
+      validateFnParams(stmt.name, stmt.params, stmt.span, diags);
       if (KNOWN_STDLIB.has(stmt.name)) {
         diags.push(
           makeDiag(
@@ -324,7 +346,9 @@ function validateCapUsage(
   for (const h of program.headers) {
     if (h.kind === "CapDecl") {
       for (const p of h.capabilities.pairs) {
-        declaredCaps.add(p.key);
+        if (p.value.kind === "BoolLiteral" && p.value.value === true) {
+          declaredCaps.add(p.key);
+        }
       }
     }
   }
@@ -369,6 +393,29 @@ function validateCapUsage(
         }
       }
     });
+  }
+}
+
+function validateFnParams(
+  fnName: string,
+  params: string[],
+  span: AST.Span,
+  diags: Diagnostic[]
+): void {
+  const seen = new Set<string>();
+  for (const param of params) {
+    if (seen.has(param)) {
+      diags.push(
+        makeDiag(
+          "E_DUP_BINDING",
+          `Duplicate parameter '${param}' in function '${fnName}'.`,
+          span,
+          "Use unique parameter names in function declarations."
+        )
+      );
+      continue;
+    }
+    seen.add(param);
   }
 }
 

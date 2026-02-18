@@ -44,8 +44,10 @@ a0 check <file> [options]
 | `E_NO_RETURN` | Program or function body missing `return` |
 | `E_RETURN_NOT_LAST` | `return` is not the last statement |
 | `E_UNKNOWN_CAP` | Unknown capability in `cap { ... }` declaration |
+| `E_CAP_VALUE` | Capability value is not literal `true` |
 | `E_UNDECLARED_CAP` | Tool used without declaring its capability |
 | `E_UNKNOWN_BUDGET` | Unknown field in `budget { ... }` declaration |
+| `E_BUDGET_TYPE` | Budget field value is not an integer literal |
 | `E_DUP_BINDING` | Variable name already used in scope |
 | `E_UNBOUND` | Variable referenced but never defined |
 | `E_CALL_EFFECT` | `call?` used with an effectful tool (use `do` instead) |

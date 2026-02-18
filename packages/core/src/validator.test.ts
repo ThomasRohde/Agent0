@@ -55,6 +55,31 @@ describe("A0 Validator", () => {
     assert.equal(diags.length, 0);
   });
 
+  it("reports E_CAP_VALUE when capability is false", () => {
+    const src = `cap { fs.read: false }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_CAP_VALUE"));
+  });
+
+  it("reports E_CAP_VALUE when capability is non-boolean", () => {
+    const src = `cap { fs.read: 1 }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_CAP_VALUE"));
+  });
+
+  it("reports undeclared capability when cap value is not true", () => {
+    const src = `cap { fs.read: false }\ncall? fs.read { path: "x" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_CAP_VALUE"));
+    assert.ok(diags.some((d) => d.code === "E_UNDECLARED_CAP"));
+  });
+
   it("reports return not last", () => {
     const src = `return {}\nlet x = 1`;
     const pr = parse(src, "test.a0");
@@ -245,6 +270,15 @@ describe("A0 Validator", () => {
     const diags = validate(pr.program);
     const budgetDiags = diags.filter((d) => d.code === "E_UNKNOWN_BUDGET");
     assert.equal(budgetDiags.length, 0);
+  });
+
+  it("reports E_BUDGET_TYPE for non-integer budget literals", () => {
+    const src = `budget { timeMs: "5000", maxToolCalls: true }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    const typeDiags = diags.filter((d) => d.code === "E_BUDGET_TYPE");
+    assert.equal(typeDiags.length, 2);
   });
 
   // --- E_CALL_EFFECT static check tests ---
@@ -487,5 +521,13 @@ describe("A0 Validator", () => {
     assert.ok(pr.program);
     const diags = validate(pr.program);
     assert.ok(!diags.some((d) => d.code === "E_FN_DUP"));
+  });
+
+  it("reports E_DUP_BINDING for duplicate function parameters", () => {
+    const src = `fn myFn { x, x } {\n  return { x: x }\n}\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const diags = validate(pr.program);
+    assert.ok(diags.some((d) => d.code === "E_DUP_BINDING" && d.message.includes("Duplicate parameter")));
   });
 });

@@ -88,7 +88,7 @@ do fs.write { path: "out.json", data: response.body, format: "json" } -> result
 
 ### Evidence
 
-`assert` and `check` both take `{ that: bool, msg: str }` and produce evidence records in the trace. `assert` is **fatal** — it halts execution immediately on failure (exit 5). `check` is **non-fatal** — it records evidence and continues execution; the runner returns exit 5 after the program finishes if any check failed.
+`assert` and `check` both take `{ that: bool, msg?: str }` and produce evidence records in the trace. `msg` is optional and defaults to `""` when omitted. `assert` is **fatal** — it halts execution immediately on failure (exit 5). `check` is **non-fatal** — it records evidence and continues execution; the runner returns exit 5 after the program finishes if any check failed.
 
 ```text
 assert { that: response.status, msg: "got response" } -> evStatus

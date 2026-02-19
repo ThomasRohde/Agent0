@@ -94,4 +94,31 @@ describe("a0 run evidence output", () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  it("returns E_IO when trace close fails in finalization", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-cli-run-test-"));
+    const programPath = path.join(tmpDir, "ok.a0");
+    const tracePath = path.join(tmpDir, "trace.jsonl");
+
+    fs.writeFileSync(programPath, `return { ok: true }\n`, "utf-8");
+
+    const fsCjs = require("fs") as typeof import("node:fs");
+    const originalCloseSync = fsCjs.closeSync;
+
+    fsCjs.closeSync = (() => {
+      throw new Error("simulated trace close failure");
+    }) as typeof fsCjs.closeSync;
+    syncBuiltinESMExports();
+
+    try {
+      const code = await withCapturedConsole(() =>
+        runRun(programPath, { trace: tracePath, unsafeAllowAll: true })
+      );
+      assert.equal(code, 4);
+    } finally {
+      fsCjs.closeSync = originalCloseSync;
+      syncBuiltinESMExports();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });

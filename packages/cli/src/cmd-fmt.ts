@@ -39,10 +39,16 @@ export async function runFmt(
 
   const formatted = format(parseResult.program);
 
-  if (opts.write) {
-    fs.writeFileSync(file, formatted, "utf-8");
-  } else {
-    process.stdout.write(formatted);
+  try {
+    if (opts.write) {
+      fs.writeFileSync(file, formatted, "utf-8");
+    } else {
+      process.stdout.write(formatted);
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(formatDiagnostic({ code: "E_IO", message: `Error writing file: ${msg}` }, true));
+    return 4;
   }
 
   return 0;

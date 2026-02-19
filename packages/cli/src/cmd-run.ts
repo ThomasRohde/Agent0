@@ -189,7 +189,13 @@ export async function runRun(
     return 4;
   } finally {
     if (traceFd !== null) {
-      fs.closeSync(traceFd);
+      try {
+        fs.closeSync(traceFd);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        emitCliError("E_IO", `Error closing trace file: ${msg}`);
+        return 4;
+      }
     }
   }
 }

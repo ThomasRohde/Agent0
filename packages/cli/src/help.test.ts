@@ -115,6 +115,11 @@ describe("A0 CLI Help Content", () => {
     assert.ok(TOPICS.syntax.includes("Shadowing is allowed in nested scopes"));
   });
 
+  it("help documents optional assert/check msg field", () => {
+    assert.ok(TOPICS.syntax.includes("msg?:"));
+    assert.ok(QUICKREF.includes("msg?:"));
+  });
+
   it("syntax topic documents top-level statement/function interleaving", () => {
     assert.ok(TOPICS.syntax.includes("cap/budget headers must come first; fn and other statements may be interleaved"));
   });

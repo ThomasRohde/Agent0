@@ -17,7 +17,7 @@ assert { that: true, msg: "this passes" }
 assert { that: false, msg: "this stops the program -- nothing after this runs" }
 ```
 
-The `that` field accepts any expression and uses A0 truthiness (`false`, `null`, `0`, and `""` are falsy). In practice, pass booleans for clarity. The `msg` field is a string describing what is being asserted.
+The `that` field accepts any expression and uses A0 truthiness (`false`, `null`, `0`, and `""` are falsy). In practice, pass booleans for clarity. The `msg` field is optional; if omitted, it defaults to an empty string.
 
 ### Binding the evidence record
 
@@ -40,7 +40,7 @@ check { that: true, msg: "data structure valid" }
 check { that: false, msg: "this records a failure but execution continues" }
 ```
 
-Like `assert`, `check` accepts `that` (truthiness-based) and `msg` (string) fields, and supports `->` binding.
+Like `assert`, `check` accepts `that` (truthiness-based) and optional `msg` fields, and supports `->` binding.
 
 ## When to use each
 

@@ -41,8 +41,9 @@ CONTROL FLOW
   let out = map { in: list, fn: "fnName" } # apply fn to each element
 
 EVIDENCE
-  assert { that: bool_expr, msg: "..." }   # fatal: false -> exit 5, halts immediately
-  check  { that: bool_expr, msg: "..." }   # non-fatal: records evidence, continues; exit 5 if any failed
+  assert { that: bool_expr, msg?: "..." }  # fatal: false -> exit 5, halts immediately
+  check  { that: bool_expr, msg?: "..." }  # non-fatal: records evidence, continues; exit 5 if any failed
+  msg is optional; omitted msg becomes ""
 
 CAPS: fs.read  fs.write  http.get  sh.exec
 BUDGET: timeMs  maxToolCalls  maxBytesWritten  maxIterations
@@ -78,8 +79,8 @@ STATEMENTS
   call? tool.name { args } [-> name]     # read-only tool call, optional bind
   do tool.name { args } [-> name]        # effectful tool call, optional bind
   fn name { params } { body }            # define a function
-  assert { that: expr, msg: "str" }      # fatal: halt immediately if falsy (exit 5)
-  check { that: expr, msg: "str" }       # non-fatal: record evidence, continue; exit 5 if any failed
+  assert { that: expr, msg?: "str" }     # fatal: halt immediately if falsy (exit 5)
+  check { that: expr, msg?: "str" }      # non-fatal: record evidence, continue; exit 5 if any failed
   return { key: val, ... }              # required, must be last statement
 
 EXPRESSIONS
@@ -384,7 +385,7 @@ budget: `
 A0 BUDGET SYSTEM
 =================
 
-Declare resource limits after cap (before statements). Exceeding any limit
+Declare resource limits before statements. Exceeding any limit
 stops execution with E_BUDGET (exit 4).
 
 DECLARATION

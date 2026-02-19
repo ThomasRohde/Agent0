@@ -3,11 +3,15 @@
  */
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
+import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { createRequire, syncBuiltinESMExports } from "node:module";
 import { runCheck } from "./cmd-check.js";
 import { runFmt } from "./cmd-fmt.js";
 import { runRun } from "./cmd-run.js";
+
+const require = createRequire(import.meta.url);
 
 async function captureCmd(
   fn: () => Promise<number>
@@ -57,5 +61,28 @@ describe("CLI I/O errors", () => {
     const diag = JSON.parse(result.stderr) as { code: string; err?: unknown };
     assert.equal(diag.code, "E_IO");
     assert.equal(diag.err, undefined);
+  });
+
+  it("a0 fmt --write returns exit code 4 with E_IO on file write failure", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-fmt-write-fail-"));
+    const filePath = path.join(tmpDir, "format-me.a0");
+    fs.writeFileSync(filePath, "return { ok: true }\n", "utf-8");
+
+    const fsCjs = require("fs") as typeof import("node:fs");
+    const originalWriteFileSync = fsCjs.writeFileSync;
+    fsCjs.writeFileSync = (() => {
+      throw new Error("simulated fmt write failure");
+    }) as typeof fsCjs.writeFileSync;
+    syncBuiltinESMExports();
+
+    try {
+      const result = await captureCmd(() => runFmt(filePath, { write: true }));
+      assert.equal(result.code, 4);
+      assert.ok(result.stderr.includes("error[E_IO]"));
+    } finally {
+      fsCjs.writeFileSync = originalWriteFileSync;
+      syncBuiltinESMExports();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });

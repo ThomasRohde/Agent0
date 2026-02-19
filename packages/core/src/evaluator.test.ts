@@ -1114,6 +1114,20 @@ describe("A0 Evaluator", () => {
     assert.deepEqual(mapped[1]["name"], "Bob Jones");
   });
 
+  it("map with multi-param function throws E_TYPE on non-record items", async () => {
+    const src = `fn pair { a, b } {\n  return { a: a, b: b }\n}\nlet result = map { in: [1], fn: "pair" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        assert.ok(err.message.includes("record"));
+        return true;
+      }
+    );
+  });
+
   it("evaluates match with parenthesized expression subject", async () => {
     const src = `let x = match ({ ok: 42 }) {\n  ok { v } {\n    return { v: v }\n  }\n  err { e } {\n    return { e: e }\n  }\n}\nreturn { x: x }`;
     const pr = parse(src, "test.a0");

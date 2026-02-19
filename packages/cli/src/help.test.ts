@@ -133,4 +133,14 @@ describe("A0 CLI Help Content", () => {
     assert.ok(result.stderr.includes("Available topics:"));
     assert.ok(result.stderr.includes("Usage: a0 help <topic>"));
   });
+
+  it("runHelp rejects prototype property names as topics", () => {
+    const constructorResult = captureHelp("constructor");
+    assert.equal(constructorResult.exitCode, 1);
+    assert.ok(constructorResult.stderr.includes("Unknown help topic"));
+
+    const protoResult = captureHelp("__proto__");
+    assert.equal(protoResult.exitCode, 1);
+    assert.ok(protoResult.stderr.includes("Unknown help topic"));
+  });
 });

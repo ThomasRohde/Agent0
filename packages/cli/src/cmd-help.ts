@@ -13,7 +13,8 @@ export function runHelp(topic?: string): void {
 
   const normalized = topic.toLowerCase().trim();
 
-  if (normalized in TOPICS) {
+  // Guard against prototype-chain keys like "constructor" or "__proto__".
+  if (Object.prototype.hasOwnProperty.call(TOPICS, normalized)) {
     console.log(TOPICS[normalized]);
     return;
   }

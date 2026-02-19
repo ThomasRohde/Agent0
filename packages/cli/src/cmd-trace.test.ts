@@ -81,6 +81,28 @@ describe("a0 trace summary", () => {
     }
   });
 
+  it("returns E_TRACE when trace file contains multiple run IDs", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-cli-trace-test-"));
+    const tracePath = path.join(tmpDir, "mixed-runids.jsonl");
+    const events = [
+      { ts: "2026-01-01T00:00:00.000Z", runId: "r1", event: "run_start" },
+      { ts: "2026-01-01T00:00:00.050Z", runId: "r1", event: "run_end" },
+      { ts: "2026-01-02T00:00:00.000Z", runId: "r2", event: "run_start" },
+      { ts: "2026-01-02T00:00:00.050Z", runId: "r2", event: "run_end" },
+    ];
+    fs.writeFileSync(tracePath, events.map((e) => JSON.stringify(e)).join("\n") + "\n", "utf-8");
+
+    try {
+      const result = await captureTrace(tracePath, { json: true });
+      assert.equal(result.code, 4);
+      const diag = JSON.parse(result.stderr) as { code: string; message: string };
+      assert.equal(diag.code, "E_TRACE");
+      assert.ok(diag.message.includes("multiple run IDs"));
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("does not double-count tool failure and run_end error", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-cli-trace-test-"));
     const tracePath = path.join(tmpDir, "trace.jsonl");

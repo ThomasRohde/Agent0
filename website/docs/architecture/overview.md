@@ -52,7 +52,7 @@ Pure stdlib functions with no side effects. All functions implement the `StdlibF
 
 - **Data**: `parse.json`, `get`, `put`, `patch`
 - **Predicates**: `eq`, `contains`, `not`, `and`, `or`
-- **Lists**: `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`
+- **Lists**: `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `map`
 - **Strings**: `str.concat`, `str.split`, `str.starts`, `str.replace`
 - **Records**: `keys`, `values`, `merge`
 

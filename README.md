@@ -127,16 +127,13 @@ let result = greet { name: "world" }
 
 ### Stdlib (Pure Functions)
 
-| Function | Purpose |
-|----------|---------|
-| `parse.json { in }` | Parse a JSON string into a value |
-| `get { in, path }` | Extract a value by dot/bracket path |
-| `put { in, path, value }` | Set a value at a path (returns new record) |
-| `patch { in, ops }` | Apply JSON Patch operations |
-| `eq { a, b }` | Deep equality |
-| `contains { in, value }` | Check if a list/string contains a value |
-| `not { in }` | Boolean negation |
-| `and { a, b }` / `or { a, b }` | Boolean combinators |
+| Category | Functions |
+|----------|-----------|
+| Data | `parse.json`, `get`, `put`, `patch` |
+| Predicates | `eq`, `contains`, `not`, `and`, `or` |
+| Lists | `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `map` |
+| Strings | `str.concat`, `str.split`, `str.starts`, `str.replace` |
+| Records | `keys`, `values`, `merge` |
 
 ## Examples
 

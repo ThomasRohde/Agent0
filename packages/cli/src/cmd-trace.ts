@@ -73,6 +73,15 @@ export async function runTrace(
     return 4;
   }
 
+  const runIds = new Set(events.map((e) => e.runId));
+  if (runIds.size > 1) {
+    emitCliError(
+      "E_TRACE",
+      "Trace file contains multiple run IDs; provide events from a single run."
+    );
+    return 4;
+  }
+
   const summary: TraceSummary = {
     runId: events[0].runId,
     totalEvents: events.length,

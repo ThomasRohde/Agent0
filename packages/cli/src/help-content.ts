@@ -483,8 +483,9 @@ map — Higher-order list transformation
   - fn must be defined before use (with fn keyword)
   - Single-param fn receives each item directly
   - Multi-param fn destructures record items by key name
+  - Non-record items with multi-param fn produce E_TYPE
   - Shares maxIterations budget with for loops (cumulative)
-  - E_TYPE if in: is not a list or fn: is not a string
+  - E_TYPE if in: is not a list, fn: is not a string, or a multi-param item is not a record
   - E_UNKNOWN_FN if the named function doesn't exist
   Example:
     fn double { x } {
@@ -529,7 +530,7 @@ RUNTIME ERRORS (exit 3/4/5)
   Code              Exit  Cause                      Fix
   E_CAP_DENIED      3     Policy denies capability   Update cap {} or policy file
   E_IO              4     CLI I/O error               Check file paths and permissions
-  E_TRACE           4     Invalid/empty trace input   Use valid JSONL with at least one event
+  E_TRACE           4     Invalid trace input          Use valid single-run JSONL with at least one event
   E_UNKNOWN_TOOL    4     Unknown tool at runtime (rare) Usually caught by validation (exit 2)
   E_TOOL_ARGS       4     Invalid tool arguments     Check args match tool schema
   E_TOOL            4     Tool execution failed       Check args, paths, URLs, perms

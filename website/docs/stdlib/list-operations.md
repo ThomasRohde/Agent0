@@ -173,6 +173,8 @@ Apply a user-defined function to each element of a list. Returns a new list of r
 The `fn` argument is the name of a user-defined function (as a string). The function is called once per element. If the function takes a single parameter, it receives the element directly. If it takes multiple parameters, the element (which must be a record) is destructured into those parameters.
 The named function must be declared earlier in the program (checked at compile time when `fn` is a string literal).
 
+If a multi-parameter function is used and an item is not a record, `map` fails with `E_TYPE`.
+
 Map iterations count toward the [`maxIterations`](../capabilities/budgets.md) budget.
 
 ```a0

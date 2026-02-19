@@ -605,9 +605,12 @@ async function evalExpr(
               fnEnv.set(param, rec[param] ?? null);
             }
           } else {
-            for (const param of mapFn.params) {
-              fnEnv.set(param, null);
-            }
+            const itemType = item === null ? "null" : Array.isArray(item) ? "list" : typeof item;
+            throw new A0RuntimeError(
+              "E_TYPE",
+              `map item must be a record when function '${fnNameVal}' expects ${mapFn.params.length} parameters; got ${itemType}.`,
+              expr.span
+            );
           }
 
           const iterResult = await executeBlock(mapFn.body, fnEnv, options, evidence, emitTrace, budget, tracker, userFns);

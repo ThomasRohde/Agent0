@@ -429,4 +429,18 @@ describe("A0 Parser", () => {
     assert.equal(result.diagnostics.length, 0);
     assert.ok(result.program);
   });
+
+  it("rejects match arm with empty binding list", () => {
+    const src = `let x = match ({ ok: 42 }) { ok { } { return { v: 1 } } err { e } { return { e: e } } }\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.diagnostics.length > 0);
+    assert.equal(result.diagnostics[0].code, "E_PARSE");
+  });
+
+  it("rejects match arm with multiple bindings", () => {
+    const src = `let x = match ({ ok: 42 }) { ok { a, b } { return { v: a } } err { e } { return { e: e } } }\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.diagnostics.length > 0);
+    assert.equal(result.diagnostics[0].code, "E_PARSE");
+  });
 });

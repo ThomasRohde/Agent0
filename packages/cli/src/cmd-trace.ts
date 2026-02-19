@@ -25,6 +25,18 @@ interface TraceSummary {
   durationMs?: number;
 }
 
+function isTraceEvent(value: unknown): value is TraceEvent {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate["ts"] === "string" &&
+    typeof candidate["runId"] === "string" &&
+    typeof candidate["event"] === "string"
+  );
+}
+
 export async function runTrace(
   file: string,
   opts: { json?: boolean }
@@ -47,7 +59,10 @@ export async function runTrace(
 
   for (const line of lines) {
     try {
-      events.push(JSON.parse(line) as TraceEvent);
+      const parsed = JSON.parse(line) as unknown;
+      if (isTraceEvent(parsed)) {
+        events.push(parsed);
+      }
     } catch {
       // skip malformed lines
     }

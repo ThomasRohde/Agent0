@@ -14,7 +14,7 @@ describe("A0 Capabilities", () => {
       // Use a temp dir with no policy file
       const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-"));
       try {
-        const policy = loadPolicy(tmpDir);
+        const policy = loadPolicy(tmpDir, tmpDir);
         assert.equal(policy.version, 1);
         assert.deepEqual(policy.allow, []);
       } finally {
@@ -30,7 +30,7 @@ describe("A0 Capabilities", () => {
         allow: ["fs.read", "http.get"],
       }));
       try {
-        const policy = loadPolicy(tmpDir);
+        const policy = loadPolicy(tmpDir, tmpDir);
         assert.equal(policy.version, 1);
         assert.deepEqual(policy.allow, ["fs.read", "http.get"]);
       } finally {
@@ -47,7 +47,7 @@ describe("A0 Capabilities", () => {
         limits: { maxToolCalls: 10 },
       }));
       try {
-        const policy = loadPolicy(tmpDir);
+        const policy = loadPolicy(tmpDir, tmpDir);
         assert.deepEqual(policy.limits, { maxToolCalls: 10 });
       } finally {
         fs.rmSync(tmpDir, { recursive: true });
@@ -59,7 +59,7 @@ describe("A0 Capabilities", () => {
       const policyPath = path.join(tmpDir, ".a0policy.json");
       fs.writeFileSync(policyPath, "not valid json{{{");
       try {
-        const policy = loadPolicy(tmpDir);
+        const policy = loadPolicy(tmpDir, tmpDir);
         // Falls through to deny-all default
         assert.deepEqual(policy.allow, []);
       } finally {
@@ -72,10 +72,30 @@ describe("A0 Capabilities", () => {
       const policyPath = path.join(tmpDir, ".a0policy.json");
       fs.writeFileSync(policyPath, '"just a string"');
       try {
-        const policy = loadPolicy(tmpDir);
+        const policy = loadPolicy(tmpDir, tmpDir);
         assert.deepEqual(policy.allow, []);
       } finally {
         fs.rmSync(tmpDir, { recursive: true });
+      }
+    });
+
+    it("falls through to user policy when project policy has invalid shape", () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-project-"));
+      const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-home-"));
+      const projectPolicyPath = path.join(tmpDir, ".a0policy.json");
+      const userPolicyDir = path.join(fakeHome, ".a0");
+      const userPolicyPath = path.join(userPolicyDir, "policy.json");
+
+      fs.writeFileSync(projectPolicyPath, JSON.stringify({ version: 1, allow: "fs.read" }));
+      fs.mkdirSync(userPolicyDir, { recursive: true });
+      fs.writeFileSync(userPolicyPath, JSON.stringify({ version: 1, allow: ["http.get"] }));
+
+      try {
+        const policy = loadPolicy(tmpDir, fakeHome);
+        assert.deepEqual(policy.allow, ["http.get"]);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        fs.rmSync(fakeHome, { recursive: true, force: true });
       }
     });
 
@@ -88,7 +108,7 @@ describe("A0 Capabilities", () => {
         deny: ["sh.exec"],
       }));
       try {
-        const policy = loadPolicy(tmpDir);
+        const policy = loadPolicy(tmpDir, tmpDir);
         assert.deepEqual(policy.deny, ["sh.exec"]);
       } finally {
         fs.rmSync(tmpDir, { recursive: true });
@@ -103,7 +123,7 @@ describe("A0 Capabilities", () => {
         allow: ["fs.read", 42, null, "http.get"],
       }));
       try {
-        const policy = loadPolicy(tmpDir);
+        const policy = loadPolicy(tmpDir, tmpDir);
         assert.deepEqual(policy.allow, ["fs.read", "http.get"]);
       } finally {
         fs.rmSync(tmpDir, { recursive: true });

@@ -48,7 +48,7 @@ describe("Capability-Policy Precedence Tests", () => {
     }));
 
     try {
-      const policy = loadPolicy(tmpDir);
+      const policy = loadPolicy(tmpDir, tmpDir);
       const caps = buildAllowedCaps(policy, false);
       assert.equal(caps.size, 0);
 
@@ -81,7 +81,7 @@ describe("Capability-Policy Precedence Tests", () => {
     }));
 
     try {
-      const policy = loadPolicy(tmpDir);
+      const policy = loadPolicy(tmpDir, tmpDir);
       const caps = buildAllowedCaps(policy, false);
       assert.ok(caps.has("fs.read"));
 
@@ -109,7 +109,7 @@ describe("Capability-Policy Precedence Tests", () => {
     }));
 
     try {
-      const policy = loadPolicy(tmpDir);
+      const policy = loadPolicy(tmpDir, tmpDir);
       const caps = buildAllowedCaps(policy, false);
 
       const src = `cap { fs.write: true }\ndo fs.write { path: "out.txt", data: "hi" }\nreturn {}`;
@@ -142,8 +142,8 @@ describe("Capability-Policy Precedence Tests", () => {
     }));
 
     try {
-      // loadPolicy(tmpDir) should find the project policy
-      const policy = loadPolicy(tmpDir);
+      // loadPolicy(tmpDir, tmpDir) should find the project policy
+      const policy = loadPolicy(tmpDir, tmpDir);
       assert.deepEqual(policy.allow, ["fs.read"]);
     } finally {
       fs.rmSync(tmpDir, { recursive: true });
@@ -179,7 +179,7 @@ describe("Capability-Policy Precedence Tests", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-cap-test-"));
     try {
       // No policy file written - should get deny-all default
-      const policy = loadPolicy(tmpDir);
+      const policy = loadPolicy(tmpDir, tmpDir);
       assert.deepEqual(policy.allow, []);
       const caps = buildAllowedCaps(policy, false);
       assert.equal(caps.size, 0);
@@ -196,7 +196,7 @@ describe("Capability-Policy Precedence Tests", () => {
     }));
 
     try {
-      const policy = loadPolicy(tmpDir);
+      const policy = loadPolicy(tmpDir, tmpDir);
       const caps = buildAllowedCaps(policy, false);
       assert.ok(caps.has("fs.read"));
       assert.ok(caps.has("fs.write"));

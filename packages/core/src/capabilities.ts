@@ -22,9 +22,9 @@ const DEFAULT_POLICY: Policy = {
  * Load policy from project or user config.
  * Precedence: ./.a0policy.json > ~/.a0/policy.json > default (deny all)
  */
-export function loadPolicy(cwd?: string): Policy {
+export function loadPolicy(cwd?: string, homeDir?: string): Policy {
   const projectPath = path.join(cwd ?? process.cwd(), ".a0policy.json");
-  const userPath = path.join(os.homedir(), ".a0", "policy.json");
+  const userPath = path.join(homeDir ?? os.homedir(), ".a0", "policy.json");
 
   // Try project-local policy first
   const projectPolicy = tryLoadPolicyFile(projectPath);
@@ -56,16 +56,24 @@ function validatePolicyShape(data: unknown): Policy {
   const obj = data as Record<string, unknown>;
 
   const version = typeof obj["version"] === "number" ? obj["version"] : 1;
+  if (obj["allow"] !== undefined && !Array.isArray(obj["allow"])) {
+    throw new Error("Policy 'allow' must be an array when present.");
+  }
   const allow = Array.isArray(obj["allow"])
     ? (obj["allow"] as unknown[]).filter((x): x is string => typeof x === "string")
     : [];
+
+  if (obj["deny"] !== undefined && !Array.isArray(obj["deny"])) {
+    throw new Error("Policy 'deny' must be an array when present.");
+  }
   const deny = Array.isArray(obj["deny"])
     ? (obj["deny"] as unknown[]).filter((x): x is string => typeof x === "string")
     : undefined;
-  const limits =
-    typeof obj["limits"] === "object" && obj["limits"] !== null
-      ? (obj["limits"] as Record<string, number>)
-      : undefined;
+
+  if (obj["limits"] !== undefined && (typeof obj["limits"] !== "object" || obj["limits"] === null || Array.isArray(obj["limits"]))) {
+    throw new Error("Policy 'limits' must be an object when present.");
+  }
+  const limits = obj["limits"] as Record<string, number> | undefined;
 
   return { version, allow, deny, limits };
 }

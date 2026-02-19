@@ -282,8 +282,14 @@ class A0CstParser extends CstParser {
 
   matchArm = this.RULE("matchArm", () => {
     this.CONSUME(Ident);       // "ok" or "err"
-    this.SUBRULE(this.paramList);
+    this.SUBRULE(this.matchBinding);
     this.SUBRULE(this.block);
+  });
+
+  matchBinding = this.RULE("matchBinding", () => {
+    this.CONSUME(LBrace);
+    this.CONSUME(Ident);
+    this.CONSUME(RBrace);
   });
 
   callExpr = this.RULE("callExpr", () => {
@@ -746,16 +752,9 @@ function visitMatchExpr(cst: CstNode, file: string): AST.MatchExpr {
   for (const arm of arms) {
     const tagToken = (arm.children["Ident"] as IToken[])[0];
     const tag = tagToken.image;
-    const paramListNode = (arm.children["paramList"] as CstNode[])[0];
+    const bindingNode = (arm.children["matchBinding"] as CstNode[])[0];
     const blockNode = (arm.children["block"] as CstNode[])[0];
-
-    const params: string[] = [];
-    if (paramListNode.children["Ident"]) {
-      for (const t of paramListNode.children["Ident"] as IToken[]) {
-        params.push(t.image);
-      }
-    }
-    const binding = params[0] ?? "_";
+    const binding = visitMatchBinding(bindingNode);
 
     const matchArm: AST.MatchArm = {
       kind: "MatchArm",
@@ -781,6 +780,11 @@ function visitMatchExpr(cst: CstNode, file: string): AST.MatchExpr {
     okArm,
     errArm,
   };
+}
+
+function visitMatchBinding(cst: CstNode): string {
+  const identToken = (cst.children["Ident"] as IToken[])[0];
+  return identToken.image;
 }
 
 function visitCallExpr(cst: CstNode, file: string): AST.CallExpr {

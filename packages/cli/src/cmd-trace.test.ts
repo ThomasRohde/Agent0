@@ -59,6 +59,28 @@ describe("a0 trace summary", () => {
     }
   });
 
+  it("returns E_TRACE when JSON lines are well-formed but not trace events", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-cli-trace-test-"));
+    const tracePath = path.join(tmpDir, "shape-invalid.jsonl");
+    const rows = [
+      42,
+      true,
+      "hello",
+      { event: "run_start" }, // missing ts/runId
+      { ts: "2026-01-01T00:00:00.000Z", runId: "r0" }, // missing event
+    ];
+    fs.writeFileSync(tracePath, rows.map((r) => JSON.stringify(r)).join("\n") + "\n", "utf-8");
+
+    try {
+      const result = await captureTrace(tracePath, { json: true });
+      assert.equal(result.code, 4);
+      const diag = JSON.parse(result.stderr) as { code: string };
+      assert.equal(diag.code, "E_TRACE");
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("does not double-count tool failure and run_end error", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-cli-trace-test-"));
     const tracePath = path.join(tmpDir, "trace.jsonl");

@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "build": "npm run build -w packages/core && npm run build -w packages/std -w packages/tools && npm run build -w packages/cli",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run build && npm run test --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present",
     "version:sync": "node scripts/sync-versions.js"
   },

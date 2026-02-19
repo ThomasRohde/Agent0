@@ -29,7 +29,7 @@ return { x: x }
 **Parser error** -- the token sequence does not match any grammar rule.
 
 - **Common cause:** Missing braces, incorrect statement structure, misplaced keywords.
-- **Fix:** Check the statement syntax. Every `let` needs `=`, every `call?`/`do` needs `{ ... } -> target`.
+- **Fix:** Check the statement syntax. Every `let` needs `=`, every `call?`/`do` needs `{ ... }` (with optional `-> target` binding).
 
 ```a0
 let x 42

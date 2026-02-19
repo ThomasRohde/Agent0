@@ -150,6 +150,26 @@ describe("A0 Formatter", () => {
     assert.ok(formatted.includes("let pi = 3.14"));
   });
 
+  it("keeps whole-number float literals as float tokens", () => {
+    const src = `budget { timeMs: 1.0 }\nreturn {}`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("budget { timeMs: 1.0 }"));
+  });
+
+  it("formats scientific notation floats into parseable decimal form", () => {
+    const src = `let tiny = 1.0e-7\nreturn { tiny: tiny }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("let tiny = 0.0000001"));
+
+    const reparsed = parse(formatted, "test.a0");
+    assert.equal(reparsed.diagnostics.length, 0, "Formatted scientific notation should reparse");
+    assert.ok(reparsed.program);
+  });
+
   it("formats expression with arrow target", () => {
     const src = `{ x: 1 } -> data\nreturn { data: data }`;
     const result = parse(src, "test.a0");

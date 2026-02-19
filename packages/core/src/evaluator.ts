@@ -512,7 +512,7 @@ async function evalExpr(
         args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
       }
 
-      const ok = Boolean(args["that"]);
+      const ok = isTruthy(args["that"] ?? null);
       const msg = typeof args["msg"] === "string" ? args["msg"] : "";
       const ev: Evidence = {
         kind: expr.kind === "AssertExpr" ? "assert" : "check",

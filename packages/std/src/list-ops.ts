@@ -96,11 +96,14 @@ export const sortFn: StdlibFn = {
     if (!Array.isArray(input)) {
       throw new Error("sort: 'in' must be a list");
     }
+    if (by !== null && typeof by !== "string") {
+      throw new Error("sort: 'by' must be a string");
+    }
     const sorted = [...input];
     sorted.sort((x, y) => {
       let a: A0Value = x;
       let b: A0Value = y;
-      if (typeof by === "string") {
+      if (by !== null) {
         a = (x as A0Record)?.[by] ?? null;
         b = (y as A0Record)?.[by] ?? null;
       }
@@ -190,10 +193,14 @@ export const joinFn: StdlibFn = {
   name: "join",
   execute(args: A0Record): A0Value {
     const input = args["in"] ?? null;
-    const sep = args["sep"] ?? "";
+    const sepArg = args["sep"] ?? null;
     if (!Array.isArray(input)) {
       throw new Error("join: 'in' must be a list");
     }
-    return input.map(String).join(typeof sep === "string" ? sep : "");
+    if (sepArg !== null && typeof sepArg !== "string") {
+      throw new Error("join: 'sep' must be a string");
+    }
+    const sep = sepArg ?? "";
+    return input.map(String).join(sep);
   },
 };

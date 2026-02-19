@@ -87,7 +87,7 @@ function formatExpr(e: AST.Expr, depth: number): string {
     case "IntLiteral":
       return String(e.value);
     case "FloatLiteral":
-      return String(e.value);
+      return formatFloatLiteral(e.value);
     case "BoolLiteral":
       return String(e.value);
     case "StrLiteral":
@@ -141,6 +141,43 @@ function formatExpr(e: AST.Expr, depth: number): string {
       return `-${operandStr}`;
     }
   }
+}
+
+function formatFloatLiteral(value: number): string {
+  if (!Number.isFinite(value)) return String(value);
+
+  const raw = String(value);
+  const expanded = /e/i.test(raw) ? expandScientificNotation(raw) : raw;
+  return expanded.includes(".") ? expanded : `${expanded}.0`;
+}
+
+function expandScientificNotation(value: string): string {
+  const [mantissa, exponentPart] = value.toLowerCase().split("e");
+  const exponent = Number.parseInt(exponentPart, 10);
+  if (!Number.isFinite(exponent)) return value;
+
+  let sign = "";
+  let digits = mantissa;
+  if (digits.startsWith("-")) {
+    sign = "-";
+    digits = digits.slice(1);
+  } else if (digits.startsWith("+")) {
+    digits = digits.slice(1);
+  }
+
+  const dot = digits.indexOf(".");
+  const intPart = dot >= 0 ? digits.slice(0, dot) : digits;
+  const fracPart = dot >= 0 ? digits.slice(dot + 1) : "";
+  const compact = intPart + fracPart;
+  const decimalIndex = intPart.length + exponent;
+
+  if (decimalIndex <= 0) {
+    return `${sign}0.${"0".repeat(-decimalIndex)}${compact}`;
+  }
+  if (decimalIndex >= compact.length) {
+    return `${sign}${compact}${"0".repeat(decimalIndex - compact.length)}.0`;
+  }
+  return `${sign}${compact.slice(0, decimalIndex)}.${compact.slice(decimalIndex)}`;
 }
 
 function formatIdentPath(ip: AST.IdentPath): string {

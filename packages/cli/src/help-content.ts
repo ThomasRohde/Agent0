@@ -75,8 +75,8 @@ PROGRAM HEADERS (must appear before any statements, any order)
 
 STATEMENTS
   let name = expr                        # bind a value
-  call? tool.name { args } -> name       # read-only tool call, bind result
-  do tool.name { args } -> name          # effectful tool call, bind result
+  call? tool.name { args } [-> name]     # read-only tool call, optional bind
+  do tool.name { args } [-> name]        # effectful tool call, optional bind
   fn name { params } { body }            # define a function
   assert { that: expr, msg: "str" }      # fatal: halt immediately if falsy (exit 5)
   check { that: expr, msg: "str" }       # non-fatal: record evidence, continue; exit 5 if any failed

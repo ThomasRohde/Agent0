@@ -510,6 +510,48 @@ describe("A0 Evaluator", () => {
     assert.equal(result.evidence[0].msg, "null is falsy");
   });
 
+  it("treats NaN as truthy in assert", async () => {
+    const nanTool: import("./evaluator.js").ToolDef = {
+      name: "test.nan",
+      mode: "read",
+      capabilityId: "test.nan",
+      async execute(): Promise<A0Value> {
+        return Number.NaN;
+      },
+    };
+    const tools = new Map([["test.nan", nanTool]]);
+    const caps = new Set(["test.nan"]);
+
+    const src = `let n = call? test.nan {}\nassert { that: n, msg: "nan is truthy" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program!, makeOptions({ tools, allowedCapabilities: caps }));
+    assert.equal(result.evidence.length, 1);
+    assert.equal(result.evidence[0].ok, true);
+    assert.equal(result.evidence[0].kind, "assert");
+  });
+
+  it("treats NaN as truthy in check", async () => {
+    const nanTool: import("./evaluator.js").ToolDef = {
+      name: "test.nan",
+      mode: "read",
+      capabilityId: "test.nan",
+      async execute(): Promise<A0Value> {
+        return Number.NaN;
+      },
+    };
+    const tools = new Map([["test.nan", nanTool]]);
+    const caps = new Set(["test.nan"]);
+
+    const src = `let n = call? test.nan {}\ncheck { that: n, msg: "nan is truthy" }\nreturn {}`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program!, makeOptions({ tools, allowedCapabilities: caps }));
+    assert.equal(result.evidence.length, 1);
+    assert.equal(result.evidence[0].ok, true);
+    assert.equal(result.evidence[0].kind, "check");
+  });
+
   // --- Budget enforcement tests ---
 
   it("merges budget fields across multiple budget headers", async () => {

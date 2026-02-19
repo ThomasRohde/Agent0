@@ -419,6 +419,13 @@ describe("sort", () => {
       (err: Error) => err.message.includes("must be a list")
     );
   });
+
+  it("throws when by is not a string", () => {
+    assert.throws(
+      () => sortFn.execute({ in: [{ n: 1 }, { n: 2 }], by: 1 }),
+      (err: Error) => err.message.includes("'by' must be a string")
+    );
+  });
 });
 
 describe("filter", () => {
@@ -509,6 +516,13 @@ describe("join", () => {
     assert.throws(
       () => joinFn.execute({ in: "not a list" }),
       (err: Error) => err.message.includes("must be a list")
+    );
+  });
+
+  it("throws on non-string separator", () => {
+    assert.throws(
+      () => joinFn.execute({ in: ["a", "b"], sep: 1 }),
+      (err: Error) => err.message.includes("'sep' must be a string")
     );
   });
 });

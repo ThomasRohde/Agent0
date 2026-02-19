@@ -183,11 +183,12 @@ This normalizes indentation and spacing so you can see the program structure cle
 - Missing `{ ... }` around tool arguments
 - Using `=` instead of `:` in record fields
 - Placing `return` inside an expression instead of at statement level
-- Missing `->` target after `call?` or `do`
+- Malformed optional `-> target` binding after `call?` or `do`
 
 **Fix:** Compare your syntax against a working example. The canonical form is:
 
 ```a0
+call? tool.name { key: value, key2: value2 }
 call? tool.name { key: value, key2: value2 } -> target
 ```
 

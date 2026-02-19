@@ -81,6 +81,25 @@ describe("a0 trace summary", () => {
     }
   });
 
+  it("returns E_TRACE when events use unknown event types", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-cli-trace-test-"));
+    const tracePath = path.join(tmpDir, "unknown-event.jsonl");
+    const rows = [
+      { ts: "2026-01-01T00:00:00.000Z", runId: "r0", event: "not_a_real_event" },
+      { ts: "2026-01-01T00:00:00.100Z", runId: "r0", event: "also_not_real" },
+    ];
+    fs.writeFileSync(tracePath, rows.map((r) => JSON.stringify(r)).join("\n") + "\n", "utf-8");
+
+    try {
+      const result = await captureTrace(tracePath, { json: true });
+      assert.equal(result.code, 4);
+      const diag = JSON.parse(result.stderr) as { code: string };
+      assert.equal(diag.code, "E_TRACE");
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("returns E_TRACE when trace file contains multiple run IDs", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-cli-trace-test-"));
     const tracePath = path.join(tmpDir, "mixed-runids.jsonl");

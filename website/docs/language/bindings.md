@@ -101,6 +101,8 @@ let result = greet { name: "world" }
 return { result: result }
 ```
 
+Functions are lexically scoped: they resolve outer variables from the environment where `fn` is defined, not from the caller's local scope.
+
 ## Property Access
 
 Use dot notation to access fields on records:

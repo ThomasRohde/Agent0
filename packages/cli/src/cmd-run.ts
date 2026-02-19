@@ -17,6 +17,13 @@ import type { TraceEvent, Evidence } from "@a0/core";
 import { registerBuiltinTools, getAllTools } from "@a0/tools";
 import { getStdlibFns } from "@a0/std";
 
+class CliIoError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CliIoError";
+  }
+}
+
 export async function runRun(
   file: string,
   opts: { trace?: string; evidence?: string; pretty?: boolean; unsafeAllowAll?: boolean }
@@ -104,7 +111,12 @@ export async function runRun(
   const traceHandler =
     traceFd !== null
       ? (event: TraceEvent) => {
-          fs.writeSync(traceFd, JSON.stringify(event) + "\n");
+          try {
+            fs.writeSync(traceFd, JSON.stringify(event) + "\n");
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            throw new CliIoError(`Error writing trace file: ${msg}`);
+          }
         }
       : undefined;
 
@@ -133,6 +145,15 @@ export async function runRun(
 
     return 0;
   } catch (e) {
+    if (e instanceof CliIoError) {
+      const evidenceWriteCode = writeEvidenceFile([]);
+      if (evidenceWriteCode !== null) {
+        return evidenceWriteCode;
+      }
+      emitCliError("E_IO", e.message);
+      return 4;
+    }
+
     if (e instanceof A0RuntimeError) {
       const evidenceWriteCode = writeEvidenceFile(e.evidence ?? []);
       if (evidenceWriteCode !== null) {

@@ -8,7 +8,7 @@ Budgets constrain how many resources an A0 program can consume. They act as safe
 
 ## Syntax
 
-Declare a single `budget` block at the top of your program, after `cap` declarations:
+Declare a single `budget` block at the top of your program (before statements). It can appear before or after `cap`:
 
 ```a0
 cap { fs.read: true, fs.write: true }

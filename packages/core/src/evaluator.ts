@@ -179,6 +179,11 @@ class Env {
   }
 }
 
+interface UserFn {
+  decl: AST.FnDecl;
+  closure: Env;
+}
+
 // --- Evaluator ---
 export async function execute(
   program: AST.Program,
@@ -224,7 +229,7 @@ export async function execute(
     ...(Object.keys(budget).length > 0 ? { budget: budget as unknown as A0Record } : {}),
   });
 
-  const userFns = new Map<string, AST.FnDecl>();
+  const userFns = new Map<string, UserFn>();
   let result: A0Value = null;
   try {
     result = await executeBlock(program.statements, env, options, evidence, emitTrace, budget, tracker, userFns);
@@ -259,7 +264,7 @@ async function executeBlock(
   emitTrace: (event: TraceEventType, span?: Span, data?: A0Record) => void,
   budget: Budget,
   tracker: BudgetTracker,
-  userFns: Map<string, AST.FnDecl>
+  userFns: Map<string, UserFn>
 ): Promise<A0Value> {
   let result: A0Value = null;
 
@@ -282,7 +287,7 @@ async function executeBlock(
         env.set(parts[0], wrappedVal);
       }
     } else if (stmt.kind === "FnDecl") {
-      userFns.set(stmt.name, stmt);
+      userFns.set(stmt.name, { decl: stmt, closure: env });
     } else if (stmt.kind === "ReturnStmt") {
       result = await evalExpr(stmt.value, env, options, evidence, emitTrace, budget, tracker, userFns);
       emitTrace("stmt_end", stmt.span);
@@ -317,7 +322,7 @@ async function evalExpr(
   emitTrace: (event: TraceEventType, span?: Span, data?: A0Record) => void,
   budget: Budget,
   tracker: BudgetTracker,
-  userFns: Map<string, AST.FnDecl>
+  userFns: Map<string, UserFn>
 ): Promise<A0Value> {
   enforceTimeBudget(budget, tracker, emitTrace, expr.span);
 
@@ -594,26 +599,26 @@ async function evalExpr(
           }
 
           emitTrace("fn_call_start", expr.span, { fn: fnNameVal });
-          const fnEnv = env.child();
+          const fnEnv = mapFn.closure.child();
 
           // Param binding: single-param → bind item directly; multi-param with record → destructure
-          if (mapFn.params.length === 1) {
-            fnEnv.set(mapFn.params[0], item);
-          } else if (item !== null && typeof item === "object" && !Array.isArray(item)) {
-            const rec = item as A0Record;
-            for (const param of mapFn.params) {
-              fnEnv.set(param, rec[param] ?? null);
-            }
-          } else {
-            const itemType = item === null ? "null" : Array.isArray(item) ? "list" : typeof item;
-            throw new A0RuntimeError(
-              "E_TYPE",
-              `map item must be a record when function '${fnNameVal}' expects ${mapFn.params.length} parameters; got ${itemType}.`,
-              expr.span
-            );
+        if (mapFn.decl.params.length === 1) {
+          fnEnv.set(mapFn.decl.params[0], item);
+        } else if (item !== null && typeof item === "object" && !Array.isArray(item)) {
+          const rec = item as A0Record;
+          for (const param of mapFn.decl.params) {
+            fnEnv.set(param, rec[param] ?? null);
           }
+        } else {
+          const itemType = item === null ? "null" : Array.isArray(item) ? "list" : typeof item;
+          throw new A0RuntimeError(
+            "E_TYPE",
+            `map item must be a record when function '${fnNameVal}' expects ${mapFn.decl.params.length} parameters; got ${itemType}.`,
+            expr.span
+          );
+        }
 
-          const iterResult = await executeBlock(mapFn.body, fnEnv, options, evidence, emitTrace, budget, tracker, userFns);
+        const iterResult = await executeBlock(mapFn.decl.body, fnEnv, options, evidence, emitTrace, budget, tracker, userFns);
           emitTrace("fn_call_end", expr.span, { fn: fnNameVal });
           results.push(iterResult);
         }
@@ -634,12 +639,12 @@ async function evalExpr(
         }
 
         // Create child scope with param bindings
-        const fnEnv = env.child();
-        for (const param of userFn.params) {
+        const fnEnv = userFn.closure.child();
+        for (const param of userFn.decl.params) {
           fnEnv.set(param, args[param] ?? null);
         }
 
-        const result = await executeBlock(userFn.body, fnEnv, options, evidence, emitTrace, budget, tracker, userFns);
+        const result = await executeBlock(userFn.decl.body, fnEnv, options, evidence, emitTrace, budget, tracker, userFns);
         emitTrace("fn_call_end", expr.span, { fn: fnName });
         return result;
       }

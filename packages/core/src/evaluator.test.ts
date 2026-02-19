@@ -980,6 +980,25 @@ describe("A0 Evaluator", () => {
     assert.equal(val["c"], 16);
   });
 
+  it("uses lexical function scope (definition-site) instead of caller scope", async () => {
+    const src = `let x = 1
+fn read_x { } {
+  return { x: x }
+}
+let from_loop = for { in: [2], as: "x" } {
+  let val = read_x { }
+  return { val: val.x }
+}
+return { from_loop: from_loop }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const fromLoop = val["from_loop"] as A0Record[];
+    const first = fromLoop[0] as A0Record;
+    assert.equal(first["val"], 1);
+  });
+
   // --- map tests ---
 
   it("map with single-param function", async () => {

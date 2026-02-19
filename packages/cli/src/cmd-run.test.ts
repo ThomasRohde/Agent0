@@ -6,7 +6,10 @@ import * as assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { createRequire, syncBuiltinESMExports } from "node:module";
 import { runRun } from "./cmd-run.js";
+
+const require = createRequire(import.meta.url);
 
 function withCapturedConsole<T>(fn: () => Promise<T>): Promise<T> {
   const origLog = console.log;
@@ -61,6 +64,33 @@ describe("a0 run evidence output", () => {
       assert.equal(parsed[0].ok, false);
       assert.equal(parsed[0].msg, "boom");
     } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("returns E_IO when trace write fails after trace file is opened", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-cli-run-test-"));
+    const programPath = path.join(tmpDir, "ok.a0");
+    const tracePath = path.join(tmpDir, "trace.jsonl");
+
+    fs.writeFileSync(programPath, `return { ok: true }\n`, "utf-8");
+
+    const fsCjs = require("fs") as typeof import("node:fs");
+    const originalWriteSync = fsCjs.writeSync;
+
+    fsCjs.writeSync = (() => {
+      throw new Error("simulated trace write failure");
+    }) as typeof fsCjs.writeSync;
+    syncBuiltinESMExports();
+
+    try {
+      const code = await withCapturedConsole(() =>
+        runRun(programPath, { trace: tracePath, unsafeAllowAll: true })
+      );
+      assert.equal(code, 4);
+    } finally {
+      fsCjs.writeSync = originalWriteSync;
+      syncBuiltinESMExports();
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });

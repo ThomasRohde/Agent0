@@ -443,4 +443,28 @@ describe("A0 Parser", () => {
     assert.ok(result.diagnostics.length > 0);
     assert.equal(result.diagnostics[0].code, "E_PARSE");
   });
+
+  it("reports E_PARSE for if expression missing required fields", () => {
+    const src = `let x = if { cond: true, then: 1 }\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.diagnostics.length > 0);
+    assert.equal(result.diagnostics[0].code, "E_PARSE");
+    assert.ok(result.diagnostics[0].message.includes("if expression requires cond, then, and else fields"));
+  });
+
+  it("reports E_PARSE for for expression missing required fields", () => {
+    const src = `let x = for { in: [1, 2, 3] } { return { x: 1 } }\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.diagnostics.length > 0);
+    assert.equal(result.diagnostics[0].code, "E_PARSE");
+    assert.ok(result.diagnostics[0].message.includes("for expression requires 'in' and 'as' fields"));
+  });
+
+  it("reports E_PARSE for invalid match arm tags", () => {
+    const src = `let r = { ok: 1 }\nlet x = match r { maybe { v } { return { v: v } } err { e } { return { e: e } } }\nreturn { x: x }`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.diagnostics.length > 0);
+    assert.equal(result.diagnostics[0].code, "E_PARSE");
+    assert.ok(result.diagnostics[0].message.includes("match arm must be 'ok' or 'err'"));
+  });
 });

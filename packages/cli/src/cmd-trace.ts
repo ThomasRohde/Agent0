@@ -7,10 +7,32 @@ import { formatDiagnostic } from "@a0/core";
 interface TraceEvent {
   ts: string;
   runId: string;
-  event: string;
+  event: KnownTraceEvent;
   span?: unknown;
   data?: Record<string, unknown>;
 }
+
+const KNOWN_TRACE_EVENT_VALUES = [
+  "run_start",
+  "run_end",
+  "stmt_start",
+  "stmt_end",
+  "tool_start",
+  "tool_end",
+  "evidence",
+  "budget_exceeded",
+  "for_start",
+  "for_end",
+  "fn_call_start",
+  "fn_call_end",
+  "match_start",
+  "match_end",
+  "map_start",
+  "map_end",
+] as const;
+
+type KnownTraceEvent = (typeof KNOWN_TRACE_EVENT_VALUES)[number];
+const KNOWN_TRACE_EVENTS = new Set<string>(KNOWN_TRACE_EVENT_VALUES);
 
 interface TraceSummary {
   runId: string;
@@ -30,10 +52,12 @@ function isTraceEvent(value: unknown): value is TraceEvent {
     return false;
   }
   const candidate = value as Record<string, unknown>;
+  const event = candidate["event"];
   return (
     typeof candidate["ts"] === "string" &&
     typeof candidate["runId"] === "string" &&
-    typeof candidate["event"] === "string"
+    typeof event === "string" &&
+    KNOWN_TRACE_EVENTS.has(event)
   );
 }
 

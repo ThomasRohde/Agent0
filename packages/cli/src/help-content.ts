@@ -111,6 +111,7 @@ LINE RULES
 SCOPING
   - Top-level: cap/budget headers must come first; fn and other statements may be interleaved
   - fn/for/match bodies have their own scope (parent-chained)
+  - Functions use lexical scope (definition-site), not caller scope
   - No variable reassignment in the same scope — each let/-> creates a new binding
   - Shadowing is allowed in nested scopes (for/fn/match bodies)
   - fn params and for loop variables are scoped to their body
@@ -450,7 +451,8 @@ fn — User-defined functions
   - Params are destructured from caller's record
   - Missing params default to null
   - Body MUST end with return { ... }
-  - Direct recursion allowed; fn bodies can read outer-scope bindings
+  - Lexical scoping: fn reads outer bindings from where it was defined (not from caller scope)
+  - Direct recursion allowed
   - Duplicate fn names produce E_FN_DUP
   Example:
     fn greet { name, greeting } {
@@ -509,7 +511,7 @@ COMPILE-TIME ERRORS (exit 2) — caught by a0 check
   Code              Cause                           Fix
   E_LEX             Invalid token                   Check quotes, escapes, special chars
   E_PARSE           Syntax error                    Verify statement structure, braces
-  E_AST             AST construction failed          Simplify expression
+  E_AST             AST construction failed (rare)   Report bug with minimal repro
   E_NO_RETURN       Missing return                  Add return { ... } as last stmt
   E_RETURN_NOT_LAST Statements after return          Move return to end
   E_UNKNOWN_CAP     Invalid capability name          Use: fs.read fs.write http.get sh.exec

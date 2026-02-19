@@ -89,6 +89,7 @@ Filter a list of records, keeping elements where the specified key is truthy.
 **Signature:** `filter { in: list, by: str }` returns `list`.
 
 Each element must be a record. Elements where `element[by]` is truthy (see [truthiness rules](./predicates.md#truthiness-rules)) are kept.
+Non-record elements are skipped.
 
 ```a0
 let items = [

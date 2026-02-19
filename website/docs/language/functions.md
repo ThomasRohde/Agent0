@@ -61,7 +61,8 @@ let b = greet { name: "Bob" }
 
 - The body is a block `{ ... }` that **must end with `return`**
 - The body can contain any statements: `let` bindings, tool calls, other function calls, control flow
-- Function bodies can read bindings from parent scope (parent-chained scoping)
+- Function bodies use lexical scope (definition-site parent-chained scoping)
+- Caller-local bindings do not override captured outer bindings in function bodies
 
 ### Example: Shell Command Wrapper
 

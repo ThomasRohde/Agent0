@@ -410,6 +410,20 @@ class A0CstParser extends CstParser {
 // Singleton parser instance
 const cstParser = new A0CstParser();
 
+class AstBuildError extends Error {
+  code: "E_PARSE" | "E_AST";
+  span?: Span;
+  hint?: string;
+
+  constructor(code: "E_PARSE" | "E_AST", message: string, span?: Span, hint?: string) {
+    super(message);
+    this.name = "AstBuildError";
+    this.code = code;
+    this.span = span;
+    this.hint = hint;
+  }
+}
+
 // --- CST to AST visitor ---
 
 function tokenSpan(token: IToken, file: string): Span {
@@ -697,7 +711,12 @@ function visitIfExpr(cst: CstNode, file: string): AST.IfExpr {
     if (p.key === "else") elseExpr = p.value;
   }
   if (!cond || !thenExpr || !elseExpr) {
-    throw new Error("if expression requires cond, then, and else fields");
+    throw new AstBuildError(
+      "E_PARSE",
+      "if expression requires cond, then, and else fields",
+      cstSpan(cst, file),
+      "Use syntax: if { cond: ..., then: ..., else: ... }."
+    );
   }
   return {
     kind: "IfExpr",
@@ -719,7 +738,12 @@ function visitForExpr(cst: CstNode, file: string): AST.ForExpr {
     if (p.key === "as" && p.value.kind === "StrLiteral") binding = p.value.value;
   }
   if (!list || !binding) {
-    throw new Error("for expression requires 'in' and 'as' fields");
+    throw new AstBuildError(
+      "E_PARSE",
+      "for expression requires 'in' and 'as' fields",
+      cstSpan(cst, file),
+      "Use syntax: for { in: <list>, as: \"name\" } { ... }."
+    );
   }
 
   return {
@@ -766,11 +790,23 @@ function visitMatchExpr(cst: CstNode, file: string): AST.MatchExpr {
 
     if (tag === "ok") okArm = matchArm;
     else if (tag === "err") errArm = matchArm;
-    else throw new Error(`match arm must be 'ok' or 'err', got '${tag}'`);
+    else {
+      throw new AstBuildError(
+        "E_PARSE",
+        `match arm must be 'ok' or 'err', got '${tag}'`,
+        cstSpan(arm, file),
+        "Use exactly two arms: ok {v} { ... } and err {e} { ... }."
+      );
+    }
   }
 
   if (!okArm || !errArm) {
-    throw new Error("match expression requires both ok and err arms");
+    throw new AstBuildError(
+      "E_PARSE",
+      "match expression requires both ok and err arms",
+      cstSpan(cst, file),
+      "Provide both arms: ok {v} { ... } and err {e} { ... }."
+    );
   }
 
   return {
@@ -975,6 +1011,12 @@ export function parse(source: string, file: string = "<stdin>"): ParseResult {
     const program = visitProgram(cst, file);
     return { program, diagnostics: [] };
   } catch (e) {
+    if (e instanceof AstBuildError) {
+      diagnostics.push(
+        makeDiag(e.code, e.message, e.span, e.hint)
+      );
+      return { diagnostics };
+    }
     diagnostics.push(
       makeDiag("E_AST", (e as Error).message)
     );

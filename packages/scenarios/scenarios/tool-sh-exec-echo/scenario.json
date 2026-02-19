@@ -1,0 +1,13 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": {
+    "allow": ["sh.exec"]
+  },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "exitCode": 0,
+      "hasHello": true
+    }
+  }
+}

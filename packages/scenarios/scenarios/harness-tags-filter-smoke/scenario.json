@@ -1,0 +1,12 @@
+{
+  "cmd": ["run", "program.a0"],
+  "meta": {
+    "tags": ["smoke", "filters"]
+  },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "tagged": true
+    }
+  }
+}

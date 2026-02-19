@@ -1,0 +1,7 @@
+{
+  "cmd": ["trace", "trace-multi-runids.jsonl"],
+  "expect": {
+    "exitCode": 4,
+    "stderrContains": "multiple run IDs"
+  }
+}

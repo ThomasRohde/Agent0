@@ -1,0 +1,17 @@
+{
+  "cmd": ["policy", "--json"],
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "source": "default",
+      "path": null,
+      "policy": {
+        "version": 1,
+        "allow": [],
+        "deny": [],
+        "limits": {}
+      },
+      "effectiveAllow": []
+    }
+  }
+}

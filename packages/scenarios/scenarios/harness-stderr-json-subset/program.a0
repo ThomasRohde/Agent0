@@ -1,0 +1,2 @@
+let x = "s" + 1
+return { x: x }

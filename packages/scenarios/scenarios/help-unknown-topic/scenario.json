@@ -1,0 +1,7 @@
+{
+  "cmd": ["help", "no-such-topic"],
+  "expect": {
+    "exitCode": 1,
+    "stderrContains": "Unknown help topic"
+  }
+}

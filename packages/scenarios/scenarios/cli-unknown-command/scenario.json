@@ -1,0 +1,7 @@
+{
+  "cmd": ["nope"],
+  "expect": {
+    "exitCode": 1,
+    "stderrText": "Unknown command: nope"
+  }
+}

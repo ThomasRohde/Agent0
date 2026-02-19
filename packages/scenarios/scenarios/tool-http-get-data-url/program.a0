@@ -1,0 +1,4 @@
+cap { http.get: true }
+let r = call? http.get { url: "data:application/json,%7B%22ok%22%3Atrue%2C%22n%22%3A7%7D" }
+let parsed = parse.json { in: r.body }
+return { status: r.status, ok: parsed.ok, n: parsed.n }

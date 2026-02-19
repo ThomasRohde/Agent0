@@ -28,10 +28,16 @@ export interface FileAssertionJson {
   json: unknown;
 }
 
+export interface FileAssertionAbsent {
+  path: string;
+  absent: true;
+}
+
 export type FileAssertion =
   | FileAssertionSha256
   | FileAssertionText
-  | FileAssertionJson;
+  | FileAssertionJson
+  | FileAssertionAbsent;
 
 export interface TraceSummary {
   totalEvents: number;
@@ -45,13 +51,22 @@ export interface TraceSummary {
 export interface Expectations {
   exitCode: number;
   stdoutJson?: unknown;
+  stdoutJsonSubset?: unknown;
   stdoutText?: string;
+  stdoutContains?: string;
+  stdoutRegex?: string;
   stderrJson?: unknown;
+  stderrJsonSubset?: unknown;
   stderrText?: string;
   stderrContains?: string;
+  stderrRegex?: string;
   evidenceJson?: unknown;
   traceSummary?: TraceSummary;
   files?: FileAssertion[];
+}
+
+export interface ScenarioMeta {
+  tags?: string[];
 }
 
 export interface ScenarioConfig {
@@ -59,6 +74,7 @@ export interface ScenarioConfig {
   stdin?: string;
   policy?: PolicyConfig;
   capture?: CaptureConfig;
+  meta?: ScenarioMeta;
   expect: Expectations;
   timeoutMs?: number;
 }
@@ -109,6 +125,23 @@ export function validateScenarioConfig(
     );
   }
 
+  if (
+    expect["stdoutJson"] !== undefined &&
+    expect["stdoutJsonSubset"] !== undefined
+  ) {
+    throw new Error(
+      `Scenario '${scenarioPath}': 'expect.stdoutJson' and 'expect.stdoutJsonSubset' are mutually exclusive`
+    );
+  }
+  if (
+    expect["stderrJson"] !== undefined &&
+    expect["stderrJsonSubset"] !== undefined
+  ) {
+    throw new Error(
+      `Scenario '${scenarioPath}': 'expect.stderrJson' and 'expect.stderrJsonSubset' are mutually exclusive`
+    );
+  }
+
   // Optional field type checks
   if (obj["stdin"] !== undefined && typeof obj["stdin"] !== "string") {
     throw new Error(
@@ -134,6 +167,27 @@ export function validateScenarioConfig(
         `Scenario '${scenarioPath}': 'policy.allow' must be a string array`
       );
     }
+    for (let i = 0; i < (policy["allow"] as unknown[]).length; i++) {
+      if (typeof (policy["allow"] as unknown[])[i] !== "string") {
+        throw new Error(
+          `Scenario '${scenarioPath}': 'policy.allow[${i}]' must be a string`
+        );
+      }
+    }
+    if (policy["deny"] !== undefined) {
+      if (!Array.isArray(policy["deny"])) {
+        throw new Error(
+          `Scenario '${scenarioPath}': 'policy.deny' must be a string array`
+        );
+      }
+      for (let i = 0; i < (policy["deny"] as unknown[]).length; i++) {
+        if (typeof (policy["deny"] as unknown[])[i] !== "string") {
+          throw new Error(
+            `Scenario '${scenarioPath}': 'policy.deny[${i}]' must be a string`
+          );
+        }
+      }
+    }
   }
 
   if (obj["capture"] !== undefined) {
@@ -146,6 +200,45 @@ export function validateScenarioConfig(
       throw new Error(
         `Scenario '${scenarioPath}': 'capture' must be an object`
       );
+    }
+    if (
+      capture["trace"] !== undefined &&
+      typeof capture["trace"] !== "boolean"
+    ) {
+      throw new Error(
+        `Scenario '${scenarioPath}': 'capture.trace' must be a boolean`
+      );
+    }
+    if (
+      capture["evidence"] !== undefined &&
+      typeof capture["evidence"] !== "boolean"
+    ) {
+      throw new Error(
+        `Scenario '${scenarioPath}': 'capture.evidence' must be a boolean`
+      );
+    }
+  }
+
+  if (obj["meta"] !== undefined) {
+    const meta = obj["meta"] as Record<string, unknown>;
+    if (typeof meta !== "object" || meta === null || Array.isArray(meta)) {
+      throw new Error(
+        `Scenario '${scenarioPath}': 'meta' must be an object`
+      );
+    }
+    if (meta["tags"] !== undefined) {
+      if (!Array.isArray(meta["tags"])) {
+        throw new Error(
+          `Scenario '${scenarioPath}': 'meta.tags' must be a string array`
+        );
+      }
+      for (let i = 0; i < (meta["tags"] as unknown[]).length; i++) {
+        if (typeof (meta["tags"] as unknown[])[i] !== "string") {
+          throw new Error(
+            `Scenario '${scenarioPath}': 'meta.tags[${i}]' must be a string`
+          );
+        }
+      }
     }
   }
 
@@ -162,6 +255,46 @@ export function validateScenarioConfig(
           `Scenario '${scenarioPath}': 'expect.files[${i}].path' must be a string`
         );
       }
+
+      const assertionKeys = ["sha256", "text", "json", "absent"].filter(
+        (k) => f[k] !== undefined
+      );
+      if (assertionKeys.length !== 1) {
+        throw new Error(
+          `Scenario '${scenarioPath}': 'expect.files[${i}]' must define exactly one of 'sha256', 'text', 'json', or 'absent'`
+        );
+      }
+      if (f["sha256"] !== undefined && typeof f["sha256"] !== "string") {
+        throw new Error(
+          `Scenario '${scenarioPath}': 'expect.files[${i}].sha256' must be a string`
+        );
+      }
+      if (f["text"] !== undefined && typeof f["text"] !== "string") {
+        throw new Error(
+          `Scenario '${scenarioPath}': 'expect.files[${i}].text' must be a string`
+        );
+      }
+      if (f["absent"] !== undefined && f["absent"] !== true) {
+        throw new Error(
+          `Scenario '${scenarioPath}': 'expect.files[${i}].absent' must be true`
+        );
+      }
+    }
+  }
+
+  const stringExpectFields = [
+    "stdoutText",
+    "stdoutContains",
+    "stdoutRegex",
+    "stderrText",
+    "stderrContains",
+    "stderrRegex",
+  ];
+  for (const field of stringExpectFields) {
+    if (expect[field] !== undefined && typeof expect[field] !== "string") {
+      throw new Error(
+        `Scenario '${scenarioPath}': 'expect.${field}' must be a string`
+      );
     }
   }
 

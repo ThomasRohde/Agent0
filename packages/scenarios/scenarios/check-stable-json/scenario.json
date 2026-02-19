@@ -1,0 +1,7 @@
+{
+  "cmd": ["check", "program.a0", "--stable-json"],
+  "expect": {
+    "exitCode": 0,
+    "stdoutText": "{\"ok\":true,\"errors\":[]}"
+  }
+}

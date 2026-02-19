@@ -1,0 +1,10 @@
+{
+  "cmd": ["help", "stdlib", "--index"],
+  "meta": {
+    "tags": ["harness", "smoke"]
+  },
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": "A0 STDLIB INDEX"
+  }
+}

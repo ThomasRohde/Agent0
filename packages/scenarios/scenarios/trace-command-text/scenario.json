@@ -1,0 +1,7 @@
+{
+  "cmd": ["trace", "trace-fixture.jsonl"],
+  "expect": {
+    "exitCode": 0,
+    "stdoutText": "Trace Summary\n  Run ID:           test-run-1\n  Total events:     7\n  Tool invocations: 1\n  Tools used:\n    fs.read: 1\n  Evidence events:  1\n  Failures:         0\n  Budget exceeded:  0\n  Duration:         10ms"
+  }
+}

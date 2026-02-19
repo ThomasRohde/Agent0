@@ -1,0 +1,3 @@
+cap { sh.exec: true }
+do sh.exec { cmd: "echo hello" } -> r
+return { exitCode: r.exitCode, hasHello: contains { in: r.stdout, value: "hello" } }

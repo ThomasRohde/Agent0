@@ -26,6 +26,30 @@ Keep temp directories after a test run for inspection:
 A0_SCENARIO_KEEP_TMP=1 npm run test:scenarios
 ```
 
+Keep temp directories only for failed scenarios:
+
+```bash
+A0_SCENARIO_KEEP_TMP_ON_FAIL=1 npm run test:scenarios
+```
+
+Run only matching scenarios by id/path substring:
+
+```bash
+A0_SCENARIO_FILTER=policy npm run test:scenarios
+```
+
+Run scenarios by tags (comma-separated OR match):
+
+```bash
+A0_SCENARIO_TAGS=smoke,cli npm run test:scenarios
+```
+
+Add extra scenario roots (path-delimited list):
+
+```bash
+A0_SCENARIO_ROOT_EXTRA=../private-scenarios npm run test:scenarios
+```
+
 ## Adding a scenario
 
 1. Create a folder under `packages/scenarios/scenarios/<name>/` (or `scenarios/<name>/` at repo root)
@@ -42,17 +66,24 @@ A0_SCENARIO_KEEP_TMP=1 npm run test:scenarios
 | `policy` | `object` | No | `.a0policy.json` contents written to the working directory |
 | `policy.allow` | `string[]` | Yes (if policy) | Allowed capability IDs |
 | `policy.deny` | `string[]` | No | Denied capability IDs |
-| `policy.limits` | `object` | No | Policy limits |
+| `policy.limits` | `object` | No | Policy limits (currently surfaced by `a0 policy`; runtime budget enforcement still comes from program `budget { ... }`) |
 | `capture` | `object` | No | Output capture options |
 | `capture.trace` | `boolean` | No | Append `--trace trace.jsonl` to CLI args |
 | `capture.evidence` | `boolean` | No | Append `--evidence evidence.json` to CLI args |
+| `meta` | `object` | No | Optional scenario metadata |
+| `meta.tags` | `string[]` | No | Tags used by `A0_SCENARIO_TAGS` filtering |
 | `expect` | `object` | Yes | Assertions on subprocess output |
 | `expect.exitCode` | `number` | Yes | Expected process exit code |
 | `expect.stdoutJson` | `any` | No | Parse stdout as JSON, deep-equal compare |
+| `expect.stdoutJsonSubset` | `any` | No | Parse stdout as JSON, assert subset match |
 | `expect.stdoutText` | `string` | No | Compare stdout text (line endings normalized) |
+| `expect.stdoutContains` | `string` | No | Assert stdout contains this substring |
+| `expect.stdoutRegex` | `string` | No | Assert stdout matches this regex |
 | `expect.stderrJson` | `any` | No | Parse stderr as JSON, deep-equal compare |
+| `expect.stderrJsonSubset` | `any` | No | Parse stderr as JSON, assert subset match |
 | `expect.stderrText` | `string` | No | Compare stderr text (line endings normalized) |
 | `expect.stderrContains` | `string` | No | Assert stderr contains this substring |
+| `expect.stderrRegex` | `string` | No | Assert stderr matches this regex |
 | `expect.evidenceJson` | `any` | No | Read `evidence.json`, deep-equal compare |
 | `expect.traceSummary` | `object` | No | Compute trace summary, deep-equal compare |
 | `expect.files` | `array` | No | File artifact assertions |
@@ -60,6 +91,7 @@ A0_SCENARIO_KEEP_TMP=1 npm run test:scenarios
 | `expect.files[].sha256` | `string` | No | Expected SHA-256 hex digest |
 | `expect.files[].text` | `string` | No | Expected file text content |
 | `expect.files[].json` | `any` | No | Expected parsed JSON content |
+| `expect.files[].absent` | `true` | No | Assert file does not exist |
 | `timeoutMs` | `number` | No | Subprocess timeout in ms (default: 10000) |
 
 ## Scenario discovery
@@ -71,6 +103,7 @@ Scenarios are discovered from two roots (repo-root takes precedence for deduplic
 
 Folders named `node_modules`, `dist`, or starting with `.` are ignored.
 
-## Phase 3 (deferred)
+## Notes
 
-HTTP-local-twin scenarios and shell-contract scenarios require additional infrastructure (local HTTP server, deterministic shell fixtures) and are deferred to Phase 3.
+- Deterministic `http.get` and `sh.exec` scenarios are supported today (without external network dependency).
+- HTTP local-twin infrastructure is still deferred and can be added later when richer failure-mode simulation is needed.

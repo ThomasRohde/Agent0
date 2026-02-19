@@ -1,0 +1,11 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": {
+    "allow": ["fs.read"],
+    "deny": ["fs.read"]
+  },
+  "expect": {
+    "exitCode": 3,
+    "stderrContains": "E_CAP_DENIED"
+  }
+}

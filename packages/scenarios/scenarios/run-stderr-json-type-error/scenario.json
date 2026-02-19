@@ -1,0 +1,17 @@
+{
+  "cmd": ["run", "program.a0"],
+  "expect": {
+    "exitCode": 4,
+    "stderrJson": {
+      "code": "E_TYPE",
+      "message": "Operator '+' requires numbers, got string and number.",
+      "span": {
+        "file": "program.a0",
+        "startLine": 1,
+        "startCol": 9,
+        "endLine": 1,
+        "endCol": 16
+      }
+    }
+  }
+}

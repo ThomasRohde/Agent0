@@ -1,0 +1,7 @@
+{
+  "cmd": ["run", "bad.a0", "--debug-parse"],
+  "expect": {
+    "exitCode": 2,
+    "stderrContains": "Expecting: one of these possible Token sequences"
+  }
+}

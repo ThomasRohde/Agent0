@@ -1,0 +1,18 @@
+{
+  "cmd": ["run", "program.a0"],
+  "meta": {
+    "tags": ["harness"]
+  },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "ok": true
+    },
+    "files": [
+      {
+        "path": "ghost.txt",
+        "absent": true
+      }
+    ]
+  }
+}

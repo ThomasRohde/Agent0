@@ -1,0 +1,14 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": {
+    "allow": ["http.get"]
+  },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "status": 200,
+      "ok": true,
+      "n": 7
+    }
+  }
+}

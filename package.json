@@ -8,8 +8,9 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build -w packages/core && npm run build -w packages/std -w packages/tools && npm run build -w packages/cli",
+    "build": "npm run build -w packages/core && npm run build -w packages/std -w packages/tools && npm run build -w packages/cli && npm run build -w packages/scenarios",
     "test": "npm run build && npm run test --workspaces --if-present",
+    "test:scenarios": "npm run build && npm run test -w packages/scenarios",
     "clean": "npm run clean --workspaces --if-present",
     "version:sync": "node scripts/sync-versions.js"
   },

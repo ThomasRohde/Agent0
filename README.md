@@ -268,12 +268,22 @@ npm workspaces monorepo:
 
 ```
 packages/
-  core/    — Lexer, parser, AST, validator, evaluator, formatter, capabilities
-  std/     — Pure stdlib functions (parse.json, get/put, patch, predicates)
-  tools/   — Built-in tools (fs, http, sh) with Zod schema validation
-  cli/     — The a0 CLI (run, check, fmt, trace)
-examples/  — Sample A0 programs
+  core/       — Lexer, parser, AST, validator, evaluator, formatter, capabilities
+  std/        — Pure stdlib functions (parse.json, get/put, patch, predicates)
+  tools/      — Built-in tools (fs, http, sh) with Zod schema validation
+  cli/        — The a0 CLI (run, check, fmt, trace)
+  scenarios/  — Black-box CLI scenario tests (data-driven, subprocess-based)
+examples/     — Sample A0 programs
 ```
+
+## Testing
+
+```bash
+npm test                    # build + run all tests (unit + scenarios)
+npm run test:scenarios      # build + run only scenario tests
+```
+
+Scenario tests exercise the compiled CLI as a subprocess. Each scenario is a folder with a `scenario.json` config and `.a0` source files. See [`packages/scenarios/README.md`](packages/scenarios/README.md) for details on adding scenarios.
 
 ## Contributing
 

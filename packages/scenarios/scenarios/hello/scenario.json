@@ -1,0 +1,14 @@
+{
+  "cmd": ["run", "hello.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "greeting": "Hello, A0!",
+      "data": {
+        "name": "world",
+        "version": 1
+      }
+    }
+  }
+}

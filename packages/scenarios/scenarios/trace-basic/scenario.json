@@ -1,0 +1,17 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "capture": { "trace": true },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": { "value": 42 },
+    "traceSummary": {
+      "totalEvents": 6,
+      "toolInvocations": 0,
+      "toolsByName": {},
+      "evidenceCount": 0,
+      "failures": 0,
+      "budgetExceeded": 0
+    }
+  }
+}

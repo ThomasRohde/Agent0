@@ -1,0 +1,8 @@
+{
+  "cmd": ["fmt", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutText": "let x = 42\nreturn { value: x }"
+  }
+}

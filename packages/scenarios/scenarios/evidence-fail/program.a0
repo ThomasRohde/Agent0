@@ -1,0 +1,3 @@
+let ok = eq { a: 1, b: 2 }
+check { that: ok, msg: "should fail" }
+return { x: 1 }

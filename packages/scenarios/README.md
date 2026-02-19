@@ -1,0 +1,76 @@
+# @a0/scenarios
+
+Black-box scenario validation for the A0 CLI. Exercises the compiled CLI as a subprocess and validates exit codes, stdout/stderr, trace output, evidence, and file artifacts.
+
+## How it works
+
+Each scenario is a folder containing a `scenario.json` configuration file and one or more `.a0` source files. The test runner discovers scenario folders, spawns the CLI as a child process, and asserts on the expected outputs.
+
+**Black-box rule:** This package has no runtime dependency on `@a0/core`, `@a0/std`, or `@a0/tools`. It treats the CLI as an opaque binary.
+
+## Running scenarios
+
+```bash
+# From the repo root (builds all upstream packages first):
+npm run test:scenarios
+
+# Or directly:
+npm run build && npm run test -w packages/scenarios
+```
+
+### Debug tips
+
+Keep temp directories after a test run for inspection:
+
+```bash
+A0_SCENARIO_KEEP_TMP=1 npm run test:scenarios
+```
+
+## Adding a scenario
+
+1. Create a folder under `packages/scenarios/scenarios/<name>/` (or `scenarios/<name>/` at repo root)
+2. Add a `scenario.json` file
+3. Add `.a0` source files referenced by the `cmd` field
+4. Optionally add a `setup/` subfolder — its contents are copied into the working directory before execution
+
+## `scenario.json` schema
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `cmd` | `string[]` | Yes | CLI arguments (e.g. `["run", "hello.a0"]`) |
+| `stdin` | `string` | No | Text piped to the process stdin |
+| `policy` | `object` | No | `.a0policy.json` contents written to the working directory |
+| `policy.allow` | `string[]` | Yes (if policy) | Allowed capability IDs |
+| `policy.deny` | `string[]` | No | Denied capability IDs |
+| `policy.limits` | `object` | No | Policy limits |
+| `capture` | `object` | No | Output capture options |
+| `capture.trace` | `boolean` | No | Append `--trace trace.jsonl` to CLI args |
+| `capture.evidence` | `boolean` | No | Append `--evidence evidence.json` to CLI args |
+| `expect` | `object` | Yes | Assertions on subprocess output |
+| `expect.exitCode` | `number` | Yes | Expected process exit code |
+| `expect.stdoutJson` | `any` | No | Parse stdout as JSON, deep-equal compare |
+| `expect.stdoutText` | `string` | No | Compare stdout text (line endings normalized) |
+| `expect.stderrJson` | `any` | No | Parse stderr as JSON, deep-equal compare |
+| `expect.stderrText` | `string` | No | Compare stderr text (line endings normalized) |
+| `expect.stderrContains` | `string` | No | Assert stderr contains this substring |
+| `expect.evidenceJson` | `any` | No | Read `evidence.json`, deep-equal compare |
+| `expect.traceSummary` | `object` | No | Compute trace summary, deep-equal compare |
+| `expect.files` | `array` | No | File artifact assertions |
+| `expect.files[].path` | `string` | Yes | Path relative to working directory |
+| `expect.files[].sha256` | `string` | No | Expected SHA-256 hex digest |
+| `expect.files[].text` | `string` | No | Expected file text content |
+| `expect.files[].json` | `any` | No | Expected parsed JSON content |
+| `timeoutMs` | `number` | No | Subprocess timeout in ms (default: 10000) |
+
+## Scenario discovery
+
+Scenarios are discovered from two roots (repo-root takes precedence for deduplication):
+
+1. `<repoRoot>/scenarios/`
+2. `<repoRoot>/packages/scenarios/scenarios/`
+
+Folders named `node_modules`, `dist`, or starting with `.` are ignored.
+
+## Phase 3 (deferred)
+
+HTTP-local-twin scenarios and shell-contract scenarios require additional infrastructure (local HTTP server, deterministic shell fixtures) and are deferred to Phase 3.

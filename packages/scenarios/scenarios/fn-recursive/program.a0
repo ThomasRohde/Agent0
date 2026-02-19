@@ -1,0 +1,9 @@
+fn factorial { n } {
+  let done = eq { a: n, b: 0 }
+  let prev = if { cond: done, then: { value: 1 }, else: factorial { n: n - 1 } }
+  let result = if { cond: done, then: 1, else: n * prev.value }
+  return { value: result }
+}
+
+let r = factorial { n: 5 }
+return { factorial: r.value }

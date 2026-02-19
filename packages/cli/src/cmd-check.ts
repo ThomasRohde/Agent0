@@ -6,7 +6,7 @@ import { parse, validate, formatDiagnostics, formatDiagnostic } from "@a0/core";
 
 export async function runCheck(
   file: string,
-  opts: { pretty?: boolean }
+  opts: { pretty?: boolean; stableJson?: boolean; debugParse?: boolean }
 ): Promise<number> {
   let source: string;
   try {
@@ -17,7 +17,7 @@ export async function runCheck(
     return 4;
   }
 
-  const parseResult = parse(source, file);
+  const parseResult = parse(source, file, { debugParse: !!opts.debugParse });
   if (parseResult.diagnostics.length > 0) {
     console.error(formatDiagnostics(parseResult.diagnostics, !!opts.pretty));
     return 2;
@@ -36,6 +36,8 @@ export async function runCheck(
 
   if (opts.pretty) {
     console.log("No errors found.");
+  } else if (opts.stableJson) {
+    console.log("{\"ok\":true,\"errors\":[]}");
   } else {
     console.log("[]");
   }

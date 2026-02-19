@@ -1,0 +1,14 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "length": 3,
+      "appended": [1, 2, 3, 4],
+      "concatenated": [1, 2, 3, 4],
+      "generated": [0, 1, 2, 3, 4],
+      "joined": "a-b-c"
+    }
+  }
+}

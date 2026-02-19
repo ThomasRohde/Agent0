@@ -100,6 +100,34 @@ describe("A0 Parser", () => {
     assert.equal(result.diagnostics[0].code, "E_PARSE");
   });
 
+  it("emits concise parse diagnostics by default", () => {
+    const src = `let x =\nreturn {}`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.diagnostics.length > 0);
+    assert.equal(result.diagnostics[0].code, "E_PARSE");
+    assert.ok(result.diagnostics[0].message.startsWith("Unexpected token 'return'."));
+    assert.equal(result.diagnostics[0].message.includes("one of these possible Token sequences"), false);
+  });
+
+  it("preserves verbose parser diagnostics when debugParse is enabled", () => {
+    const src = `let x =\nreturn {}`;
+    const result = parse(src, "test.a0", { debugParse: true });
+    assert.ok(result.diagnostics.length > 0);
+    assert.equal(result.diagnostics[0].code, "E_PARSE");
+    assert.ok(result.diagnostics[0].message.includes("Expecting: one of these possible Token sequences"));
+  });
+
+  it("normalizes EOF parse spans to numeric coordinates", () => {
+    const src = `let x = {`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.diagnostics.length > 0);
+    assert.equal(result.diagnostics[0].code, "E_PARSE");
+    assert.equal(typeof result.diagnostics[0].span?.startLine, "number");
+    assert.equal(typeof result.diagnostics[0].span?.startCol, "number");
+    assert.equal(typeof result.diagnostics[0].span?.endLine, "number");
+    assert.equal(typeof result.diagnostics[0].span?.endCol, "number");
+  });
+
   it("parses boolean and null literals", () => {
     const src = `let a = true\nlet b = false\nlet c = null\nreturn { a: a, b: b, c: c }`;
     const result = parse(src, "test.a0");

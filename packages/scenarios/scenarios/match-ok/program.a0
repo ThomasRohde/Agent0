@@ -1,0 +1,10 @@
+let result = { ok: 42 }
+let out = match result {
+  ok { val } {
+    return { status: "success", data: val }
+  }
+  err { e } {
+    return { status: "error", data: e }
+  }
+}
+return { status: out.status, data: out.data }

@@ -57,6 +57,7 @@ MINIMAL EXAMPLE                        HTTP EXAMPLE
                                          return { data: body }
 
 Topics: a0 help syntax|types|tools|stdlib|caps|budget|flow|diagnostics|examples
+Stdlib index: a0 help stdlib --index
 `.trimStart();
 
 export const TOPICS: Record<string, string> = {
@@ -655,13 +656,19 @@ A0 EXAMPLE PROGRAMS
 
 CLI USAGE
   a0 run file.a0                        # execute (deny-by-default)
+  a0 run file.a0 --debug-parse          # show raw parser internals on parse errors
   a0 run file.a0 --unsafe-allow-all     # bypass caps (dev only)
   a0 run file.a0 --trace t.jsonl        # emit execution trace
   a0 run file.a0 --pretty               # human-readable errors
-  a0 check file.a0                      # validate without running
+  a0 check file.a0                      # validate without running (prints [])
+  a0 check file.a0 --stable-json        # validate with stable machine success schema
+  a0 check file.a0 --debug-parse        # show raw parser internals on parse errors
   a0 fmt file.a0                        # format to stdout
   a0 fmt file.a0 --write                # format in place
   a0 trace t.jsonl                      # summarize trace file
+  a0 policy                             # show effective policy resolution
+  a0 policy --json                      # policy as JSON
+  a0 help stdlib --index                # compact full stdlib index
 `.trimStart(),
 
 };

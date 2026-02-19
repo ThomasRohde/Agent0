@@ -1,0 +1,5 @@
+let joined = str.concat { parts: ["hello", " ", "world"] }
+let parts = str.split { in: "hello world", sep: " " }
+let starts = str.starts { in: "hello world", value: "hello" }
+let replaced = str.replace { in: "hello world", from: "hello", to: "hi" }
+return { joined: joined, parts: parts, starts: starts, replaced: replaced }

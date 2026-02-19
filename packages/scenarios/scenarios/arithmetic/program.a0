@@ -1,0 +1,11 @@
+let add = 3 + 4
+let sub = 7 - 4
+let mul = 4 * 5
+let div = 5 / 2
+let mod = 7 % 3
+let neg = -5
+let grouped = (2 + 3) * 4
+let gt = 10 > 5
+let eq_val = 3 == 3
+let neq = 1 != 2
+return { add: add, sub: sub, mul: mul, div: div, mod: mod, neg: neg, grouped: grouped, gt: gt, eq: eq_val, neq: neq }

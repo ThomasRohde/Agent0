@@ -73,6 +73,7 @@ const sidebars: SidebarsConfig = {
         'cli/check',
         'cli/fmt',
         'cli/trace',
+        'cli/policy',
       ],
     },
     {

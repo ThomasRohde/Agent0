@@ -1,0 +1,4 @@
+let raw = "{\"name\": \"test\", \"value\": 42}"
+let parsed = parse.json { in: raw }
+let extracted = get { in: parsed, path: "name" }
+return { parsed: parsed, extracted: extracted }

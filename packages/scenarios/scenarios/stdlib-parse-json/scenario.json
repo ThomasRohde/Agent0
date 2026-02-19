@@ -1,0 +1,11 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "parsed": { "name": "test", "value": 42 },
+      "extracted": "test"
+    }
+  }
+}

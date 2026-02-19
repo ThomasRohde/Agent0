@@ -6,3 +6,4 @@ export { runRun } from "./cmd-run.js";
 export { runFmt } from "./cmd-fmt.js";
 export { runTrace } from "./cmd-trace.js";
 export { runHelp } from "./cmd-help.js";
+export { runPolicy } from "./cmd-policy.js";

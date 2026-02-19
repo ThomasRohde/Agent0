@@ -1,0 +1,15 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "squares": [
+        { "value": 1 },
+        { "value": 4 },
+        { "value": 9 },
+        { "value": 16 }
+      ]
+    }
+  }
+}

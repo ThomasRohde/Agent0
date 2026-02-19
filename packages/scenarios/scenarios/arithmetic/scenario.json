@@ -1,0 +1,19 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "add": 7,
+      "sub": 3,
+      "mul": 20,
+      "div": 2.5,
+      "mod": 1,
+      "neg": -5,
+      "grouped": 20,
+      "gt": true,
+      "eq": true,
+      "neq": true
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "cmd": ["check", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 2,
+    "stderrContains": "E_RETURN_NOT_LAST"
+  }
+}

@@ -6,7 +6,7 @@ import * as assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { loadPolicy, buildAllowedCaps } from "./capabilities.js";
+import { loadPolicy, resolvePolicy, buildAllowedCaps } from "./capabilities.js";
 
 describe("A0 Capabilities", () => {
   describe("loadPolicy", () => {
@@ -177,6 +177,79 @@ describe("A0 Capabilities", () => {
       const caps = buildAllowedCaps(policy, true);
       assert.ok(caps.has("fs.read"));
       assert.equal(caps.size, 4);
+    });
+  });
+
+  describe("resolvePolicy", () => {
+    it("returns project source metadata when project policy is valid", () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-project-"));
+      const policyPath = path.join(tmpDir, ".a0policy.json");
+      fs.writeFileSync(policyPath, JSON.stringify({ version: 1, allow: ["fs.read"] }));
+
+      try {
+        const resolved = resolvePolicy(tmpDir, tmpDir);
+        assert.equal(resolved.source, "project");
+        assert.equal(resolved.path, policyPath);
+        assert.deepEqual(resolved.policy.allow, ["fs.read"]);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("returns user source metadata when no project policy exists", () => {
+      const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-project-"));
+      const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-home-"));
+      const userPolicyDir = path.join(fakeHome, ".a0");
+      const userPolicyPath = path.join(userPolicyDir, "policy.json");
+      fs.mkdirSync(userPolicyDir, { recursive: true });
+      fs.writeFileSync(userPolicyPath, JSON.stringify({ version: 1, allow: ["http.get"] }));
+
+      try {
+        const resolved = resolvePolicy(projectDir, fakeHome);
+        assert.equal(resolved.source, "user");
+        assert.equal(resolved.path, userPolicyPath);
+        assert.deepEqual(resolved.policy.allow, ["http.get"]);
+      } finally {
+        fs.rmSync(projectDir, { recursive: true, force: true });
+        fs.rmSync(fakeHome, { recursive: true, force: true });
+      }
+    });
+
+    it("returns default source metadata when no valid policy exists", () => {
+      const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-project-"));
+      const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-home-"));
+
+      try {
+        const resolved = resolvePolicy(projectDir, fakeHome);
+        assert.equal(resolved.source, "default");
+        assert.equal(resolved.path, null);
+        assert.deepEqual(resolved.policy.allow, []);
+      } finally {
+        fs.rmSync(projectDir, { recursive: true, force: true });
+        fs.rmSync(fakeHome, { recursive: true, force: true });
+      }
+    });
+
+    it("falls through malformed project policy to user policy with user metadata", () => {
+      const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-project-"));
+      const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-home-"));
+      const projectPolicyPath = path.join(projectDir, ".a0policy.json");
+      const userPolicyDir = path.join(fakeHome, ".a0");
+      const userPolicyPath = path.join(userPolicyDir, "policy.json");
+      fs.mkdirSync(userPolicyDir, { recursive: true });
+
+      fs.writeFileSync(projectPolicyPath, JSON.stringify({ version: 1, allow: "fs.read" }));
+      fs.writeFileSync(userPolicyPath, JSON.stringify({ version: 1, allow: ["sh.exec"] }));
+
+      try {
+        const resolved = resolvePolicy(projectDir, fakeHome);
+        assert.equal(resolved.source, "user");
+        assert.equal(resolved.path, userPolicyPath);
+        assert.deepEqual(resolved.policy.allow, ["sh.exec"]);
+      } finally {
+        fs.rmSync(projectDir, { recursive: true, force: true });
+        fs.rmSync(fakeHome, { recursive: true, force: true });
+      }
     });
   });
 });

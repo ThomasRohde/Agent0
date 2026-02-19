@@ -10,7 +10,10 @@ import { runHelp } from "./cmd-help.js";
 const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as { version: string };
 
-function captureHelp(topic?: string): { stdout: string; stderr: string; exitCode: number | undefined } {
+function captureHelp(
+  topic?: string,
+  opts: { index?: boolean } = {}
+): { stdout: string; stderr: string; exitCode: number | undefined } {
   const stdout: string[] = [];
   const stderr: string[] = [];
   const origLog = console.log;
@@ -26,7 +29,7 @@ function captureHelp(topic?: string): { stdout: string; stderr: string; exitCode
   };
 
   try {
-    runHelp(topic);
+    runHelp(topic, opts);
     return {
       stdout: stdout.join("\n"),
       stderr: stderr.join("\n"),
@@ -129,6 +132,29 @@ describe("A0 CLI Help Content", () => {
     assert.ok(result.stdout.includes("A0 DIAGNOSTICS REFERENCE"));
     assert.equal(result.stderr, "");
     assert.equal(result.exitCode, undefined);
+  });
+
+  it("runHelp prints stdlib index with --index", () => {
+    const result = captureHelp("stdlib", { index: true });
+    assert.ok(result.stdout.includes("A0 STDLIB INDEX"));
+    assert.ok(result.stdout.includes("parse.json"));
+    assert.ok(result.stdout.includes("Total:"));
+    assert.equal(result.stderr, "");
+    assert.equal(result.exitCode, undefined);
+  });
+
+  it("runHelp rejects --index for non-stdlib topics", () => {
+    const result = captureHelp("tools", { index: true });
+    assert.equal(result.exitCode, 1);
+    assert.ok(result.stderr.includes("only supported with the stdlib topic"));
+    assert.ok(result.stderr.includes("Usage: a0 help stdlib --index"));
+  });
+
+  it("runHelp rejects --index when no topic is provided", () => {
+    const result = captureHelp(undefined, { index: true });
+    assert.equal(result.exitCode, 1);
+    assert.ok(result.stderr.includes("only supported with the stdlib topic"));
+    assert.ok(result.stderr.includes("Usage: a0 help stdlib --index"));
   });
 
   it("runHelp sets exit code 1 for unknown topic", () => {

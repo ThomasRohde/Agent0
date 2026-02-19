@@ -17,6 +17,8 @@ a0 check <file> [options]
 | Flag | Description |
 |------|-------------|
 | `--pretty` | Human-readable error output |
+| `--stable-json` | Stable machine-readable success payload (`{"ok":true,"errors":[]}`) |
+| `--debug-parse` | Show raw parser-internal diagnostics on parse errors |
 
 ## Exit Codes
 
@@ -85,6 +87,12 @@ JSON output (default):
 []
 ```
 
+Stable JSON output (`--stable-json`):
+
+```json
+{"ok":true,"errors":[]}
+```
+
 Pretty output (`--pretty`):
 
 ```
@@ -146,6 +154,14 @@ a0 check wrong-mode.a0 --pretty
 error[E_CALL_EFFECT]: Cannot use 'call?' with effectful tool 'fs.write'. Use 'do' instead.
   --> wrong-mode.a0:2:1
   hint: Replace 'call? fs.write' with 'do fs.write'.
+```
+
+### Raw Parser Internals (Debug)
+
+Use `--debug-parse` when you need Chevrotain parser internals while diagnosing syntax issues:
+
+```bash
+a0 check broken.a0 --debug-parse
 ```
 
 ## Recommended Workflow

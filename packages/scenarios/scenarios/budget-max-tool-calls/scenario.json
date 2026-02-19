@@ -1,0 +1,8 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": ["fs.write"] },
+  "expect": {
+    "exitCode": 4,
+    "stderrContains": "E_BUDGET"
+  }
+}

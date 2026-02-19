@@ -1,0 +1,10 @@
+let result = { neither: "ok nor err" }
+let out = match result {
+  ok { val } {
+    return { val: val }
+  }
+  err { e } {
+    return { e: e }
+  }
+}
+return { out: out }

@@ -26,7 +26,7 @@ class CliIoError extends Error {
 
 export async function runRun(
   file: string,
-  opts: { trace?: string; evidence?: string; pretty?: boolean; unsafeAllowAll?: boolean }
+  opts: { trace?: string; evidence?: string; pretty?: boolean; unsafeAllowAll?: boolean; debugParse?: boolean }
 ): Promise<number> {
   const pretty = !!opts.pretty;
   const emitCliError = (code: string, message: string): void => {
@@ -64,7 +64,7 @@ export async function runRun(
   }
 
   // Parse
-  const parseResult = parse(source, file);
+  const parseResult = parse(source, file, { debugParse: !!opts.debugParse });
 
   if (parseResult.diagnostics.length > 0) {
     console.error(formatDiagnostics(parseResult.diagnostics, pretty));

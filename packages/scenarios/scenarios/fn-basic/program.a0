@@ -1,0 +1,12 @@
+fn greet { name } {
+  return { greeting: "hello", to: name }
+}
+
+fn rect_area { width, height } {
+  let area = width * height
+  return { area: area }
+}
+
+let g = greet { name: "world" }
+let r = rect_area { width: 5, height: 10 }
+return { greeting: g.greeting, to: g.to, area: r.area }

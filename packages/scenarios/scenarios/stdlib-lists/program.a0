@@ -1,0 +1,6 @@
+let length = len { in: [10, 20, 30] }
+let appended = append { in: [1, 2, 3], value: 4 }
+let concatenated = concat { a: [1, 2], b: [3, 4] }
+let generated = range { from: 0, to: 5 }
+let joined = join { in: ["a", "b", "c"], sep: "-" }
+return { length: length, appended: appended, concatenated: concatenated, generated: generated, joined: joined }

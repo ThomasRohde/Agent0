@@ -1,0 +1,7 @@
+fn square { n } {
+  return { value: n * n }
+}
+
+let nums = [1, 2, 3, 4]
+let squares = map { in: nums, fn: "square" }
+return { squares: squares }

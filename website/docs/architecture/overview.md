@@ -73,7 +73,7 @@ Tool argument schemas are validated at runtime, not statically. Invalid argument
 
 ## a0 CLI (packages/cli)
 
-Commander-based CLI with five commands:
+Commander-based CLI with six commands:
 
 | Command | Purpose |
 |---------|---------|
@@ -81,6 +81,7 @@ Commander-based CLI with five commands:
 | `a0 check` | Validate without executing |
 | `a0 fmt` | Format source code |
 | `a0 trace` | Summarize a trace file |
+| `a0 policy` | Show effective policy resolution and allowlist |
 | `a0 help` | Show built-in language/runtime help topics |
 
 The CLI wires together core, std, and tools: it registers all stdlib functions and tools with the evaluator, loads capability policies, and handles trace output.

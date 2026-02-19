@@ -1,0 +1,6 @@
+cap { fs.write: true }
+budget { maxToolCalls: 1 }
+
+do fs.write { path: "a.txt", data: "first", format: "text" } -> r1
+do fs.write { path: "b.txt", data: "second", format: "text" } -> r2
+return { r1: r1, r2: r2 }

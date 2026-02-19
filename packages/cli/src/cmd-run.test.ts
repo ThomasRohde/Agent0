@@ -22,6 +22,25 @@ function withCapturedConsole<T>(fn: () => Promise<T>): Promise<T> {
   });
 }
 
+async function captureRun(
+  fn: () => Promise<number>
+): Promise<{ code: number; stdout: string; stderr: string }> {
+  const out: string[] = [];
+  const err: string[] = [];
+  const origLog = console.log;
+  const origError = console.error;
+  console.log = (...args: unknown[]) => out.push(args.map(String).join(" "));
+  console.error = (...args: unknown[]) => err.push(args.map(String).join(" "));
+
+  try {
+    const code = await fn();
+    return { code, stdout: out.join("\n"), stderr: err.join("\n") };
+  } finally {
+    console.log = origLog;
+    console.error = origError;
+  }
+}
+
 describe("a0 run evidence output", () => {
   it("writes [] to evidence file when no evidence is produced", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-cli-run-test-"));
@@ -118,6 +137,37 @@ describe("a0 run evidence output", () => {
     } finally {
       fsCjs.closeSync = originalCloseSync;
       syncBuiltinESMExports();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("a0 run parse diagnostics", () => {
+  it("emits concise parse errors by default", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-cli-run-test-"));
+    const programPath = path.join(tmpDir, "bad.a0");
+    fs.writeFileSync(programPath, "let x =\nreturn {}\n", "utf-8");
+
+    try {
+      const result = await captureRun(() => runRun(programPath, {}));
+      assert.equal(result.code, 2);
+      assert.ok(result.stderr.includes("Unexpected token 'return'."));
+      assert.equal(result.stderr.includes("one of these possible Token sequences"), false);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("emits verbose parser internals with --debug-parse", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-cli-run-test-"));
+    const programPath = path.join(tmpDir, "bad.a0");
+    fs.writeFileSync(programPath, "let x =\nreturn {}\n", "utf-8");
+
+    try {
+      const result = await captureRun(() => runRun(programPath, { debugParse: true }));
+      assert.equal(result.code, 2);
+      assert.ok(result.stderr.includes("Expecting: one of these possible Token sequences"));
+    } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });

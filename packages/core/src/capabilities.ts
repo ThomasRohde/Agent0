@@ -13,6 +13,12 @@ export interface Policy {
   limits?: Record<string, number>;
 }
 
+export interface ResolvedPolicy {
+  policy: Policy;
+  source: "project" | "user" | "default";
+  path: string | null;
+}
+
 const DEFAULT_POLICY: Policy = {
   version: 1,
   allow: [],
@@ -22,20 +28,44 @@ const DEFAULT_POLICY: Policy = {
  * Load policy from project or user config.
  * Precedence: ./.a0policy.json > ~/.a0/policy.json > default (deny all)
  */
-export function loadPolicy(cwd?: string, homeDir?: string): Policy {
+export function resolvePolicy(cwd?: string, homeDir?: string): ResolvedPolicy {
   const projectPath = path.join(cwd ?? process.cwd(), ".a0policy.json");
   const userPath = path.join(homeDir ?? os.homedir(), ".a0", "policy.json");
 
   // Try project-local policy first
   const projectPolicy = tryLoadPolicyFile(projectPath);
-  if (projectPolicy) return projectPolicy;
+  if (projectPolicy) {
+    return {
+      policy: projectPolicy,
+      source: "project",
+      path: projectPath,
+    };
+  }
 
   // Then user-level policy
   const userPolicy = tryLoadPolicyFile(userPath);
-  if (userPolicy) return userPolicy;
+  if (userPolicy) {
+    return {
+      policy: userPolicy,
+      source: "user",
+      path: userPath,
+    };
+  }
 
   // Default: deny all
-  return DEFAULT_POLICY;
+  return {
+    policy: DEFAULT_POLICY,
+    source: "default",
+    path: null,
+  };
+}
+
+/**
+ * Load policy from project or user config.
+ * Precedence: ./.a0policy.json > ~/.a0/policy.json > default (deny all)
+ */
+export function loadPolicy(cwd?: string, homeDir?: string): Policy {
+  return resolvePolicy(cwd, homeDir).policy;
 }
 
 function tryLoadPolicyFile(filePath: string): Policy | null {

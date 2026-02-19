@@ -48,6 +48,22 @@ The first valid policy file is used. If a policy file exists but is malformed or
 (deny all)              <-- fallback default
 ```
 
+## Inspect Effective Resolution
+
+Use the CLI to see which policy source is active and what the effective allowlist is:
+
+```bash
+a0 policy
+```
+
+For machine consumption:
+
+```bash
+a0 policy --json
+```
+
+This is useful when policy behavior is unexpected (for example, project policy malformed and user policy taking effect).
+
 ## Setting Up Policies
 
 ### Project-Local Policy

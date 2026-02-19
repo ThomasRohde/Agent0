@@ -1,0 +1,10 @@
+let result = { err: "not found" }
+let out = match result {
+  ok { val } {
+    return { status: "ok", reason: val }
+  }
+  err { e } {
+    return { status: "error", reason: e }
+  }
+}
+return { status: out.status, reason: out.reason }

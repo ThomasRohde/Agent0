@@ -21,6 +21,7 @@ The `<file>` argument is the path to an A0 source file. Use `-` to read from std
 | `--trace <path>` | Write execution trace events to a JSONL file |
 | `--evidence <path>` | Write evidence records to a JSON file |
 | `--pretty` | Human-readable error output instead of JSON |
+| `--debug-parse` | Show raw parser-internal diagnostics on parse errors |
 | `--unsafe-allow-all` | Bypass all capability restrictions (development only) |
 
 ## Exit Codes
@@ -104,6 +105,12 @@ Pretty output:
 error[E_UNBOUND]: Unbound variable 'x'.
   --> broken.a0:3:12
   hint: Make sure the variable is defined with 'let' before use.
+```
+
+If parse diagnostics are too terse, add `--debug-parse` to include raw parser internals:
+
+```bash
+a0 run broken.a0 --debug-parse
 ```
 
 ### Bypass Capability Checks

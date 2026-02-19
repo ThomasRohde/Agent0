@@ -426,25 +426,40 @@ class AstBuildError extends Error {
 
 // --- CST to AST visitor ---
 
+function toPosInt(value: unknown, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.floor(value);
+  }
+  return fallback;
+}
+
 function tokenSpan(token: IToken, file: string): Span {
+  const startLine = toPosInt(token.startLine, 1);
+  const startCol = toPosInt(token.startColumn, 1);
+  const endLine = toPosInt(token.endLine, startLine);
+  const endCol = toPosInt(token.endColumn, startCol) + 1;
   return {
     file,
-    startLine: token.startLine ?? 1,
-    startCol: token.startColumn ?? 1,
-    endLine: token.endLine ?? 1,
-    endCol: (token.endColumn ?? 1) + 1,
+    startLine,
+    startCol,
+    endLine,
+    endCol,
   };
 }
 
 function cstSpan(node: CstNode, file: string): Span {
   const loc = node.location;
   if (loc) {
+    const startLine = toPosInt(loc.startLine, 1);
+    const startCol = toPosInt(loc.startColumn, 1);
+    const endLine = toPosInt(loc.endLine, startLine);
+    const endCol = toPosInt(loc.endColumn, startCol) + 1;
     return {
       file,
-      startLine: loc.startLine ?? 1,
-      startCol: loc.startColumn ?? 1,
-      endLine: loc.endLine ?? 1,
-      endCol: (loc.endColumn ?? 1) + 1,
+      startLine,
+      startCol,
+      endLine,
+      endCol,
     };
   }
   return { file, startLine: 1, startCol: 1, endLine: 1, endCol: 1 };
@@ -957,21 +972,52 @@ export interface ParseResult {
   diagnostics: Diagnostic[];
 }
 
-export function parse(source: string, file: string = "<stdin>"): ParseResult {
+export interface ParseOptions {
+  debugParse?: boolean;
+}
+
+function normalizeFoundToken(token: IToken): string {
+  if (typeof token.image !== "string" || token.image.length === 0) {
+    return "<EOF>";
+  }
+  return token.image;
+}
+
+function normalizeParseMessage(rawMessage: string, token: IToken): string {
+  const found = normalizeFoundToken(token);
+
+  const expectingToken = rawMessage.match(
+    /^Expecting token of type -->\s*([A-Za-z0-9_]+)\s*<-- but found -->\s*'.*'\s*<--$/
+  );
+  if (expectingToken) {
+    return `Expected ${expectingToken[1]} but found '${found}'.`;
+  }
+
+  if (rawMessage.startsWith("Expecting: one of these possible Token sequences:")) {
+    return `Unexpected token '${found}'.`;
+  }
+
+  return `Syntax error near '${found}'.`;
+}
+
+export function parse(source: string, file: string = "<stdin>", opts: ParseOptions = {}): ParseResult {
   const lexResult = A0Lexer.tokenize(source);
   const diagnostics: Diagnostic[] = [];
 
   for (const err of lexResult.errors) {
+    const line = toPosInt(err.line, 1);
+    const startCol = toPosInt(err.column, 1);
+    const length = toPosInt(err.length, 1);
     diagnostics.push(
       makeDiag(
         "E_LEX",
         err.message,
         {
           file,
-          startLine: err.line ?? 1,
-          startCol: err.column ?? 1,
-          endLine: err.line ?? 1,
-          endCol: (err.column ?? 1) + (err.length ?? 1),
+          startLine: line,
+          startCol,
+          endLine: line,
+          endCol: startCol + length,
         },
         "Check for invalid characters or unclosed strings."
       )
@@ -990,14 +1036,8 @@ export function parse(source: string, file: string = "<stdin>"): ParseResult {
     diagnostics.push(
       makeDiag(
         "E_PARSE",
-        err.message,
-        {
-          file,
-          startLine: token.startLine ?? 1,
-          startCol: token.startColumn ?? 1,
-          endLine: token.endLine ?? 1,
-          endCol: (token.endColumn ?? 1) + 1,
-        },
+        opts.debugParse ? err.message : normalizeParseMessage(err.message, token),
+        tokenSpan(token, file),
         "Check syntax near this location."
       )
     );

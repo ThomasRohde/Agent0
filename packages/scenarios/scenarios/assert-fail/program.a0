@@ -1,0 +1,3 @@
+let x = eq { a: 1, b: 2 }
+assert { that: x, msg: "this will fail" } -> ev
+return { should_not_reach: true }

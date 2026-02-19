@@ -1,0 +1,3 @@
+let x = eq { a: 1, b: 1 }
+assert { that: x, msg: "1 equals 1" } -> ev
+return { ok: true }

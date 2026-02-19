@@ -1,0 +1,13 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "joined": "hello world",
+      "parts": ["hello", "world"],
+      "starts": true,
+      "replaced": "hi world"
+    }
+  }
+}

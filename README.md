@@ -49,9 +49,10 @@ a0 run examples/hello.a0
 | `a0 check <file>` | Parse and validate without executing |
 | `a0 fmt <file>` | Canonical formatter (`--write` to overwrite) |
 | `a0 trace <file.jsonl>` | Summarize a JSONL trace file |
+| `a0 policy` | Show effective policy resolution and capability allowlist |
 | `a0 help [topic]` | Built-in language/runtime help topics |
 
-Flags: `--trace <file.jsonl>` on `run` to emit execution traces. `--pretty` for human-readable error output. `--unsafe-allow-all` to bypass capability checks during development.
+Flags: `--trace <file.jsonl>` and `--debug-parse` on `run`; `--pretty`, `--stable-json`, and `--debug-parse` on `check`; `--json` on `trace`/`policy`; `--unsafe-allow-all` to bypass capability checks during development. For a compact stdlib index, run `a0 help stdlib --index`.
 
 ## Language Overview
 

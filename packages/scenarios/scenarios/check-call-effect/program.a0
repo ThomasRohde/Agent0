@@ -1,0 +1,3 @@
+cap { fs.write: true }
+let r = call? fs.write { path: "x.txt", data: "hi", format: "text" }
+return { r: r }

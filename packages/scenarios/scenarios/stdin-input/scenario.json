@@ -1,0 +1,9 @@
+{
+  "cmd": ["run", "-"],
+  "stdin": "let x = 99\nreturn { value: x }",
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": { "value": 99 }
+  }
+}

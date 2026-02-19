@@ -1,0 +1,3 @@
+cap { fs.read: true }
+let data = call? fs.read { path: "input.txt" }
+return { content: data }

@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # CLI Overview
 
-The `a0` command-line interface provides five commands for working with A0 programs.
+The `a0` command-line interface provides six commands for working with A0 programs.
 
 ## Commands
 
@@ -14,6 +14,7 @@ The `a0` command-line interface provides five commands for working with A0 progr
 | [`a0 check`](./check.md) | Parse and validate without executing |
 | [`a0 fmt`](./fmt.md) | Canonically format A0 source code |
 | [`a0 trace`](./trace.md) | Summarize a JSONL execution trace |
+| [`a0 policy`](./policy.md) | Show effective policy resolution and capability allowlist |
 | `a0 help [topic]` | Show built-in language and runtime help topics |
 
 ## Quick Start
@@ -37,6 +38,9 @@ a0 fmt program.a0 --write
 # Run with trace output, then summarize
 a0 run program.a0 --trace trace.jsonl
 a0 trace trace.jsonl
+
+# Inspect effective policy resolution
+a0 policy
 ```
 
 ## Common Flags
@@ -46,10 +50,12 @@ These flags are available on commands where applicable:
 | Flag | Commands | Description |
 |------|----------|-------------|
 | `--pretty` | `run`, `check` | Human-readable error output instead of JSON |
+| `--stable-json` | `check` | Emit stable machine success payload (`{"ok":true,"errors":[]}`) |
+| `--debug-parse` | `run`, `check` | Show raw parser-internal diagnostics for parse errors |
 | `--trace <file>` | `run` | Write execution trace to a JSONL file |
 | `--unsafe-allow-all` | `run` | Bypass all capability checks (development only) |
 | `--write` | `fmt` | Overwrite the source file in place |
-| `--json` | `trace` | Output as JSON |
+| `--json` | `trace`, `policy` | Output as JSON |
 | `--evidence <file>` | `run` | Write evidence records to a JSON file |
 
 ## Exit Codes
@@ -99,4 +105,5 @@ a0 help budget
 a0 help flow
 a0 help diagnostics
 a0 help examples
+a0 help stdlib --index
 ```

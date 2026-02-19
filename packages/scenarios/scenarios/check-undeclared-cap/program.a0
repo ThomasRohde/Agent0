@@ -1,0 +1,2 @@
+do fs.write { path: "x.txt", data: "hi", format: "text" } -> r
+return { r: r }

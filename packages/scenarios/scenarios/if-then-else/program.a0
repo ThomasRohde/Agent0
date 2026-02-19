@@ -1,0 +1,5 @@
+let x = 5
+let branch = if { cond: eq { a: x, b: 0 }, then: "zero", else: "nonzero" }
+let falsy_null = if { cond: null, then: "truthy", else: "was null" }
+let falsy_false = if { cond: false, then: "truthy", else: "was false" }
+return { branch: branch, falsy_null: falsy_null, falsy_false: falsy_false }

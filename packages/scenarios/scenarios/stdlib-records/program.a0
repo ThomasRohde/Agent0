@@ -1,0 +1,5 @@
+let rec = { a: 1, b: 2 }
+let k = keys { in: rec }
+let v = values { in: rec }
+let merged = merge { a: { a: 1, b: 2 }, b: { b: 3, c: 4 } }
+return { keys: k, values: v, merged: merged }

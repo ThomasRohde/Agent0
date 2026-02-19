@@ -4,7 +4,7 @@
 export * from "./ast.js";
 export * from "./diagnostics.js";
 export { parse } from "./parser.js";
-export type { ParseResult } from "./parser.js";
+export type { ParseResult, ParseOptions } from "./parser.js";
 export { validate, KNOWN_CAPABILITIES, KNOWN_TOOL_MODES } from "./validator.js";
 export { format } from "./formatter.js";
 export {
@@ -23,5 +23,5 @@ export type {
   ExecOptions,
   ExecResult,
 } from "./evaluator.js";
-export { loadPolicy, buildAllowedCaps } from "./capabilities.js";
-export type { Policy } from "./capabilities.js";
+export { loadPolicy, resolvePolicy, buildAllowedCaps } from "./capabilities.js";
+export type { Policy, ResolvedPolicy } from "./capabilities.js";

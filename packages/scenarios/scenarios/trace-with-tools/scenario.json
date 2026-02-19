@@ -1,0 +1,16 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": ["fs.write"] },
+  "capture": { "trace": true },
+  "expect": {
+    "exitCode": 0,
+    "traceSummary": {
+      "totalEvents": 8,
+      "toolInvocations": 1,
+      "toolsByName": { "fs.write": 1 },
+      "evidenceCount": 0,
+      "failures": 0,
+      "budgetExceeded": 0
+    }
+  }
+}

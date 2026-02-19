@@ -1,0 +1,59 @@
+# release-manifest.a0 — Build a release manifest from package metadata
+#
+# Creates a publish-time manifest from package.json and normalizes it with
+# JSON Patch operations. Demonstrates add/remove/replace plus test/copy/move.
+
+cap { fs.read: true, fs.write: true }
+budget { timeMs: 10000, maxToolCalls: 3 }
+
+call? fs.read { path: "package.json" } -> pkg_raw
+let pkg = parse.json { in: pkg_raw }
+
+let name = get { in: pkg, path: "name" }
+let version = get { in: pkg, path: "version" }
+let description = get { in: pkg, path: "description" }
+let tag = str.concat { parts: ["v", version] }
+
+let base_manifest = {
+  schema: 1,
+  package: {
+    name: name,
+    version: version,
+    description: description
+  },
+  release: {
+    channel: "candidate",
+    notes: "draft"
+  },
+  artifacts: {
+    primary: { path: "dist/index.js" },
+    legacy: { path: "dist/index.cjs" }
+  },
+  metadata: {
+    source: "package.json",
+    generated_by: "examples/release-manifest.a0"
+  }
+}
+
+let manifest = patch {
+  in: base_manifest,
+  ops: [
+    { op: "test", path: "/schema", value: 1 },
+    { op: "copy", from: "/package/version", path: "/release/version" },
+    { op: "add", path: "/release/tag", value: tag },
+    { op: "move", from: "/artifacts/legacy", path: "/artifacts/compat" },
+    { op: "remove", path: "/release/notes" },
+    { op: "replace", path: "/release/channel", value: "stable" }
+  ]
+}
+
+let release_tag = get { in: manifest, path: "release.tag" }
+assert { that: eq { a: release_tag, b: tag }, msg: "release tag derived from version" }
+
+let artifacts = get { in: manifest, path: "artifacts" }
+let has_compat = contains { in: artifacts, value: "compat" }
+assert { that: has_compat, msg: "legacy artifact moved to compat" }
+
+do fs.write { path: "release-manifest.json", data: manifest, format: "json" } -> artifact
+
+return { manifest: manifest, artifact: artifact }

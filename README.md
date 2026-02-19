@@ -179,6 +179,13 @@ return { node: node_check, npm: npm_check }
 
 More examples in the [`examples/`](examples/) directory.
 
+High-value scenario examples:
+
+- `examples/workspace-version-report.a0` — monorepo release guard for version drift
+- `examples/trace-quality-gate.a0` — CI trace gate from JSONL events (with pass/fail fixtures)
+- `examples/release-manifest.a0` — publish manifest generation using advanced JSON Patch operations
+- `examples/deploy-preflight.a0` — pre-deploy checks for git state, build, and tests
+
 ## Built-in Tools
 
 | Tool | Mode | Capability | Description |

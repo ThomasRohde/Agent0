@@ -1,0 +1,6 @@
+{"ts":"2026-02-19T06:05:00.000Z","runId":"sample-fail","event":"run_start","data":{"file":"examples/system-check.a0","capabilities":["sh.exec","fs.write"],"budget":{"timeMs":15000,"maxToolCalls":4}}}
+{"ts":"2026-02-19T06:05:00.030Z","runId":"sample-fail","event":"tool_start","data":{"tool":"sh.exec","args":{"cmd":"node --version"},"mode":"effect"}}
+{"ts":"2026-02-19T06:05:00.090Z","runId":"sample-fail","event":"tool_end","data":{"tool":"sh.exec","outcome":"err","durationMs":60,"error":"spawn failed"}}
+{"ts":"2026-02-19T06:05:00.100Z","runId":"sample-fail","event":"evidence","data":{"kind":"check","ok":false,"msg":"node installed"}}
+{"ts":"2026-02-19T06:05:00.115Z","runId":"sample-fail","event":"budget_exceeded","data":{"budget":"maxToolCalls","limit":4,"actual":5}}
+{"ts":"2026-02-19T06:05:00.140Z","runId":"sample-fail","event":"run_end","data":{"durationMs":140,"error":"E_BUDGET","message":"Budget exceeded"}}

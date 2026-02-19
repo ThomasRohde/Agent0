@@ -1,0 +1,87 @@
+# workspace-version-report.a0 — Detect workspace version drift before release
+#
+# Collects package manifests from the monorepo, compares each package version
+# against the root package version, and writes a structured drift report.
+# Useful as a CI guard before publishing.
+
+cap { sh.exec: true, fs.read: true, fs.write: true }
+budget { timeMs: 30000, maxToolCalls: 30, maxIterations: 200 }
+
+# Discover manifests with Node for cross-platform behavior.
+do sh.exec {
+  cmd: "node -e \"const fs=require('fs'); const out=['package.json']; if (fs.existsSync('packages')) { for (const d of fs.readdirSync('packages', {withFileTypes:true})) { if (d.isDirectory()) out.push('packages/' + d.name + '/package.json'); } } if (fs.existsSync('website/package.json')) out.push('website/package.json'); process.stdout.write(JSON.stringify(out));\"",
+  timeoutMs: 5000
+} -> paths_result
+
+let manifest_paths = parse.json { in: paths_result.stdout }
+let manifest_count = len { in: manifest_paths }
+assert { that: manifest_count > 0, msg: "discovered package manifests" }
+
+# Load and inspect each manifest.
+let manifests = for { in: manifest_paths, as: "path" } {
+  call? fs.read { path: path } -> raw
+  let doc = parse.json { in: raw }
+  let has_scripts = contains { in: doc, value: "scripts" }
+  let scripts = if { cond: has_scripts, then: get { in: doc, path: "scripts" }, else: {} }
+
+  return {
+    path: path,
+    name: get { in: doc, path: "name" },
+    version: get { in: doc, path: "version" },
+    private: get { in: doc, path: "private" },
+    script_count: len { in: keys { in: scripts } },
+    script_values_count: len { in: values { in: scripts } }
+  }
+}
+
+# Use root package.json version as release source of truth.
+let root_manifest = find { in: manifests, key: "path", value: "package.json" }
+let has_root_manifest = not { in: eq { a: root_manifest, b: null } }
+assert { that: has_root_manifest, msg: "root package.json found" }
+let root_version = get { in: root_manifest, path: "version" }
+
+let inspected = for { in: manifests, as: "m" } {
+  let aligned = eq { a: m.version, b: root_version }
+  let mismatch = not { in: aligned }
+  let publishable = not { in: m.private }
+  return {
+    path: m.path,
+    name: m.name,
+    version: m.version,
+    aligned: aligned,
+    mismatch: mismatch,
+    publishable: publishable,
+    script_count: m.script_count
+  }
+}
+
+let mismatches = filter { in: inspected, by: "mismatch" }
+let mismatch_count = len { in: mismatches }
+let publishable = filter { in: inspected, by: "publishable" }
+let publishable_count = len { in: publishable }
+let release_ready = eq { a: mismatch_count, b: 0 }
+check { that: true, msg: "workspace version drift report generated" }
+
+let summary = merge {
+  a: {
+    root_version: root_version,
+    manifests_found: manifest_count,
+    publishable_packages: publishable_count,
+    release_ready: release_ready,
+    mismatches: mismatch_count
+  },
+  b: {
+    generated_by: "examples/workspace-version-report.a0",
+    purpose: "release version drift detection"
+  }
+}
+
+let report = {
+  summary: summary,
+  manifests: inspected,
+  drift: mismatches
+}
+
+do fs.write { path: "workspace-version-report.json", data: report, format: "json" } -> artifact
+
+return { report: report, artifact: artifact }

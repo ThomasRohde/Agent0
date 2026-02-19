@@ -1,0 +1,110 @@
+# trace-quality-gate.a0 — Evaluate trace quality for CI gating
+#
+# Reads a JSONL trace, summarizes failure signals (failed evidence, tool
+# failures, budget overruns), and emits a CI-friendly quality report.
+# By default this reads a passing fixture: examples/sample-trace.jsonl.
+
+cap { fs.read: true, fs.write: true }
+budget { timeMs: 15000, maxToolCalls: 3, maxIterations: 1000 }
+
+call? fs.read { path: "examples/sample-trace.jsonl" } -> trace_raw
+let lines = str.split { in: trace_raw, sep: "\n" }
+
+let parsed_rows = for { in: lines, as: "line" } {
+  let keep = not { in: eq { a: line, b: "" } }
+  let payload = if { cond: keep, then: parse.json { in: line }, else: null }
+  return { keep: keep, payload: payload }
+}
+let non_empty_rows = filter { in: parsed_rows, by: "keep" }
+
+let events = for { in: non_empty_rows, as: "row" } {
+  return { event: row.payload.event, data: row.payload.data }
+}
+let event_count = len { in: events }
+
+# Failed evidence events.
+let evidence_scan = for { in: events, as: "ev" } {
+  let is_evidence = eq { a: ev.event, b: "evidence" }
+  let ok = if { cond: is_evidence, then: get { in: ev, path: "data.ok" }, else: true }
+  let failed = and { a: is_evidence, b: not { in: ok } }
+  return {
+    failed: failed,
+    kind: get { in: ev, path: "data.kind" },
+    msg: get { in: ev, path: "data.msg" }
+  }
+}
+let failed_evidence = filter { in: evidence_scan, by: "failed" }
+
+# Failed tool_end events.
+let tool_scan = for { in: events, as: "ev" } {
+  let is_tool_end = eq { a: ev.event, b: "tool_end" }
+  let is_failed = and { a: is_tool_end, b: eq { a: get { in: ev, path: "data.outcome" }, b: "err" } }
+  return {
+    failed: is_failed,
+    tool: get { in: ev, path: "data.tool" },
+    error: get { in: ev, path: "data.error" }
+  }
+}
+let failed_tools = filter { in: tool_scan, by: "failed" }
+
+# budget_exceeded events.
+let budget_scan = for { in: events, as: "ev" } {
+  let hit = eq { a: ev.event, b: "budget_exceeded" }
+  return { hit: hit, budget: get { in: ev, path: "data.budget" } }
+}
+let budget_hits = filter { in: budget_scan, by: "hit" }
+
+let run_end = find { in: events, key: "event", value: "run_end" }
+let has_run_end = not { in: eq { a: run_end, b: null } }
+
+# Build a single issue list.
+let evidence_issues = for { in: failed_evidence, as: "f" } {
+  return { text: str.concat { parts: ["evidence(", f.kind, "): ", f.msg] } }
+}
+let tool_issues = for { in: failed_tools, as: "f" } {
+  return { text: str.concat { parts: ["tool(", f.tool, "): ", f.error] } }
+}
+let budget_issues = for { in: budget_hits, as: "b" } {
+  return { text: str.concat { parts: ["budget exceeded: ", b.budget] } }
+}
+
+let issue_list_1 = concat { a: evidence_issues, b: tool_issues }
+let issue_list_2 = concat { a: issue_list_1, b: budget_issues }
+let issues = if {
+  cond: has_run_end,
+  then: issue_list_2,
+  else: append { in: issue_list_2, value: { text: "missing run_end event" } }
+}
+let issue_count = len { in: issues }
+
+let gate_state = if {
+  cond: eq { a: issue_count, b: 0 },
+  then: { ok: { pass: true, reason: "trace quality gate passed" } },
+  else: { err: { pass: false, reason: "trace quality gate failed" } }
+}
+
+let gate = match gate_state {
+  ok { val } {
+    return { pass: val.pass, reason: val.reason }
+  }
+  err { e } {
+    return { pass: e.pass, reason: e.reason }
+  }
+}
+
+let report = {
+  pass: gate.pass,
+  reason: gate.reason,
+  events: event_count,
+  evidence_failures: len { in: failed_evidence },
+  tool_failures: len { in: failed_tools },
+  budget_exceeded: len { in: budget_hits },
+  has_run_end: has_run_end,
+  issues: issues
+}
+
+check { that: report.pass, msg: "trace quality gate passed" }
+
+do fs.write { path: "trace-quality-report.json", data: report, format: "json" } -> artifact
+
+return { report: report, artifact: artifact }

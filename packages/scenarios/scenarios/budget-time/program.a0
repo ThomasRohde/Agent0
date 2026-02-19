@@ -1,0 +1,8 @@
+budget { timeMs: 1 }
+
+let items = range { from: 0, to: 1000 }
+let result = for { in: items, as: "n" } {
+  let x = n * n
+  return { value: x }
+}
+return { count: 1000 }

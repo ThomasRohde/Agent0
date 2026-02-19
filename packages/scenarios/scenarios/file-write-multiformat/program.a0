@@ -1,0 +1,4 @@
+cap { fs.write: true }
+do fs.write { path: "data.json", data: { items: [1, 2, 3], ok: true }, format: "json" } -> r1
+do fs.write { path: "log.txt", data: "operation complete", format: "text" } -> r2
+return { json_written: true, text_written: true }

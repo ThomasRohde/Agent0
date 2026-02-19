@@ -1,0 +1,2 @@
+let result = parse.json { in: "not valid json{{{" }
+return { result: result }

@@ -1,0 +1,7 @@
+let a = eq { a: 1, b: 1 }
+check { that: a, msg: "pass" } -> ev1
+let b = eq { a: 1, b: 2 }
+check { that: b, msg: "fail" } -> ev2
+let c = eq { a: 3, b: 3 }
+check { that: c, msg: "pass again" } -> ev3
+return { done: true }

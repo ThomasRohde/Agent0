@@ -9,7 +9,7 @@
   ],
   "scripts": {
     "build": "npm run build -w packages/core && npm run build -w packages/std -w packages/tools && npm run build -w packages/cli && npm run build -w packages/scenarios",
-    "test": "npm run build && npm run test --workspaces --if-present",
+    "test": "npm run build && npm run test -w packages/core -w packages/std -w packages/tools -w packages/cli --if-present && npm run test -w packages/scenarios",
     "test:scenarios": "npm run build && npm run test -w packages/scenarios",
     "clean": "npm run clean --workspaces --if-present",
     "version:sync": "node scripts/sync-versions.js"

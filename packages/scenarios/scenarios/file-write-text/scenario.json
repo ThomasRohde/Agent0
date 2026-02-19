@@ -1,0 +1,13 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": ["fs.write"] },
+  "expect": {
+    "exitCode": 0,
+    "files": [
+      {
+        "path": "greeting.txt",
+        "text": "Hello, World!"
+      }
+    ]
+  }
+}

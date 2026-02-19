@@ -1,0 +1,18 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": ["fs.write"] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": { "json_written": true, "text_written": true },
+    "files": [
+      {
+        "path": "data.json",
+        "json": { "items": [1, 2, 3], "ok": true }
+      },
+      {
+        "path": "log.txt",
+        "text": "operation complete"
+      }
+    ]
+  }
+}

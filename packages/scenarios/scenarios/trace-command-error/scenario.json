@@ -1,0 +1,7 @@
+{
+  "cmd": ["trace", "nonexistent.jsonl"],
+  "expect": {
+    "exitCode": 4,
+    "stderrContains": "E_IO"
+  }
+}

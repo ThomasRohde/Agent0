@@ -1,0 +1,7 @@
+{"ts":"2025-01-01T00:00:00.000Z","runId":"test-run-1","event":"run_start","data":{"file":"test.a0","capabilities":[]}}
+{"ts":"2025-01-01T00:00:00.001Z","runId":"test-run-1","event":"stmt_start"}
+{"ts":"2025-01-01T00:00:00.002Z","runId":"test-run-1","event":"stmt_end"}
+{"ts":"2025-01-01T00:00:00.003Z","runId":"test-run-1","event":"tool_start","data":{"tool":"fs.read"}}
+{"ts":"2025-01-01T00:00:00.004Z","runId":"test-run-1","event":"tool_end","data":{"outcome":"ok"}}
+{"ts":"2025-01-01T00:00:00.005Z","runId":"test-run-1","event":"evidence","data":{"ok":true,"msg":"check passed"}}
+{"ts":"2025-01-01T00:00:00.010Z","runId":"test-run-1","event":"run_end","data":{"durationMs":10}}

@@ -1,0 +1,18 @@
+{
+  "cmd": ["trace", "trace-fixture.jsonl", "--json"],
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "runId": "test-run-1",
+      "totalEvents": 7,
+      "toolInvocations": 1,
+      "toolsByName": { "fs.read": 1 },
+      "evidenceCount": 1,
+      "failures": 0,
+      "budgetExceeded": 0,
+      "startTime": "2025-01-01T00:00:00.000Z",
+      "endTime": "2025-01-01T00:00:00.010Z",
+      "durationMs": 10
+    }
+  }
+}

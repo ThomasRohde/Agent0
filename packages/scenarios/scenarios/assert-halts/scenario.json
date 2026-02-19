@@ -1,0 +1,17 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "capture": { "evidence": true, "trace": true },
+  "expect": {
+    "exitCode": 5,
+    "stderrContains": "E_ASSERT",
+    "traceSummary": {
+      "totalEvents": 6,
+      "toolInvocations": 0,
+      "toolsByName": {},
+      "evidenceCount": 1,
+      "failures": 1,
+      "budgetExceeded": 0
+    }
+  }
+}

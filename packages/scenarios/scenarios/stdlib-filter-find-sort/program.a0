@@ -1,0 +1,12 @@
+let items = [
+  { name: "alice", active: true },
+  { name: "bob", active: false },
+  { name: "carol", active: true }
+]
+let active = filter { in: items, by: "active" }
+let found = find { in: items, key: "name", value: "bob" }
+let not_found = find { in: items, key: "name", value: "nobody" }
+let nums = [3, 1, 4, 1, 5]
+let sorted = sort { in: nums }
+let by_name = sort { in: items, by: "name" }
+return { active: active, found: found, not_found: not_found, sorted: sorted, by_name: by_name }

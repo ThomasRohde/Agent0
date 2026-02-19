@@ -1,0 +1,9 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "timeoutMs": 5000,
+  "expect": {
+    "exitCode": 4,
+    "stderrContains": "E_BUDGET"
+  }
+}

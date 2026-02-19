@@ -1,0 +1,6 @@
+cap { fs.write: true }
+budget { maxBytesWritten: 10 }
+
+let big_data = str.concat { parts: ["This is a string that is definitely longer than 10 bytes"] }
+do fs.write { path: "big.txt", data: big_data, format: "text" } -> result
+return { result: result }

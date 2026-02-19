@@ -1,0 +1,8 @@
+let has_sub = contains { in: "hello world", value: "world" }
+let has_item = contains { in: [1, 2, 3], value: 2 }
+let has_key = contains { in: { name: "test" }, value: "name" }
+let negated = not { in: false }
+let both = and { a: true, b: true }
+let either = or { a: false, b: true }
+let neither = and { a: true, b: false }
+return { has_sub: has_sub, has_item: has_item, has_key: has_key, negated: negated, both: both, either: either, neither: neither }

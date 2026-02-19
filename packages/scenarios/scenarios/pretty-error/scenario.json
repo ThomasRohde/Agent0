@@ -1,0 +1,8 @@
+{
+  "cmd": ["run", "program.a0", "--pretty"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 2,
+    "stderrContains": "E_UNBOUND"
+  }
+}

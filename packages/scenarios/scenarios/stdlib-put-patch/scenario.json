@@ -1,0 +1,12 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "original": { "name": "test", "version": 1 },
+      "updated": { "name": "test", "version": 2 },
+      "patched": { "name": "test", "version": 3, "new_field": true }
+    }
+  }
+}

@@ -1,0 +1,4 @@
+let rec = { name: "test", version: 1 }
+let updated = put { in: rec, path: "version", value: 2 }
+let patched = patch { in: rec, ops: [{ op: "replace", path: "/version", value: 3 }, { op: "add", path: "/new_field", value: true }] }
+return { original: rec, updated: updated, patched: patched }

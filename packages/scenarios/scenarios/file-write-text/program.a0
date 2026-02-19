@@ -1,0 +1,3 @@
+cap { fs.write: true }
+do fs.write { path: "greeting.txt", data: "Hello, World!", format: "text" } -> result
+return { written: true }

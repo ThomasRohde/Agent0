@@ -1,0 +1,4 @@
+let data = { user: { name: "Alice", scores: [10, 20, 30] } }
+let name = get { in: data, path: "user.name" }
+let first_score = get { in: data, path: "user.scores[0]" }
+return { name: name, first_score: first_score }

@@ -1,0 +1,9 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "capture": { "evidence": true },
+  "expect": {
+    "exitCode": 5,
+    "stdoutJson": { "done": true }
+  }
+}

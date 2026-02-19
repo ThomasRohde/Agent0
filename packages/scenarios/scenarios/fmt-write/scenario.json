@@ -1,0 +1,8 @@
+{
+  "cmd": ["fmt", "program.a0", "--write"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "files": [{ "path": "program.a0", "text": "let x = 42\nreturn { value: x }\n" }]
+  }
+}

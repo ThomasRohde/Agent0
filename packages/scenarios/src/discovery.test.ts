@@ -65,9 +65,9 @@ describe("scenario discovery helpers", () => {
   });
 
   it("parses additional scenario roots from env format", () => {
-    const repoRoot = path.resolve("C:/repo");
+    const repoRoot = path.resolve("repo-root");
     const extraA = "extra/scenarios";
-    const extraB = path.resolve("D:/fixtures");
+    const extraB = path.resolve(repoRoot, "..", "fixtures");
     const envValue = `${extraA}${path.delimiter}${extraB}${path.delimiter}${extraA}`;
     const roots = getScenarioRoots(repoRoot, envValue);
 

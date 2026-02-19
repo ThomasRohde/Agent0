@@ -1,0 +1,15 @@
+{
+  "cmd": [
+    "fmt",
+    "missing.a0"
+  ],
+  "meta": {
+    "tags": [
+      "io"
+    ]
+  },
+  "expect": {
+    "exitCode": 4,
+    "stderrContains": "error[E_IO]"
+  }
+}

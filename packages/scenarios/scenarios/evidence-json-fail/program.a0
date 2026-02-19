@@ -1,0 +1,2 @@
+assert { that: false, msg: "boom" }
+return { ok: true }

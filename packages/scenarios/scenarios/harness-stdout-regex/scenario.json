@@ -1,0 +1,16 @@
+{
+  "cmd": [
+    "help",
+    "stdlib",
+    "--index"
+  ],
+  "meta": {
+    "tags": [
+      "harness"
+    ]
+  },
+  "expect": {
+    "exitCode": 0,
+    "stdoutRegex": "A0 STDLIB INDEX[\\s\\S]*Total: [0-9]+"
+  }
+}

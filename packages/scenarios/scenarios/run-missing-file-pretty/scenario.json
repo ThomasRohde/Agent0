@@ -1,0 +1,16 @@
+{
+  "cmd": [
+    "run",
+    "missing.a0",
+    "--pretty"
+  ],
+  "meta": {
+    "tags": [
+      "io"
+    ]
+  },
+  "expect": {
+    "exitCode": 4,
+    "stderrContains": "error[E_IO]"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "cmd": [
+    "help",
+    "--index"
+  ],
+  "meta": {
+    "tags": [
+      "help"
+    ]
+  },
+  "expect": {
+    "exitCode": 1,
+    "stderrContains": "Usage: a0 help stdlib --index"
+  }
+}

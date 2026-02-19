@@ -1,0 +1,25 @@
+{
+  "cmd": [
+    "policy"
+  ],
+  "policy": {
+    "allow": [
+      "fs.read"
+    ],
+    "deny": [
+      "sh.exec"
+    ],
+    "limits": {
+      "maxToolCalls": 3
+    }
+  },
+  "meta": {
+    "tags": [
+      "policy"
+    ]
+  },
+  "expect": {
+    "exitCode": 0,
+    "stdoutRegex": "Effective A0 policy[\\s\\S]*Source:\\s+project[\\s\\S]*Allow:\\s+fs\\.read[\\s\\S]*Deny:\\s+sh\\.exec[\\s\\S]*Effective allow:\\s+fs\\.read[\\s\\S]*Limits:\\s+\\{\\\"maxToolCalls\\\":3\\}"
+  }
+}

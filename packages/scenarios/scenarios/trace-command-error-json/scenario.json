@@ -1,0 +1,18 @@
+{
+  "cmd": [
+    "trace",
+    "nonexistent.jsonl",
+    "--json"
+  ],
+  "meta": {
+    "tags": [
+      "trace"
+    ]
+  },
+  "expect": {
+    "exitCode": 4,
+    "stderrJsonSubset": {
+      "code": "E_IO"
+    }
+  }
+}

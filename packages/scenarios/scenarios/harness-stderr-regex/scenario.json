@@ -1,0 +1,14 @@
+{
+  "cmd": [
+    "nope"
+  ],
+  "meta": {
+    "tags": [
+      "harness"
+    ]
+  },
+  "expect": {
+    "exitCode": 1,
+    "stderrRegex": "Unknown command: nope"
+  }
+}

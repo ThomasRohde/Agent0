@@ -1,0 +1,14 @@
+{
+  "cmd": [
+    "help"
+  ],
+  "meta": {
+    "tags": [
+      "help"
+    ]
+  },
+  "expect": {
+    "exitCode": 0,
+    "stdoutContains": "A0 QUICK REFERENCE"
+  }
+}

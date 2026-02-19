@@ -1,0 +1,42 @@
+{
+  "cmd": [
+    "policy",
+    "--json"
+  ],
+  "policy": {
+    "allow": [
+      "fs.read"
+    ],
+    "deny": [
+      "sh.exec"
+    ],
+    "limits": {
+      "maxToolCalls": 3
+    }
+  },
+  "meta": {
+    "tags": [
+      "policy"
+    ]
+  },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJsonSubset": {
+      "source": "project",
+      "policy": {
+        "allow": [
+          "fs.read"
+        ],
+        "deny": [
+          "sh.exec"
+        ],
+        "limits": {
+          "maxToolCalls": 3
+        }
+      },
+      "effectiveAllow": [
+        "fs.read"
+      ]
+    }
+  }
+}

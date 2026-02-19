@@ -1,0 +1,17 @@
+{
+  "cmd": [
+    "check",
+    "missing.a0"
+  ],
+  "meta": {
+    "tags": [
+      "io"
+    ]
+  },
+  "expect": {
+    "exitCode": 4,
+    "stderrJsonSubset": {
+      "code": "E_IO"
+    }
+  }
+}

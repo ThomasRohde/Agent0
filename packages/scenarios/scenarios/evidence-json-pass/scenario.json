@@ -1,0 +1,38 @@
+{
+  "cmd": [
+    "run",
+    "program.a0"
+  ],
+  "policy": {
+    "allow": []
+  },
+  "capture": {
+    "evidence": true
+  },
+  "meta": {
+    "tags": [
+      "evidence",
+      "smoke"
+    ]
+  },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "ok": true
+    },
+    "evidenceJson": [
+      {
+        "kind": "check",
+        "ok": true,
+        "msg": "pass",
+        "span": {
+          "file": "program.a0",
+          "startLine": 1,
+          "startCol": 1,
+          "endLine": 1,
+          "endCol": 34
+        }
+      }
+    ]
+  }
+}

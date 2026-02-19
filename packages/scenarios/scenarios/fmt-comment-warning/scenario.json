@@ -1,0 +1,16 @@
+{
+  "cmd": [
+    "fmt",
+    "program.a0"
+  ],
+  "meta": {
+    "tags": [
+      "fmt"
+    ]
+  },
+  "expect": {
+    "exitCode": 0,
+    "stdoutText": "let x = 1\nreturn { value: x }",
+    "stderrContains": "warning: formatting will remove comments from the output."
+  }
+}

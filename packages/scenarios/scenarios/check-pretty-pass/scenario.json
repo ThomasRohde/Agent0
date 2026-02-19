@@ -1,0 +1,19 @@
+{
+  "cmd": [
+    "check",
+    "program.a0",
+    "--pretty"
+  ],
+  "policy": {
+    "allow": []
+  },
+  "meta": {
+    "tags": [
+      "check"
+    ]
+  },
+  "expect": {
+    "exitCode": 0,
+    "stdoutText": "No errors found."
+  }
+}

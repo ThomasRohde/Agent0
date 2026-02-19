@@ -1,0 +1,18 @@
+{
+  "cmd": [
+    "trace",
+    "trace-shape-invalid.jsonl",
+    "--json"
+  ],
+  "meta": {
+    "tags": [
+      "trace"
+    ]
+  },
+  "expect": {
+    "exitCode": 4,
+    "stderrJsonSubset": {
+      "code": "E_TRACE"
+    }
+  }
+}

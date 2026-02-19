@@ -1,0 +1,23 @@
+{
+  "cmd": [
+    "run",
+    "program.a0"
+  ],
+  "policy": {
+    "allow": []
+  },
+  "meta": {
+    "tags": [
+      "harness",
+      "smoke"
+    ]
+  },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJsonSubset": {
+      "nested": {
+        "x": 1
+      }
+    }
+  }
+}

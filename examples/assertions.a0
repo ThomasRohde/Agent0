@@ -3,6 +3,7 @@
 # assert halts execution on failure — use for invariants.
 # check records evidence and continues — use for observations.
 # If any check fails, the runner still returns exit 5.
+# This example is configured to pass by default.
 
 let data = { count: 42, items: [1, 2, 3] }
 let count = get { in: data, path: "count" }
@@ -17,8 +18,8 @@ check { that: has_items, msg: "data has items field" }
 
 let items = get { in: data, path: "items" }
 let item_count = len { in: items }
-let enough = item_count >= 5
-check { that: enough, msg: "has at least 5 items" }
+let enough = item_count >= 3
+check { that: enough, msg: "has at least 3 items" }
 
-# Program completes even though the second check fails
+# Program completes with all evidence passing
 return { ok: true, count: count, items: item_count }

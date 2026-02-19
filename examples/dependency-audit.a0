@@ -56,12 +56,15 @@ let dep_analysis = map { in: dep_names, fn: "classify_version" }
 let ranged = filter { in: dep_analysis, by: "is_range" }
 let ranged_count = len { in: ranged }
 
-# Check for lock file
-do sh.exec { cmd: "test -f package-lock.json && echo yes || echo no", timeoutMs: 3000 } -> lock_check
-let has_lock = contains { in: lock_check.stdout, value: "yes" }
+# Check for lock file (cross-platform)
+do sh.exec {
+  cmd: "node -e \"const fs=require('fs'); process.stdout.write(fs.existsSync('package-lock.json') ? 'yes' : 'no')\"",
+  timeoutMs: 3000
+} -> lock_check
+let has_lock = eq { a: lock_check.stdout, b: "yes" }
 
 # Outdated check
-do sh.exec { cmd: "npm outdated --json 2>/dev/null || true", timeoutMs: 30000 } -> outdated_result
+do sh.exec { cmd: "npm outdated --json", timeoutMs: 30000 } -> outdated_result
 let outdated_raw = str.replace { in: outdated_result.stdout, from: "\n", to: "" }
 let has_outdated = not { in: eq { a: outdated_raw, b: "" } }
 

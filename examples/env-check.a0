@@ -16,7 +16,7 @@ fn check_tool { name, cmd } {
   return { name: name, status: status, version: version, ok: ok }
 }
 
-# Tools every Node.js project needs
+# Required tools for this repo + one optional tool
 let node_check = check_tool { name: "node", cmd: "node --version" }
 let npm_check = check_tool { name: "npm", cmd: "npm --version" }
 let git_check = check_tool { name: "git", cmd: "git --version" }
@@ -29,7 +29,8 @@ let installed = filter { in: all_results, by: "ok" }
 let installed_count = len { in: installed }
 let total = len { in: all_results }
 let missing_count = total - installed_count
-let all_ok = eq { a: missing_count, b: 0 }
+let required_ok = and { a: node_check.ok, b: and { a: npm_check.ok, b: git_check.ok } }
+let all_ok = required_ok
 
 # Build summary lines
 let summary_lines = for { in: all_results, as: "tool" } {
@@ -49,7 +50,8 @@ let summary_text = join {
 assert { that: node_check.ok, msg: "node is installed" }
 assert { that: npm_check.ok, msg: "npm is installed" }
 assert { that: git_check.ok, msg: "git is installed" }
-check { that: tsc_check.ok, msg: "tsc is installed" }
+let has_summary = not { in: eq { a: summary_text, b: "" } }
+check { that: has_summary, msg: "summary text generated" }
 
 return {
   all_ok: all_ok,

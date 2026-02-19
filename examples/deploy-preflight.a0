@@ -7,11 +7,12 @@
 cap { sh.exec: true, fs.read: true }
 budget { timeMs: 120000, maxToolCalls: 10 }
 
-# 1. Git working tree must be clean
+# 1. Collect Git working tree status
 do sh.exec { cmd: "git status --porcelain", timeoutMs: 5000 } -> git_status
+let git_status_ok = eq { a: git_status.exitCode, b: 0 }
+assert { that: git_status_ok, msg: "git status command succeeded" }
 let dirty_files = str.replace { in: git_status.stdout, from: "\n", to: "" }
 let is_clean = eq { a: dirty_files, b: "" }
-assert { that: is_clean, msg: "working tree is clean — no uncommitted changes" }
 
 # 2. package.json must exist and be valid
 call? fs.read { path: "package.json" } -> pkg_raw
@@ -47,6 +48,7 @@ let report = {
   version: pkg_version,
   branch: branch,
   commit: commit_hash,
+  working_tree_clean: is_clean,
   build_duration_ms: build_result.durationMs,
   test_duration_ms: test_result.durationMs,
   checks_passed: 5

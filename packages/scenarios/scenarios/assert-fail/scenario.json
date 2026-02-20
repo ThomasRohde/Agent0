@@ -4,6 +4,20 @@
   "capture": { "evidence": true },
   "expect": {
     "exitCode": 5,
-    "stderrContains": "E_ASSERT"
+    "stderrContains": "E_ASSERT",
+    "evidenceJson": [
+      {
+        "kind": "assert",
+        "ok": false,
+        "msg": "this will fail",
+        "span": {
+          "file": "program.a0",
+          "startLine": 2,
+          "startCol": 1,
+          "endLine": 2,
+          "endCol": 42
+        }
+      }
+    ]
   }
 }

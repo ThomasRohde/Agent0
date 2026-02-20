@@ -4,6 +4,44 @@
   "capture": { "evidence": true },
   "expect": {
     "exitCode": 5,
-    "stdoutJson": { "done": true }
+    "stdoutJson": { "done": true },
+    "evidenceJson": [
+      {
+        "kind": "check",
+        "ok": true,
+        "msg": "pass",
+        "span": {
+          "file": "program.a0",
+          "startLine": 2,
+          "startCol": 1,
+          "endLine": 2,
+          "endCol": 31
+        }
+      },
+      {
+        "kind": "check",
+        "ok": false,
+        "msg": "fail",
+        "span": {
+          "file": "program.a0",
+          "startLine": 4,
+          "startCol": 1,
+          "endLine": 4,
+          "endCol": 31
+        }
+      },
+      {
+        "kind": "check",
+        "ok": true,
+        "msg": "pass again",
+        "span": {
+          "file": "program.a0",
+          "startLine": 6,
+          "startCol": 1,
+          "endLine": 6,
+          "endCol": 37
+        }
+      }
+    ]
   }
 }

@@ -3,6 +3,13 @@
   "policy": { "allow": [] },
   "expect": {
     "exitCode": 2,
-    "stderrContains": "E_"
+    "stderrJsonSubset": [
+      {
+        "code": "E_PARSE",
+        "span": {
+          "file": "bad.a0"
+        }
+      }
+    ]
   }
 }

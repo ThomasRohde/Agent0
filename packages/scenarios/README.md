@@ -57,6 +57,13 @@ A0_SCENARIO_ROOT_EXTRA=../private-scenarios npm run test:scenarios
 3. Add `.a0` source files referenced by the `cmd` field
 4. Optionally add a `setup/` subfolder — its contents are copied into the working directory before execution
 
+### Scenario quality guardrails
+
+- Avoid `expect.exitCode`-only scenarios. Add at least one behavior assertion (`stdout*`, `stderr*`, `files`, `evidenceJson`, or `traceSummary`).
+- Do not use placeholder checks like `stderrContains: "E_"`; assert a specific code (`E_PARSE`, `E_ASSERT`, etc.) or use `stderrJsonSubset`.
+- If `capture.evidence: true` is set, assert `expect.evidenceJson`.
+- If `capture.trace: true` is set, assert `expect.traceSummary`.
+
 ## `scenario.json` schema
 
 | Field | Type | Required | Description |

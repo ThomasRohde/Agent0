@@ -3,6 +3,21 @@
   "policy": { "allow": [] },
   "capture": { "evidence": true },
   "expect": {
-    "exitCode": 0
+    "exitCode": 0,
+    "stdoutJson": { "ok": true },
+    "evidenceJson": [
+      {
+        "kind": "check",
+        "ok": true,
+        "msg": "1 equals 1",
+        "span": {
+          "file": "program.a0",
+          "startLine": 2,
+          "startCol": 1,
+          "endLine": 2,
+          "endCol": 38
+        }
+      }
+    ]
   }
 }

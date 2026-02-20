@@ -5,7 +5,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
 import type { ToolDef, A0Record, A0Value } from "@a0/core";
-import { fsReadInputSchema, fsWriteInputSchema } from "./schemas.js";
+import { fsReadInputSchema, fsWriteInputSchema, fsListInputSchema, fsExistsInputSchema } from "./schemas.js";
 
 export const fsReadTool: ToolDef = {
   name: "fs.read",
@@ -64,5 +64,38 @@ export const fsWriteTool: ToolDef = {
       bytes,
       sha256,
     };
+  },
+};
+
+export const fsListTool: ToolDef = {
+  name: "fs.list",
+  mode: "read",
+  capabilityId: "fs.read",
+  inputSchema: fsListInputSchema,
+  async execute(args: A0Record): Promise<A0Value> {
+    const dirPath = args["path"];
+    if (typeof dirPath !== "string") {
+      throw new Error("fs.list requires a 'path' argument of type string.");
+    }
+    const resolved = path.resolve(dirPath);
+    const entries = fs.readdirSync(resolved, { withFileTypes: true });
+    return entries.map((entry) => ({
+      name: entry.name,
+      type: entry.isDirectory() ? "directory" : entry.isFile() ? "file" : "other",
+    }));
+  },
+};
+
+export const fsExistsTool: ToolDef = {
+  name: "fs.exists",
+  mode: "read",
+  capabilityId: "fs.read",
+  inputSchema: fsExistsInputSchema,
+  async execute(args: A0Record): Promise<A0Value> {
+    const filePath = args["path"];
+    if (typeof filePath !== "string") {
+      throw new Error("fs.exists requires a 'path' argument of type string.");
+    }
+    return fs.existsSync(path.resolve(filePath));
   },
 };

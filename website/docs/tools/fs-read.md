@@ -56,4 +56,6 @@ return { content: content }
 ## See Also
 
 - [fs.write](./fs-write.md) -- Write data to a file
+- [fs.list](./fs-list.md) -- List directory contents
+- [fs.exists](./fs-exists.md) -- Check if a path exists
 - [parse.json](../stdlib/data-functions.md) -- Parse a JSON string

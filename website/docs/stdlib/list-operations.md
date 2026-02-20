@@ -58,11 +58,13 @@ return { combined: combined }
 
 Sort a list. Returns a new sorted list.
 
-**Signature:** `sort { in: list, by?: str }` returns `list`.
+**Signature:** `sort { in: list, by?: str | list }` returns `list`.
 
 Without `by`, sorts by natural order: numbers numerically, strings lexicographically.
 
-With `by`, sorts a list of records by the specified key.
+With `by` as a string, sorts a list of records by the specified key.
+
+With `by` as a list of strings, sorts by multiple keys (first key is primary, second is tiebreaker, etc.).
 
 ```a0
 let nums = sort { in: [3, 1, 2] }
@@ -80,6 +82,20 @@ let byAge = sort { in: people, by: "age" }
 # -> [{ name: "bob", age: 20 }, { name: "charlie", age: 25 }, { name: "alice", age: 30 }]
 
 return { nums: nums }
+```
+
+Multi-key sort:
+
+```a0
+let packages = [
+  { name: "b-pkg", order: 1 },
+  { name: "a-pkg", order: 1 },
+  { name: "c-pkg", order: 0 }
+]
+let sorted = sort { in: packages, by: ["order", "name"] }
+# -> [{ name: "c-pkg", order: 0 }, { name: "a-pkg", order: 1 }, { name: "b-pkg", order: 1 }]
+
+return { sorted: sorted }
 ```
 
 ## filter
@@ -207,8 +223,54 @@ let names = map { in: people, fn: "fullName" }
 return { names: names }
 ```
 
+## reduce
+
+Accumulate a list into a single value by applying a 2-parameter user-defined function.
+
+**Signature:** `reduce { in: list, fn: str, init: any }` returns `any`.
+
+The `fn` argument names a user-defined function that must accept exactly 2 parameters: the accumulator and the current item. Since `return` requires a record, the accumulator is typically a record wrapping the accumulated value.
+
+Reduce iterations count toward the [`maxIterations`](../capabilities/budgets.md) budget.
+
+```a0
+fn addScore { acc, item } {
+  let newTotal = acc.val + item.score
+  return { val: newTotal }
+}
+
+let items = [
+  { name: "A", score: 10 },
+  { name: "B", score: 20 },
+  { name: "C", score: 30 }
+]
+let result = reduce { in: items, fn: "addScore", init: { val: 0 } }
+# result.val -> 60
+
+return { total: result.val }
+```
+
+## unique
+
+Remove duplicate values from a list using deep equality. Preserves first-occurrence order.
+
+**Signature:** `unique { in: list }` returns `list`.
+
+```a0
+let deduped = unique { in: [1, 2, 2, 3, 1] }
+# -> [1, 2, 3]
+
+let records = unique { in: [{ a: 1 }, { a: 2 }, { a: 1 }] }
+# -> [{ a: 1 }, { a: 2 }]
+
+return { deduped: deduped }
+```
+
+Throws `E_FN` if `in` is not a list.
+
 ## See Also
 
 - [Predicates](./predicates.md) -- Truthiness rules used by filter
 - [String Operations](./string-operations.md) -- str.concat for building strings
-- [Budgets](../capabilities/budgets.md) -- maxIterations budget for map and for loops
+- [Math Operations](./math-operations.md) -- math.max, math.min for numeric aggregation
+- [Budgets](../capabilities/budgets.md) -- maxIterations budget for map, reduce, and for loops

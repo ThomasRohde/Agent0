@@ -27,7 +27,7 @@ export interface Evidence {
 }
 
 // --- Trace events ---
-export type TraceEventType = "run_start" | "run_end" | "stmt_start" | "stmt_end" | "tool_start" | "tool_end" | "evidence" | "budget_exceeded" | "for_start" | "for_end" | "fn_call_start" | "fn_call_end" | "match_start" | "match_end" | "map_start" | "map_end";
+export type TraceEventType = "run_start" | "run_end" | "stmt_start" | "stmt_end" | "tool_start" | "tool_end" | "evidence" | "budget_exceeded" | "for_start" | "for_end" | "fn_call_start" | "fn_call_end" | "match_start" | "match_end" | "map_start" | "map_end" | "reduce_start" | "reduce_end";
 
 export interface TraceEvent {
   ts: string;
@@ -625,6 +625,79 @@ async function evalExpr(
 
         emitTrace("map_end", expr.span, { fn: fnNameVal, iterations: listVal.length });
         return results;
+      }
+
+      // Built-in higher-order: reduce
+      if (fnName === "reduce") {
+        const reduceArgs: A0Record = {};
+        for (const p of expr.args.pairs) {
+          reduceArgs[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
+        }
+
+        const listVal = reduceArgs["in"];
+        if (!Array.isArray(listVal)) {
+          throw new A0RuntimeError(
+            "E_TYPE",
+            `reduce 'in' must be a list, got ${listVal === null ? "null" : typeof listVal}.`,
+            expr.span
+          );
+        }
+
+        const fnNameVal = reduceArgs["fn"];
+        if (typeof fnNameVal !== "string") {
+          throw new A0RuntimeError(
+            "E_TYPE",
+            `reduce 'fn' must be a string, got ${fnNameVal === null ? "null" : typeof fnNameVal}.`,
+            expr.span
+          );
+        }
+
+        const initVal = reduceArgs["init"] ?? null;
+
+        const reduceFn = userFns.get(fnNameVal);
+        if (!reduceFn) {
+          throw new A0RuntimeError(
+            "E_UNKNOWN_FN",
+            `Unknown function '${fnNameVal}'.`,
+            expr.span
+          );
+        }
+
+        if (reduceFn.decl.params.length !== 2) {
+          throw new A0RuntimeError(
+            "E_TYPE",
+            `reduce callback '${fnNameVal}' must accept exactly 2 parameters (accumulator, item), got ${reduceFn.decl.params.length}.`,
+            expr.span
+          );
+        }
+
+        emitTrace("reduce_start", expr.span, { fn: fnNameVal, listLength: listVal.length });
+
+        let acc: A0Value = initVal;
+        for (const item of listVal) {
+          // Budget: maxIterations check (shared with for/map)
+          tracker.iterations++;
+          if (budget.maxIterations !== undefined && tracker.iterations > budget.maxIterations) {
+            emitTrace("budget_exceeded", expr.span, { budget: "maxIterations", limit: budget.maxIterations, actual: tracker.iterations });
+            throw new A0RuntimeError(
+              "E_BUDGET",
+              `Budget exceeded: maxIterations limit of ${budget.maxIterations} reached.`,
+              expr.span,
+              { budget: "maxIterations", limit: budget.maxIterations, actual: tracker.iterations }
+            );
+          }
+
+          emitTrace("fn_call_start", expr.span, { fn: fnNameVal });
+          const fnEnv = reduceFn.closure.child();
+          fnEnv.set(reduceFn.decl.params[0], acc);
+          fnEnv.set(reduceFn.decl.params[1], item);
+
+          acc = await executeBlock(reduceFn.decl.body, fnEnv, options, evidence, emitTrace, budget, tracker, userFns);
+          emitTrace("fn_call_end", expr.span, { fn: fnNameVal });
+        }
+
+        emitTrace("reduce_end", expr.span, { fn: fnNameVal, iterations: listVal.length });
+        return acc;
       }
 
       // Check user-defined functions first, then stdlib

@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Built-in Tools
 
-A0 includes four built-in tools for file I/O, HTTP requests, and shell execution. Tools are the primary way A0 programs interact with the outside world.
+A0 includes six built-in tools for file I/O, HTTP requests, and shell execution. Tools are the primary way A0 programs interact with the outside world.
 
 ## Calling Convention
 
@@ -62,5 +62,7 @@ return { data: data }
 |------|------|---------|------------|-------------|
 | [`fs.read`](./fs-read.md) | read | `call?` | `fs.read` | Read file contents |
 | [`fs.write`](./fs-write.md) | effect | `do` | `fs.write` | Write data to a file |
+| [`fs.list`](./fs-list.md) | read | `call?` | `fs.read` | List directory contents |
+| [`fs.exists`](./fs-exists.md) | read | `call?` | `fs.read` | Check if a path exists |
 | [`http.get`](./http-get.md) | read | `call?` | `http.get` | Fetch a URL via HTTP GET |
 | [`sh.exec`](./sh-exec.md) | effect | `do` | `sh.exec` | Execute a shell command |

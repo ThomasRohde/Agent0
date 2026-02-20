@@ -16,6 +16,14 @@ export const httpGetInputSchema = z.object({
   headers: z.record(z.string()).optional(),
 });
 
+export const fsListInputSchema = z.object({
+  path: z.string({ required_error: "fs.list requires a 'path' argument" }),
+});
+
+export const fsExistsInputSchema = z.object({
+  path: z.string({ required_error: "fs.exists requires a 'path' argument" }),
+});
+
 export const shExecInputSchema = z.object({
   cmd: z.string({ required_error: "sh.exec requires a 'cmd' argument" }),
   cwd: z.string().optional(),

@@ -58,6 +58,25 @@ export const strStartsFn: StdlibFn = {
 };
 
 /**
+ * str.ends { in: str, value: str } -> bool
+ * Checks if the string ends with the given value.
+ */
+export const strEndsFn: StdlibFn = {
+  name: "str.ends",
+  execute(args: A0Record): A0Value {
+    const input = args["in"] ?? null;
+    const value = args["value"] ?? null;
+    if (typeof input !== "string") {
+      throw new Error("str.ends: 'in' must be a string");
+    }
+    if (typeof value !== "string") {
+      throw new Error("str.ends: 'value' must be a string");
+    }
+    return input.endsWith(value);
+  },
+};
+
+/**
  * str.replace { in: str, from: str, to: str } -> str
  * Replaces all occurrences of `from` with `to`.
  */

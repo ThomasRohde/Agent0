@@ -13,11 +13,13 @@ export const KNOWN_CAPABILITIES = new Set([
   "sh.exec",
 ]);
 
-export const KNOWN_TOOL_MODES: ReadonlyMap<string, "read" | "effect"> = new Map([
-  ["fs.read", "read"],
-  ["fs.write", "effect"],
-  ["http.get", "read"],
-  ["sh.exec", "effect"],
+export const KNOWN_TOOLS: ReadonlyMap<string, { mode: "read" | "effect"; cap: string }> = new Map([
+  ["fs.read",   { mode: "read",   cap: "fs.read"  }],
+  ["fs.write",  { mode: "effect", cap: "fs.write" }],
+  ["fs.list",   { mode: "read",   cap: "fs.read"  }],
+  ["fs.exists", { mode: "read",   cap: "fs.read"  }],
+  ["http.get",  { mode: "read",   cap: "http.get" }],
+  ["sh.exec",   { mode: "effect", cap: "sh.exec"  }],
 ]);
 
 export const KNOWN_STDLIB = new Set([
@@ -48,6 +50,11 @@ export const KNOWN_STDLIB = new Set([
   "keys",
   "values",
   "merge",
+  "math.max",
+  "math.min",
+  "str.ends",
+  "unique",
+  "reduce",
 ]);
 
 export const KNOWN_BUDGET_FIELDS = new Set([
@@ -391,29 +398,29 @@ function validateCapUsage(
     visitExprInStmt(stmt, (expr) => {
       if (expr.kind === "CallExpr" || expr.kind === "DoExpr") {
         const toolName = expr.tool.parts.join(".");
-        if (!KNOWN_CAPABILITIES.has(toolName)) {
+        if (!KNOWN_TOOLS.has(toolName)) {
           diags.push(
             makeDiag(
               "E_UNKNOWN_TOOL",
               `Unknown tool '${toolName}'.`,
               expr.tool.span,
-              `Valid tools: ${[...KNOWN_CAPABILITIES].join(", ")}`
+              `Valid tools: ${[...KNOWN_TOOLS.keys()].join(", ")}`
             )
           );
-        } else if (!declaredCaps.has(toolName)) {
+        } else if (!declaredCaps.has(KNOWN_TOOLS.get(toolName)!.cap)) {
           diags.push(
             makeDiag(
               "E_UNDECLARED_CAP",
               `Tool '${toolName}' is used but its capability is not declared in a 'cap { ... }' header.`,
               expr.tool.span,
-              `Add '${toolName}: true' to your cap { ... } declaration.`
+              `Add '${KNOWN_TOOLS.get(toolName)!.cap}: true' to your cap { ... } declaration.`
             )
           );
         }
 
         // Static check: call? on known effect tools
         if (expr.kind === "CallExpr") {
-          const mode = KNOWN_TOOL_MODES.get(toolName);
+          const mode = KNOWN_TOOLS.get(toolName)?.mode;
           if (mode === "effect") {
             diags.push(
               makeDiag(
@@ -506,9 +513,9 @@ function validateExprBindings(
           )
         );
       }
-      // map resolves callback names from user-defined functions only.
+      // map/reduce resolve callback names from user-defined functions only.
       // If the callback is a string literal, validate eagerly at check-time.
-      if (fnName === "map") {
+      if (fnName === "map" || fnName === "reduce") {
         const fnArg = expr.args.pairs.find((p) => p.key === "fn");
         if (fnArg?.value.kind === "StrLiteral" && !fnNames.has(fnArg.value.value)) {
           diags.push(
@@ -516,7 +523,7 @@ function validateExprBindings(
               "E_UNKNOWN_FN",
               `Unknown function '${fnArg.value.value}'.`,
               fnArg.value.span,
-              "For map, define the user function with 'fn' before use and pass its name as a string."
+              `For ${fnName}, define the user function with 'fn' before use and pass its name as a string.`
             )
           );
         }

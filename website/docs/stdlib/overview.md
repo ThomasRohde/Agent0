@@ -59,6 +59,8 @@ let parsed = parse.json { in: rawData }
 | `range` | Generate a range of integers | [List Operations](./list-operations.md) |
 | `join` | Join list elements into a string | [List Operations](./list-operations.md) |
 | `map` | Apply a function to each element | [List Operations](./list-operations.md) |
+| `reduce` | Accumulate a list into a value | [List Operations](./list-operations.md) |
+| `unique` | Remove duplicate values | [List Operations](./list-operations.md) |
 
 ### String Operations
 
@@ -67,7 +69,15 @@ let parsed = parse.json { in: rawData }
 | `str.concat` | Concatenate parts into a string | [String Operations](./string-operations.md) |
 | `str.split` | Split a string by separator | [String Operations](./string-operations.md) |
 | `str.starts` | Check if string starts with a value | [String Operations](./string-operations.md) |
+| `str.ends` | Check if string ends with a value | [String Operations](./string-operations.md) |
 | `str.replace` | Replace all occurrences | [String Operations](./string-operations.md) |
+
+### Math Operations
+
+| Function | Description | Reference |
+|----------|-------------|-----------|
+| `math.max` | Maximum of a numeric list | [Math Operations](./math-operations.md) |
+| `math.min` | Minimum of a numeric list | [Math Operations](./math-operations.md) |
 
 ### Record Operations
 

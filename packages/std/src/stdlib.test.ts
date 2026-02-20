@@ -6,8 +6,9 @@ import * as assert from "node:assert/strict";
 import { parseJsonFn } from "./parse-json.js";
 import { getFn, putFn } from "./path-ops.js";
 import { patchFn } from "./patch.js";
-import { lenFn, appendFn, concatFn, sortFn, filterFn, findFn, rangeFn, joinFn } from "./list-ops.js";
-import { strConcatFn, strSplitFn, strStartsFn, strReplaceFn } from "./string-ops.js";
+import { lenFn, appendFn, concatFn, sortFn, filterFn, findFn, rangeFn, joinFn, uniqueFn } from "./list-ops.js";
+import { strConcatFn, strSplitFn, strStartsFn, strEndsFn, strReplaceFn } from "./string-ops.js";
+import { mathMaxFn, mathMinFn } from "./math-ops.js";
 import { keysFn, valuesFn, mergeFn } from "./record-ops.js";
 import type { A0Record, A0Value } from "@a0/core";
 
@@ -626,6 +627,154 @@ describe("merge", () => {
   });
 });
 
+describe("sort (multi-key)", () => {
+  it("sorts by multiple keys", () => {
+    const input = [
+      { group: 2, name: "Charlie" },
+      { group: 1, name: "Bob" },
+      { group: 1, name: "Alice" },
+      { group: 2, name: "Alice" },
+    ];
+    const result = sortFn.execute({ in: input, by: ["group", "name"] }) as A0Record[];
+    assert.equal((result[0] as A0Record)["name"], "Alice");
+    assert.equal((result[0] as A0Record)["group"], 1);
+    assert.equal((result[1] as A0Record)["name"], "Bob");
+    assert.equal((result[2] as A0Record)["name"], "Alice");
+    assert.equal((result[2] as A0Record)["group"], 2);
+    assert.equal((result[3] as A0Record)["name"], "Charlie");
+  });
+
+  it("throws on non-string elements in by array", () => {
+    assert.throws(
+      () => sortFn.execute({ in: [{ a: 1 }], by: [1] }),
+      (err: Error) => err.message.includes("must be strings")
+    );
+  });
+
+  it("throws on invalid by type", () => {
+    assert.throws(
+      () => sortFn.execute({ in: [{ a: 1 }], by: true }),
+      (err: Error) => err.message.includes("must be a string or list")
+    );
+  });
+});
+
+describe("unique", () => {
+  it("removes duplicate primitives", () => {
+    assert.deepEqual(uniqueFn.execute({ in: [1, 2, 2, 3, 1] }), [1, 2, 3]);
+  });
+
+  it("removes duplicate strings", () => {
+    assert.deepEqual(uniqueFn.execute({ in: ["a", "b", "a", "c"] }), ["a", "b", "c"]);
+  });
+
+  it("removes duplicate records using deep equality", () => {
+    const input = [{ x: 1 }, { x: 2 }, { x: 1 }];
+    const result = uniqueFn.execute({ in: input }) as A0Value[];
+    assert.equal(result.length, 2);
+    assert.deepEqual(result[0], { x: 1 });
+    assert.deepEqual(result[1], { x: 2 });
+  });
+
+  it("returns empty list for empty input", () => {
+    assert.deepEqual(uniqueFn.execute({ in: [] }), []);
+  });
+
+  it("throws on non-list", () => {
+    assert.throws(
+      () => uniqueFn.execute({ in: "not a list" }),
+      (err: Error) => err.message.includes("must be a list")
+    );
+  });
+});
+
+describe("math.max", () => {
+  it("returns max of positive numbers", () => {
+    assert.equal(mathMaxFn.execute({ in: [1, 5, 3] }), 5);
+  });
+
+  it("returns max of negative numbers", () => {
+    assert.equal(mathMaxFn.execute({ in: [-10, -3, -7] }), -3);
+  });
+
+  it("works with single element", () => {
+    assert.equal(mathMaxFn.execute({ in: [42] }), 42);
+  });
+
+  it("throws on empty list", () => {
+    assert.throws(
+      () => mathMaxFn.execute({ in: [] }),
+      (err: Error) => err.message.includes("must not be empty")
+    );
+  });
+
+  it("throws on non-numbers", () => {
+    assert.throws(
+      () => mathMaxFn.execute({ in: [1, "two", 3] }),
+      (err: Error) => err.message.includes("must be numbers")
+    );
+  });
+
+  it("throws on non-list", () => {
+    assert.throws(
+      () => mathMaxFn.execute({ in: 42 }),
+      (err: Error) => err.message.includes("must be a list")
+    );
+  });
+});
+
+describe("math.min", () => {
+  it("returns min of positive numbers", () => {
+    assert.equal(mathMinFn.execute({ in: [5, 1, 3] }), 1);
+  });
+
+  it("returns min of negative numbers", () => {
+    assert.equal(mathMinFn.execute({ in: [-3, -10, -7] }), -10);
+  });
+
+  it("works with single element", () => {
+    assert.equal(mathMinFn.execute({ in: [42] }), 42);
+  });
+
+  it("throws on empty list", () => {
+    assert.throws(
+      () => mathMinFn.execute({ in: [] }),
+      (err: Error) => err.message.includes("must not be empty")
+    );
+  });
+
+  it("throws on non-numbers", () => {
+    assert.throws(
+      () => mathMinFn.execute({ in: [1, "two", 3] }),
+      (err: Error) => err.message.includes("must be numbers")
+    );
+  });
+});
+
+describe("str.ends", () => {
+  it("returns true when string ends with value", () => {
+    assert.equal(strEndsFn.execute({ in: "hello", value: "llo" }), true);
+  });
+
+  it("returns false when string does not end with value", () => {
+    assert.equal(strEndsFn.execute({ in: "hello", value: "world" }), false);
+  });
+
+  it("throws on non-string input", () => {
+    assert.throws(
+      () => strEndsFn.execute({ in: 42, value: "llo" }),
+      (err: Error) => err.message.includes("must be a string")
+    );
+  });
+
+  it("throws on non-string value", () => {
+    assert.throws(
+      () => strEndsFn.execute({ in: "hello", value: 42 }),
+      (err: Error) => err.message.includes("must be a string")
+    );
+  });
+});
+
 describe("getStdlibFns", () => {
   it("returns all stdlib functions", async () => {
     const { getStdlibFns } = await import("./index.js");
@@ -654,6 +803,10 @@ describe("getStdlibFns", () => {
     assert.ok(fns.has("keys"));
     assert.ok(fns.has("values"));
     assert.ok(fns.has("merge"));
-    assert.equal(fns.size, 24);
+    assert.ok(fns.has("math.max"));
+    assert.ok(fns.has("math.min"));
+    assert.ok(fns.has("str.ends"));
+    assert.ok(fns.has("unique"));
+    assert.equal(fns.size, 28);
   });
 });

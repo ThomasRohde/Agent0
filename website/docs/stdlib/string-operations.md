@@ -60,6 +60,22 @@ let no = str.starts { in: "hello world", value: "world" }
 return { yes: yes }
 ```
 
+## str.ends
+
+Check if a string ends with a given suffix.
+
+**Signature:** `str.ends { in: str, value: str }` returns `bool`.
+
+```a0
+let yes = str.ends { in: "hello world", value: "world" }
+# -> true
+
+let no = str.ends { in: "hello world", value: "hello" }
+# -> false
+
+return { yes: yes }
+```
+
 ## str.replace
 
 Replace all occurrences of a substring.

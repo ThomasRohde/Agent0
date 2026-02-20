@@ -320,6 +320,40 @@ return { doubled: doubled, labels: labels }
 - Use `map` when each element transforms independently via a reusable function
 - Use `for` when the body needs `let` bindings, tool calls, or multi-step logic
 
+## Pattern 17: Dynamic Directory Discovery
+
+Use `fs.list` to dynamically discover files and directories instead of hardcoding paths.
+
+```
+# list-packages.a0
+cap { fs.read: true }
+
+call? fs.list { path: "packages" } -> entries
+let tagged = for { in: entries, as: "entry" } {
+  let isDir = eq { a: entry.type, b: "directory" }
+  return { name: entry.name, isDir: isDir }
+}
+let dirs = filter { in: tagged, by: "isDir" }
+return { packages: dirs }
+```
+
+## Pattern 18: Reduce for Aggregation
+
+Use `reduce` to compute aggregate values from lists.
+
+```
+# sum-scores.a0
+fn addScore { acc, item } {
+  let newTotal = acc.val + item.score
+  return { val: newTotal }
+}
+let items = [{ name: "A", score: 10 }, { name: "B", score: 20 }, { name: "C", score: 30 }]
+let result = reduce { in: items, fn: "addScore", init: { val: 0 } }
+let maxScore = math.max { in: [10, 20, 30] }
+let minScore = math.min { in: [10, 20, 30] }
+return { total: result.val, max: maxScore, min: minScore }
+```
+
 ## Anti-Patterns to Avoid
 
 ### Missing return

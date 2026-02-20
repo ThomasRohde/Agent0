@@ -19,11 +19,14 @@ TYPES
   record: { key: value, nested: { a: 1 } }  list: [1, 2, "x"]
 
 TOOLS (require cap + policy)
-  call? fs.read  { path }                -> str
-  do    fs.write { path, data, format? } -> { kind, path, bytes, sha256 }
-  call? http.get { url, headers? }       -> { status, headers, body }
-  do    sh.exec  { cmd, cwd?, env?, timeoutMs? } -> { exitCode, stdout, stderr, durationMs }
+  call? fs.read   { path }                -> str
+  do    fs.write  { path, data, format? } -> { kind, path, bytes, sha256 }
+  call? fs.list   { path }                -> [{ name, type }]
+  call? fs.exists { path }                -> bool
+  call? http.get  { url, headers? }       -> { status, headers, body }
+  do    sh.exec   { cmd, cwd?, env?, timeoutMs? } -> { exitCode, stdout, stderr, durationMs }
   call? = read-only        do = side-effect
+  Note: fs.list and fs.exists share the fs.read capability
 
 STDLIB (pure, no cap needed)
   parse.json { in }             -> parsed value
@@ -39,6 +42,7 @@ CONTROL FLOW
   fn name { params } { ... return { } }    # define before use
   let x = match ident { ok {v} { return {} } err {e} { return {} } }
   let out = map { in: list, fn: "fnName" } # apply fn to each element
+  let val = reduce { in: list, fn: "fnName", init: { val: 0 } } # accumulate
 
 EVIDENCE
   assert { that: bool_expr, msg?: "..." }  # fatal: false -> exit 5, halts immediately
@@ -183,6 +187,20 @@ fs.read — Read a file
     call? fs.read { path: "config.json" } -> content
     let data = parse.json { in: content }
 
+fs.list — List directory contents
+  Mode: read (call?)    Cap: fs.read
+  Args:   { path: str }
+  Return: [{ name: str, type: str }]   type: "file", "directory", or "other"
+  Example:
+    call? fs.list { path: "packages" } -> entries
+
+fs.exists — Check if path exists
+  Mode: read (call?)    Cap: fs.read
+  Args:   { path: str }
+  Return: bool
+  Example:
+    call? fs.exists { path: "config.json" } -> exists
+
 fs.write — Write data to file
   Mode: effect (do)     Cap: fs.write
   Args:   { path: str, data: any, format?: str }
@@ -212,6 +230,7 @@ KEYWORD RULES
   do on read tool     -> allowed but unconventional (prefer call?)
   Invalid tool args   -> E_TOOL_ARGS (exit 4, runtime schema validation)
   Unknown tool name   -> E_UNKNOWN_TOOL (usually exit 2 from validation; runtime exit 4 is rare)
+  Note: fs.list and fs.exists share the fs.read capability
 
 PATH RESOLUTION
   File paths (fs.read, fs.write) resolve relative to the process
@@ -285,8 +304,9 @@ LIST FUNCTIONS
   concat { a: list, b: list } -> list
     Concatenate two lists.
 
-  sort { in: list, by?: str } -> list
-    Sort a list (optionally by record field).
+  sort { in: list, by?: str|list } -> list
+    Sort a list (by record field or multiple fields for multi-key sort).
+    Multi-key: sort { in: items, by: ["group", "name"] }
 
   filter { in: list, by: str } -> list
     Keep record elements where element[by] is truthy.
@@ -304,11 +324,29 @@ LIST FUNCTIONS
     Apply a named user-defined function to each element, return results list.
     The fn must be defined with fn before use. Single-param fn gets each item;
     multi-param fn destructures record items by key.
-    Shares maxIterations budget with for loops.
+    Shares maxIterations budget with for loops and reduce.
     Example:
       fn double { x } { return { val: x * 2 } }
       let nums = [1, 2, 3]
       let doubled = map { in: nums, fn: "double" }
+
+  reduce { in: list, fn: "fnName", init: any } -> any
+    Accumulate a list into a single value via a 2-param function.
+    The fn must accept (accumulator, item). Shares maxIterations budget.
+    Example:
+      fn addScore { acc, item } { return { val: acc.val + item.score } }
+      let result = reduce { in: scores, fn: "addScore", init: { val: 0 } }
+
+  unique { in: list } -> list
+    Remove duplicates using deep equality. Preserves first-occurrence order.
+
+MATH FUNCTIONS
+
+  math.max { in: list } -> number
+    Maximum of a numeric list. Throws on empty list or non-numbers.
+
+  math.min { in: list } -> number
+    Minimum of a numeric list. Throws on empty list or non-numbers.
 
 STRING FUNCTIONS
 
@@ -320,6 +358,9 @@ STRING FUNCTIONS
 
   str.starts { in: str, value: str } -> bool
     Test whether string starts with value.
+
+  str.ends { in: str, value: str } -> bool
+    Test whether string ends with value.
 
   str.replace { in: str, from: str, to: str } -> str
     Replace all occurrences of substring.
@@ -397,7 +438,7 @@ FIELDS
   timeMs            int    Maximum wall-clock time in milliseconds
   maxToolCalls      int    Maximum number of tool invocations
   maxBytesWritten   int    Maximum bytes written via fs.write
-  maxIterations     int    Maximum for/map iterations (cumulative across all loops and maps)
+  maxIterations     int    Maximum for/map/reduce iterations (cumulative across all loops, maps, and reduces)
 
 RULES
   - Only declare fields the program needs
@@ -405,7 +446,7 @@ RULES
   - Unknown fields produce E_UNKNOWN_BUDGET at validation time (exit 2)
   - Budget fields must be integer literals (E_BUDGET_TYPE)
   - timeMs is enforced during expression and statement evaluation
-  - maxToolCalls/maxIterations are checked during tool calls and loop/map iterations
+  - maxToolCalls/maxIterations are checked during tool calls and loop/map/reduce iterations
   - maxBytesWritten is enforced after each write completes (post-effect);
     the write side effect occurs before the limit is checked
   - budget can appear before or after cap, but both must precede statements
@@ -488,7 +529,7 @@ map — Higher-order list transformation
   - Single-param fn receives each item directly
   - Multi-param fn destructures record items by key name
   - Non-record items with multi-param fn produce E_TYPE
-  - Shares maxIterations budget with for loops (cumulative)
+  - Shares maxIterations budget with for loops and reduce (cumulative)
   - E_TYPE if in: is not a list, fn: is not a string, or a multi-param item is not a record
   - E_UNKNOWN_FN if the named function doesn't exist
   Example:
@@ -497,6 +538,20 @@ map — Higher-order list transformation
     }
     let nums = [1, 2, 3]
     let doubled = map { in: nums, fn: "double" }
+
+reduce — Accumulate a list to a single value
+  Syntax: reduce { in: list_expr, fn: "fnName", init: value }
+  - Calls the named 2-param function with (accumulator, item) for each element
+  - Returns the final accumulator value
+  - fn must be defined before use and must accept exactly 2 parameters
+  - Shares maxIterations budget with for loops and map (cumulative)
+  - E_TYPE if fn doesn't have 2 params, in: is not a list, or fn: is not a string
+  - E_UNKNOWN_FN if the named function doesn't exist
+  Example:
+    fn addScore { acc, item } {
+      return { val: acc.val + item.score }
+    }
+    let result = reduce { in: scores, fn: "addScore", init: { val: 0 } }
 `.trimStart(),
 
 // ─── DIAGNOSTICS ────────────────────────────────────────────────────────────
@@ -516,7 +571,7 @@ COMPILE-TIME ERRORS (exit 2) — caught by a0 check
   E_AST             AST construction failed (rare)   Report bug with minimal repro
   E_NO_RETURN       Missing return                  Add return { ... } as last stmt
   E_RETURN_NOT_LAST Statements after return          Move return to end
-  E_UNKNOWN_CAP     Invalid capability name          Use: fs.read fs.write http.get sh.exec
+  E_UNKNOWN_CAP     Invalid capability name          Caps: fs.read fs.write http.get sh.exec
   E_IMPORT_UNSUPPORTED Import declarations are reserved Remove import headers for now
   E_CAP_VALUE       Capability value not true        Use capability declarations like fs.read: true
   E_UNDECLARED_CAP  Tool used without cap            Add capability to cap { ... }
@@ -528,7 +583,7 @@ COMPILE-TIME ERRORS (exit 2) — caught by a0 check
   E_CALL_EFFECT     call? on effect tool              Use do for fs.write, sh.exec
   E_FN_DUP          Duplicate fn name                Rename one function
   E_UNKNOWN_FN      Unknown function name            Define function before use / fix spelling
-  E_UNKNOWN_TOOL    Unknown tool name                Use: fs.read fs.write http.get sh.exec
+  E_UNKNOWN_TOOL    Unknown tool name                Tools: fs.read fs.write fs.list fs.exists http.get sh.exec
 
 RUNTIME ERRORS (exit 3/4/5)
   Code              Exit  Cause                      Fix
@@ -541,9 +596,9 @@ RUNTIME ERRORS (exit 3/4/5)
   E_RUNTIME         4     Unexpected runtime error    Report bug with repro; inspect trace/output context
   E_BUDGET          4     Budget limit exceeded       Increase limit or reduce usage
   E_UNKNOWN_FN      4     Unknown function at runtime (rare) Check: parse.json get put patch eq contains not and or
-                                                     len append concat sort filter find range join map
-                                                     str.concat str.split str.starts str.replace
-                                                     keys values merge  (or user-defined fn names)
+                                                     len append concat sort filter find range join map reduce unique
+                                                     str.concat str.split str.starts str.ends str.replace
+                                                     keys values merge math.max math.min  (or user-defined fn names)
   E_FN              4     Stdlib function threw        Check function args (e.g. invalid JSON)
   E_PATH            4     Dot-access on non-record   Verify variable holds a record
   E_TYPE            4     Type mismatch at runtime   Check arg types (e.g. map in:/fn: types)

@@ -1,0 +1,77 @@
+# list-packages.a0 — Dynamic workspace package discovery
+# Demonstrates: fs.list, fs.read, fs.exists, for, sort,
+#               math.max, math.min, str.ends, unique, reduce, parse.json
+
+cap { fs.read: true }
+
+# Step 1: Dynamically discover package directories
+call? fs.list { path: "packages" } -> entries
+
+# Step 2: Tag each entry with a directory flag, then filter
+let tagged = for { in: entries, as: "entry" } {
+  let isDir = eq { a: entry.type, b: "directory" }
+  return { name: entry.name, isDir: isDir }
+}
+let dirs = filter { in: tagged, by: "isDir" }
+
+# Step 3: For each directory, read its package.json
+let pkgData = for { in: dirs, as: "d" } {
+  let manifestPath = str.concat { parts: ["packages/", d.name, "/package.json"] }
+  call? fs.exists { path: manifestPath } -> exists
+  call? fs.read { path: manifestPath } -> raw
+  let pkg = parse.json { in: raw }
+  let name = get { in: pkg, path: "name" }
+  let version = get { in: pkg, path: "version" }
+  return { dir: d.name, name: name, version: version }
+}
+
+# Step 4: Sort by name
+let sorted = sort { in: pkgData, by: "name" }
+let pkgCount = len { in: sorted }
+
+# Step 5: Get unique package names (already unique, but demonstrates the function)
+let uniquePkgs = unique { in: sorted }
+
+# Step 6: Check which names end with "s"
+let endChecks = for { in: sorted, as: "pkg" } {
+  let ends = str.ends { in: pkg.name, value: "s" }
+  return { name: pkg.name, endsWithS: ends }
+}
+
+# Step 7: Compute name lengths, then use math.max/min
+let nameLens = for { in: sorted, as: "pkg" } {
+  let nameLen = len { in: pkg.name }
+  return { name: pkg.name, nameLen: nameLen }
+}
+
+# Extract just the numeric lengths for math.max/min via reduce
+fn collectLens { acc, item } {
+  let newList = append { in: acc.vals, value: item.nameLen }
+  return { vals: newList }
+}
+let collected = reduce { in: nameLens, fn: "collectLens", init: { vals: [] } }
+let maxLen = math.max { in: collected.vals }
+let minLen = math.min { in: collected.vals }
+
+# Step 8: Use reduce to build a comma-separated name string
+fn joinNames { acc, item } {
+  let prev = acc.text
+  let isEmpty = eq { a: prev, b: "" }
+  let joined = if {
+    cond: isEmpty,
+    then: item.name,
+    else: str.concat { parts: [prev, ", ", item.name] }
+  }
+  return { text: joined }
+}
+let nameString = reduce { in: sorted, fn: "joinNames", init: { text: "" } }
+
+return {
+  packageCount: pkgCount,
+  packages: sorted,
+  uniquePackages: uniquePkgs,
+  endsWithS: endChecks,
+  longestNameLen: maxLen,
+  shortestNameLen: minLen,
+  joinedNames: nameString.text
+}

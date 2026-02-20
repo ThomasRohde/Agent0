@@ -91,6 +91,8 @@ Read-only tools use `call?`. Effectful tools use `do`. Using `call?` on an effec
 |------|------|---------|------------|
 | `fs.read` | read | `call?` | `fs.read` |
 | `fs.write` | effect | `do` | `fs.write` |
+| `fs.list` | read | `call?` | `fs.read` |
+| `fs.exists` | read | `call?` | `fs.read` |
 | `http.get` | read | `call?` | `http.get` |
 | `sh.exec` | effect | `do` | `sh.exec` |
 
@@ -133,12 +135,21 @@ Predicates use A0 truthiness: `false`, `null`, `0`, and `""` are falsy; everythi
 | `len` | Length of list, string, or record (key count) | `{ in: list\|str\|rec }` -> `int` |
 | `append` | Append element to list | `{ in: list, value: any }` -> `list` |
 | `concat` | Concatenate two lists | `{ a: list, b: list }` -> `list` |
-| `sort` | Sort list (natural order or by key) | `{ in: list, by?: str }` -> `list` |
+| `sort` | Sort list (natural order, by key, or multi-key) | `{ in: list, by?: str\|list }` -> `list` |
 | `filter` | Keep elements where predicate key is truthy | `{ in: list, by: str }` -> `list` |
 | `find` | First element where key matches value | `{ in: list, key: str, value: any }` -> `any\|null` |
 | `range` | Generate integer list | `{ from: int, to: int }` -> `list` |
 | `join` | Join list of strings | `{ in: list, sep?: str }` -> `str` |
 | `map` | Transform list via named function | `{ in: list, fn: str }` -> `list` |
+| `reduce` | Reduce list to single value via named function | `{ in: list, fn: str, init: any }` -> `any` |
+| `unique` | Remove duplicate values (deep equality) | `{ in: list }` -> `list` |
+
+### Math Operations
+
+| Function | Purpose | Key Args |
+|----------|---------|----------|
+| `math.max` | Maximum of numeric list | `{ in: list }` -> `number` |
+| `math.min` | Minimum of numeric list | `{ in: list }` -> `number` |
 
 ### String Operations
 
@@ -147,6 +158,7 @@ Predicates use A0 truthiness: `false`, `null`, `0`, and `""` are falsy; everythi
 | `str.concat` | Concatenate strings from a list | `{ parts: list }` -> `str` |
 | `str.split` | Split string by separator | `{ in: str, sep: str }` -> `list` |
 | `str.starts` | Starts-with check | `{ in: str, value: str }` -> `bool` |
+| `str.ends` | Ends-with check | `{ in: str, value: str }` -> `bool` |
 | `str.replace` | Replace substring | `{ in: str, from: str, to: str }` -> `str` |
 
 ### Record Operations
@@ -235,7 +247,22 @@ fn fullName { first, last } {
 let names = map { in: users, fn: "fullName" }
 ```
 
-Budget-aware via `maxIterations` (shared counter with `for`). Errors propagate immediately — no partial results.
+Budget-aware via `maxIterations` (shared counter with `for` and `reduce`). Errors propagate immediately — no partial results.
+
+### reduce — Accumulate a list to a single value
+
+Apply a 2-parameter user-defined function to accumulate a list into a single value. The function receives `(accumulator, item)` for each element.
+
+```
+fn addScore { acc, item } {
+  let newTotal = acc.val + item.score
+  return { val: newTotal }
+}
+let result = reduce { in: items, fn: "addScore", init: { val: 0 } }
+# result.val contains the sum
+```
+
+The callback must accept exactly 2 parameters. Budget-aware via `maxIterations` (shared counter with `for` and `map`).
 
 ### fn — User-defined functions
 
@@ -326,6 +353,8 @@ Avoid these frequent errors:
 - **`map` with non-list `in`** → `E_TYPE`. The `in:` value must be a list.
 - **`map` with non-string `fn`** → `E_TYPE`. The `fn:` value must be a function name string.
 - **`map` with unknown function** → `E_UNKNOWN_FN`. The named function must be defined with `fn` before the `map` call.
+- **`reduce` with non-2-param function** → `E_TYPE`. The callback must accept exactly 2 parameters (accumulator, item).
+- **`reduce` with unknown function** → `E_UNKNOWN_FN`. The named function must be defined with `fn` before the `reduce` call.
 - **`for` on non-list** → `E_FOR_NOT_LIST`. The `in:` value must evaluate to a list.
 - **`match` on non-record** → `E_MATCH_NOT_RECORD`. The subject must be a record with `ok` or `err` key.
 - **`match` missing arm** → `E_MATCH_NO_ARM`. Subject record must have `ok` or `err` key.

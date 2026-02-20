@@ -6,7 +6,7 @@ import * as assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { fsReadTool, fsWriteTool } from "./fs-tools.js";
+import { fsReadTool, fsWriteTool, fsListTool, fsExistsTool } from "./fs-tools.js";
 import { shExecTool } from "./sh-tools.js";
 import { httpGetTool } from "./http-tools.js";
 import { registerBuiltinTools, getAllTools } from "./index.js";
@@ -135,6 +135,85 @@ describe("fs.write", () => {
   });
 });
 
+describe("fs.list", () => {
+  it("lists files and directories", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-"));
+    fs.writeFileSync(path.join(tmpDir, "file.txt"), "hello", "utf-8");
+    fs.mkdirSync(path.join(tmpDir, "subdir"));
+    try {
+      const result = await fsListTool.execute({ path: tmpDir }) as A0Record[];
+      assert.ok(Array.isArray(result));
+      const names = result.map((e) => (e as A0Record)["name"]);
+      assert.ok(names.includes("file.txt"));
+      assert.ok(names.includes("subdir"));
+      const file = result.find((e) => (e as A0Record)["name"] === "file.txt") as A0Record;
+      assert.equal(file["type"], "file");
+      const dir = result.find((e) => (e as A0Record)["name"] === "subdir") as A0Record;
+      assert.equal(dir["type"], "directory");
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("lists empty directory", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-"));
+    try {
+      const result = await fsListTool.execute({ path: tmpDir }) as A0Record[];
+      assert.ok(Array.isArray(result));
+      assert.equal(result.length, 0);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("throws on nonexistent directory", async () => {
+    await assert.rejects(
+      () => fsListTool.execute({ path: "/nonexistent/dir/abc123" })
+    );
+  });
+
+  it("has correct tool metadata", () => {
+    assert.equal(fsListTool.name, "fs.list");
+    assert.equal(fsListTool.mode, "read");
+    assert.equal(fsListTool.capabilityId, "fs.read");
+  });
+});
+
+describe("fs.exists", () => {
+  it("returns true for existing file", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-"));
+    const filePath = path.join(tmpDir, "test.txt");
+    fs.writeFileSync(filePath, "hello", "utf-8");
+    try {
+      const result = await fsExistsTool.execute({ path: filePath });
+      assert.equal(result, true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("returns true for existing directory", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "a0-test-"));
+    try {
+      const result = await fsExistsTool.execute({ path: tmpDir });
+      assert.equal(result, true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true });
+    }
+  });
+
+  it("returns false for nonexistent path", async () => {
+    const result = await fsExistsTool.execute({ path: "/nonexistent/file/abc123.txt" });
+    assert.equal(result, false);
+  });
+
+  it("has correct tool metadata", () => {
+    assert.equal(fsExistsTool.name, "fs.exists");
+    assert.equal(fsExistsTool.mode, "read");
+    assert.equal(fsExistsTool.capabilityId, "fs.read");
+  });
+});
+
 describe("sh.exec", () => {
   it("executes a simple command", async () => {
     const result = await shExecTool.execute({ cmd: "echo hello" }) as A0Record;
@@ -203,11 +282,13 @@ describe("tool inputSchema", () => {
 });
 
 describe("registerBuiltinTools", () => {
-  it("registers all four built-in tools", () => {
+  it("registers all built-in tools", () => {
     registerBuiltinTools();
     const all = getAllTools();
     assert.ok(all.has("fs.read"));
     assert.ok(all.has("fs.write"));
+    assert.ok(all.has("fs.list"));
+    assert.ok(all.has("fs.exists"));
     assert.ok(all.has("http.get"));
     assert.ok(all.has("sh.exec"));
   });

@@ -44,6 +44,7 @@ Launch **exactly two** subagents using the Task tool **in parallel** (both in a 
 > - Write a brief `approach.md` explaining what you did and why.
 > - If you encounter errors, log them to `errors.log` (one per line) and keep going.
 > - When finished, write `done.txt` containing exactly `SUCCESS` or `FAILURE` and a one-line reason.
+> - **Tracking:** Keep a running log in `tool-calls.log` — append one line per tool call you make, in the format: `<tool-name> <bytes-written>` (use 0 for read-only calls). This is used to estimate output token cost.
 
 #### Condition A — Full Tools (baseline)
 
@@ -69,6 +70,19 @@ After both agents finish, read the following files from each condition directory
 - `output.txt` — the actual output
 - `approach.md` — how they solved it
 - `errors.log` — any errors (if exists)
+- `tool-calls.log` — tool call log (if exists)
+
+#### Estimate Output Tokens
+
+For each condition, estimate the **output tokens** the LLM had to generate:
+
+1. **Count all bytes written** by the agent — sum the sizes of every file the agent created in its condition directory (use `wc -c` or similar on all files). This represents the content the model actually produced as output.
+2. **Count tool calls** from `tool-calls.log` (lines in file). Each tool call adds ~30 tokens of overhead (tool name, JSON structure, parameter keys).
+3. **Estimate tokens:**
+   - `content_tokens = total_bytes_written / 3.5` (average for mixed code/English)
+   - `overhead_tokens = tool_call_count * 30`
+   - `estimated_output_tokens = content_tokens + overhead_tokens`
+4. Record these numbers for the comparison table.
 
 ### 4. Write Comparison Report
 
@@ -84,24 +98,40 @@ Write `results.md` in the experiment directory with this structure:
 - **Status:** SUCCESS/FAILURE
 - **Approach:** <summary from approach.md>
 - **Errors:** <count and summary>
+- **Tool calls:** <count from tool-calls.log>
+- **Total bytes written:** <sum of all file sizes in condition-a/>
+- **Estimated output tokens:** <calculated estimate>
 - **Output preview:** <first 20 lines of output.txt>
 
 ## Condition B — A0 Only
 - **Status:** SUCCESS/FAILURE
 - **Approach:** <summary from approach.md>
 - **Errors:** <count and summary>
+- **Tool calls:** <count from tool-calls.log>
+- **Total bytes written:** <sum of all file sizes in condition-b/>
+- **Estimated output tokens:** <calculated estimate>
 - **Output preview:** <first 20 lines of output.txt>
 
 ## Comparison
 
-| Metric              | Full Tools | A0 Only |
-|---------------------|-----------|---------|
-| Completed           |           |         |
-| Errors              |           |         |
-| Output matches      |           |         |
+| Metric                    | Full Tools | A0 Only | Delta   |
+|---------------------------|-----------|---------|---------|
+| Completed                 |           |         |         |
+| Errors                    |           |         |         |
+| Output matches            |           |         |         |
+| Tool calls                |           |         |         |
+| Bytes written             |           |         |         |
+| **Est. output tokens**    |           |         | **%**   |
+| Est. output cost (Sonnet) |           |         | **%**   |
+
+*Output token cost estimate uses Sonnet pricing: $15 / 1M output tokens.*
+*Formula: `(estimated_output_tokens / 1_000_000) * 15`*
 
 ## Observations
 <qualitative comparison: which was more structured, more correct, more debuggable?>
+
+### Token Efficiency Analysis
+<discuss: did A0's compact structured syntax reduce output tokens compared to verbose Write/Edit/Bash calls? How much of the difference comes from the program itself vs tool call overhead?>
 
 ## Raw output diff
 <diff of the two output.txt files, if both exist>

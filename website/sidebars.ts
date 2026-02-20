@@ -31,6 +31,8 @@ const sidebars: SidebarsConfig = {
         'tools/overview',
         'tools/fs-read',
         'tools/fs-write',
+        'tools/fs-list',
+        'tools/fs-exists',
         'tools/http-get',
         'tools/sh-exec',
       ],
@@ -45,6 +47,7 @@ const sidebars: SidebarsConfig = {
         'stdlib/list-operations',
         'stdlib/string-operations',
         'stdlib/record-operations',
+        'stdlib/math-operations',
       ],
     },
     {

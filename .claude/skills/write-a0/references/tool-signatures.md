@@ -37,6 +37,36 @@ do fs.write { path: "out.json", data: { key: "value" }, format: "json" } -> arti
 # artifact.path, artifact.bytes, artifact.sha256 available
 ```
 
+## fs.list
+
+List the contents of a directory.
+
+- **Mode**: read (`call?`)
+- **Capability**: `fs.read`
+- **Args**: `{ path: str }`
+  - `path` — Directory path to list (required)
+- **Returns**: `list` of `{ name: str, type: str }` — each entry has `name` (filename) and `type` (`"file"`, `"directory"`, or `"other"`)
+
+```
+call? fs.list { path: "packages" } -> entries
+# entries is [{ name: "core", type: "directory" }, { name: "README.md", type: "file" }, ...]
+```
+
+## fs.exists
+
+Check if a file or directory exists.
+
+- **Mode**: read (`call?`)
+- **Capability**: `fs.read`
+- **Args**: `{ path: str }`
+  - `path` — Path to check (required)
+- **Returns**: `bool` — `true` if the path exists, `false` otherwise
+
+```
+call? fs.exists { path: "config.json" } -> exists
+# exists is true or false
+```
+
 ## http.get
 
 Fetch a URL via HTTP GET.
@@ -85,7 +115,7 @@ do sh.exec { cmd: "ls -la", cwd: "/tmp", timeoutMs: 10000 } -> result
 
 These are pure functions (no capability needed). Call with `name { args }`.
 
-Valid stdlib functions: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or`, `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `str.concat`, `str.split`, `str.starts`, `str.replace`, `keys`, `values`, `merge`.
+Valid stdlib functions: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or`, `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `map`, `reduce`, `unique`, `str.concat`, `str.split`, `str.starts`, `str.ends`, `str.replace`, `keys`, `values`, `merge`, `math.max`, `math.min`.
 
 ### parse.json
 
@@ -267,10 +297,10 @@ let all = concat { a: [1, 2], b: [3, 4] }
 
 ### sort
 
-Sort a list in natural order, or by a key within record elements.
+Sort a list in natural order, by a key, or by multiple keys within record elements.
 
-- **Args**: `{ in: list, by?: str }`
-  - `by` — Optional key name to sort records by
+- **Args**: `{ in: list, by?: str | list }`
+  - `by` — Optional key name (string) or list of key names for multi-key sort
 - **Returns**: `list` — the sorted list
 - **Error**: `E_FN` if `in` is not a list
 
@@ -279,6 +309,8 @@ let ordered = sort { in: [3, 1, 2] }
 # ordered is [1, 2, 3]
 let byName = sort { in: [{ name: "Bob" }, { name: "Alice" }], by: "name" }
 # byName is [{ name: "Alice" }, { name: "Bob" }]
+let multiKey = sort { in: items, by: ["group", "name"] }
+# sorts by group first, then by name within each group
 ```
 
 ### filter
@@ -374,6 +406,19 @@ let yes = str.starts { in: "hello world", value: "hello" }
 # yes is true
 ```
 
+### str.ends
+
+Check if a string ends with a suffix.
+
+- **Args**: `{ in: str, value: str }`
+- **Returns**: `bool` — `true` if `in` ends with `value`
+- **Error**: `E_FN` if `in` or `value` is not a string
+
+```
+let yes = str.ends { in: "hello world", value: "world" }
+# yes is true
+```
+
 ### str.replace
 
 Replace all occurrences of a substring.
@@ -424,4 +469,62 @@ Shallow merge two records. Keys in `b` override keys in `a`.
 ```
 let combined = merge { a: { x: 1, y: 2 }, b: { y: 3, z: 4 } }
 # combined is { x: 1, y: 3, z: 4 }
+```
+
+### unique
+
+Remove duplicates from a list using deep equality.
+
+- **Args**: `{ in: list }`
+- **Returns**: `list` — deduplicated list (preserves first occurrence order)
+- **Error**: `E_FN` if `in` is not a list
+
+```
+let deduped = unique { in: [1, 2, 2, 3, 1] }
+# deduped is [1, 2, 3]
+```
+
+### math.max
+
+Return the maximum value in a numeric list.
+
+- **Args**: `{ in: list }`
+- **Returns**: `number` — the maximum value
+- **Error**: `E_FN` if `in` is empty, not a list, or contains non-numbers
+
+```
+let biggest = math.max { in: [3, 7, 1, 5] }
+# biggest is 7
+```
+
+### math.min
+
+Return the minimum value in a numeric list.
+
+- **Args**: `{ in: list }`
+- **Returns**: `number` — the minimum value
+- **Error**: `E_FN` if `in` is empty, not a list, or contains non-numbers
+
+```
+let smallest = math.min { in: [3, 7, 1, 5] }
+# smallest is 1
+```
+
+### reduce
+
+Reduce a list to a single value by applying a 2-parameter function with an accumulator.
+
+- **Args**: `{ in: list, fn: str, init: any }`
+  - `fn` — Name of a user-defined function with exactly 2 parameters (accumulator, item)
+  - `init` — Initial accumulator value
+- **Returns**: The final accumulator value
+- **Error**: `E_UNKNOWN_FN` if function not defined; `E_TYPE` if function doesn't have exactly 2 params
+
+```
+fn addScore { acc, item } {
+  let newTotal = acc.val + item.score
+  return { val: newTotal }
+}
+let result = reduce { in: items, fn: "addScore", init: { val: 0 } }
+# result.val contains the sum
 ```

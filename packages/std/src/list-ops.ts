@@ -84,9 +84,10 @@ export const concatFn: StdlibFn = {
 };
 
 /**
- * sort { in: list, by?: str } -> list
+ * sort { in: list, by?: str | list } -> list
  * Returns a new sorted list. Natural sort: numbers numeric, strings lexicographic.
- * If `by` is provided, sorts by that record key.
+ * If `by` is a string, sorts by that record key.
+ * If `by` is a list of strings, sorts by multiple keys (first key is primary).
  */
 export const sortFn: StdlibFn = {
   name: "sort",
@@ -96,24 +97,44 @@ export const sortFn: StdlibFn = {
     if (!Array.isArray(input)) {
       throw new Error("sort: 'in' must be a list");
     }
-    if (by !== null && typeof by !== "string") {
-      throw new Error("sort: 'by' must be a string");
+    // Normalize by to string[] | null
+    let keys: string[] | null = null;
+    if (by !== null) {
+      if (typeof by === "string") {
+        keys = [by];
+      } else if (Array.isArray(by)) {
+        for (const k of by) {
+          if (typeof k !== "string") {
+            throw new Error("sort: 'by' array elements must be strings");
+          }
+        }
+        keys = by as string[];
+      } else {
+        throw new Error("sort: 'by' must be a string or list of strings");
+      }
     }
     const sorted = [...input];
     sorted.sort((x, y) => {
-      let a: A0Value = x;
-      let b: A0Value = y;
-      if (by !== null) {
-        a = (x as A0Record)?.[by] ?? null;
-        b = (y as A0Record)?.[by] ?? null;
+      if (keys === null) {
+        return compareValues(x, y);
       }
-      if (typeof a === "number" && typeof b === "number") return a - b;
-      if (typeof a === "string" && typeof b === "string") return a.localeCompare(b);
-      return JSON.stringify(a) < JSON.stringify(b) ? -1 : JSON.stringify(a) > JSON.stringify(b) ? 1 : 0;
+      for (const key of keys) {
+        const a = (x as A0Record)?.[key] ?? null;
+        const b = (y as A0Record)?.[key] ?? null;
+        const cmp = compareValues(a, b);
+        if (cmp !== 0) return cmp;
+      }
+      return 0;
     });
     return sorted;
   },
 };
+
+function compareValues(a: A0Value, b: A0Value): number {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  if (typeof a === "string" && typeof b === "string") return a.localeCompare(b);
+  return JSON.stringify(a) < JSON.stringify(b) ? -1 : JSON.stringify(a) > JSON.stringify(b) ? 1 : 0;
+}
 
 /**
  * filter { in: list, by: str } -> list
@@ -202,5 +223,26 @@ export const joinFn: StdlibFn = {
     }
     const sep = sepArg ?? "";
     return input.map(String).join(sep);
+  },
+};
+
+/**
+ * unique { in: list } -> list
+ * Returns a new list with duplicate values removed (using deep equality).
+ */
+export const uniqueFn: StdlibFn = {
+  name: "unique",
+  execute(args: A0Record): A0Value {
+    const input = args["in"] ?? null;
+    if (!Array.isArray(input)) {
+      throw new Error("unique: 'in' must be a list");
+    }
+    const result: A0Value[] = [];
+    for (const item of input) {
+      if (!result.some((existing) => deepEqual(existing, item))) {
+        result.push(item);
+      }
+    }
+    return result;
   },
 };

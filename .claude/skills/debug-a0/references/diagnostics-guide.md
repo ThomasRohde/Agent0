@@ -245,7 +245,7 @@ For development, use `--unsafe-allow-all` to bypass policy checks.
 **Phase**: Runtime
 **Exit code**: 4
 
-The tool name is not registered. Built-in tools: `fs.read`, `fs.write`, `http.get`, `sh.exec`.
+The tool name is not registered. Built-in tools: `fs.read`, `fs.write`, `fs.list`, `fs.exists`, `http.get`, `sh.exec`.
 
 **Before** (broken):
 ```

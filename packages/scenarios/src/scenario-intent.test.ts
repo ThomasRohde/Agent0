@@ -31,11 +31,13 @@ const NON_EXIT_ASSERTION_KEYS: Array<keyof ScenarioConfig["expect"]> = [
   "stdoutJsonSubset",
   "stdoutText",
   "stdoutContains",
+  "stdoutContainsAll",
   "stdoutRegex",
   "stderrJson",
   "stderrJsonSubset",
   "stderrText",
   "stderrContains",
+  "stderrContainsAll",
   "stderrRegex",
   "evidenceJson",
   "traceSummary",
@@ -87,6 +89,12 @@ function hasDiagnosticCodeAssertion(config: ScenarioConfig): boolean {
     return true;
   }
   if (
+    config.expect.stderrContainsAll !== undefined &&
+    config.expect.stderrContainsAll.some((text) => codePattern.test(text))
+  ) {
+    return true;
+  }
+  if (
     config.expect.stderrJson !== undefined &&
     jsonExpectationHasDiagnosticCode(config.expect.stderrJson)
   ) {
@@ -107,6 +115,7 @@ function hasAnyStderrAssertion(config: ScenarioConfig): boolean {
     config.expect.stderrJsonSubset !== undefined ||
     config.expect.stderrText !== undefined ||
     config.expect.stderrContains !== undefined ||
+    config.expect.stderrContainsAll !== undefined ||
     config.expect.stderrRegex !== undefined
   );
 }
@@ -118,6 +127,20 @@ function looksLikeJsonText(text: string | undefined): boolean {
     (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
     (trimmed.startsWith("[") && trimmed.endsWith("]"))
   );
+}
+
+function looksLikeOrderedSnapshotRegex(pattern: string | undefined): boolean {
+  if (pattern === undefined) return false;
+  const glueCount = (pattern.match(/\[\\s\\S\]\*/g) ?? []).length;
+  const hasLookahead = pattern.includes("(?=");
+  return glueCount >= 5 && !hasLookahead;
+}
+
+function looksLikeMegaLookaheadSnapshotRegex(pattern: string | undefined): boolean {
+  if (pattern === undefined) return false;
+  const lookaheadCount = (pattern.match(/\(\?=/g) ?? []).length;
+  const glueCount = (pattern.match(/\[\\s\\S\]\*/g) ?? []).length;
+  return lookaheadCount >= 5 && glueCount >= 1;
 }
 
 describe("scenario intent guardrails", () => {
@@ -139,14 +162,19 @@ describe("scenario intent guardrails", () => {
 
   it("rejects placeholder stderrContains checks", () => {
     const placeholders = loaded
-      .filter(({ config }) => config.expect.stderrContains?.trim() === "E_")
+      .filter(
+        ({ config }) =>
+          config.expect.stderrContains?.trim() === "E_" ||
+          config.expect.stderrContainsAll?.some((text) => text.trim() === "E_") ===
+            true
+      )
       .map(({ id }) => id)
       .sort();
 
     assert.deepEqual(
       placeholders,
       [],
-      "Use a specific diagnostic code or structured JSON assertion instead of stderrContains='E_'. Offenders: " +
+      "Use a specific diagnostic code or structured JSON assertion instead of placeholder stderr contains checks ('E_'). Offenders: " +
         placeholders.join(", ")
     );
   });
@@ -242,6 +270,26 @@ describe("scenario intent guardrails", () => {
       offenders,
       [],
       "Trace output contains dynamic fields (for example duration); assert with stdoutRegex or structured summaries instead of exact stdoutText. Offenders: " +
+        offenders.join(", ")
+    );
+  });
+
+  it("rejects ordered mega-regex snapshots for text output", () => {
+    const offenders = loaded
+      .filter(
+        ({ config }) =>
+          looksLikeOrderedSnapshotRegex(config.expect.stdoutRegex) ||
+          looksLikeOrderedSnapshotRegex(config.expect.stderrRegex) ||
+          looksLikeMegaLookaheadSnapshotRegex(config.expect.stdoutRegex) ||
+          looksLikeMegaLookaheadSnapshotRegex(config.expect.stderrRegex)
+      )
+      .map(({ id }) => id)
+      .sort();
+
+    assert.deepEqual(
+      offenders,
+      [],
+      "Use lightweight regex assertions for one property at a time and combine them with *ContainsAll checks; avoid mega-regex snapshots that mirror renderer layout. Offenders: " +
         offenders.join(", ")
     );
   });

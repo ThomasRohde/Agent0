@@ -10,6 +10,10 @@
   "expect": {
     "exitCode": 1,
     "stderrText": "Unknown command: nope",
+    "stderrContainsAll": [
+      "Unknown command",
+      "nope"
+    ],
     "stderrRegex": "Unknown command: nope"
   }
 }

@@ -30,6 +30,8 @@ describe("validateScenarioConfig", () => {
         exitCode: 0,
         stdoutJsonSubset: { ok: true },
         stderrContains: "warn",
+        stdoutContainsAll: ["ok"],
+        stderrContainsAll: ["warn"],
         files: [{ path: "out.txt", text: "ok" }],
       },
     };
@@ -90,6 +92,20 @@ describe("validateScenarioConfig", () => {
         expect: { exitCode: 0, stdoutRegex: 123 },
       },
       "'expect.stdoutRegex' must be a string"
+    );
+    expectInvalid(
+      {
+        cmd: ["run", "program.a0"],
+        expect: { exitCode: 0, stdoutContainsAll: "ok" },
+      },
+      "'expect.stdoutContainsAll' must be a non-empty string array"
+    );
+    expectInvalid(
+      {
+        cmd: ["run", "program.a0"],
+        expect: { exitCode: 0, stderrContainsAll: ["ok", ""] },
+      },
+      "'expect.stderrContainsAll[1]' must be a non-empty string"
     );
   });
 

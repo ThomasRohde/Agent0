@@ -226,6 +226,15 @@ describe("A0 CLI Scenarios", () => {
           );
         }
 
+        if (config.expect.stdoutContainsAll !== undefined) {
+          for (const token of config.expect.stdoutContainsAll) {
+            assert.ok(
+              result.stdout.includes(token),
+              `stdout does not contain '${token}' for scenario '${scenario.id}'.\n${runContext}`
+            );
+          }
+        }
+
         if (config.expect.stdoutRegex !== undefined) {
           assertMatchesRegex(
             result.stdout,
@@ -311,6 +320,15 @@ describe("A0 CLI Scenarios", () => {
             result.stderr.includes(config.expect.stderrContains),
             `stderr does not contain '${config.expect.stderrContains}' for scenario '${scenario.id}'.\n${runContext}`
           );
+        }
+
+        if (config.expect.stderrContainsAll !== undefined) {
+          for (const token of config.expect.stderrContainsAll) {
+            assert.ok(
+              result.stderr.includes(token),
+              `stderr does not contain '${token}' for scenario '${scenario.id}'.\n${runContext}`
+            );
+          }
         }
 
         if (config.expect.stderrRegex !== undefined) {

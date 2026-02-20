@@ -64,6 +64,7 @@ A0_SCENARIO_ROOT_EXTRA=../private-scenarios npm run test:scenarios
 - For `run`/`check`/`fmt` failures, assert a stable diagnostic code (`E_*`) rather than only message wording.
 - Prefer `stdoutJson`/`stderrJson` over raw JSON text snapshots (except when explicitly testing `--stable-json` output formatting).
 - For successful `trace` text output, prefer `stdoutRegex` (or `traceSummary` when available) over exact `stdoutText` snapshots.
+- For text rendering checks with multiple required tokens, prefer `stdoutContainsAll` / `stderrContainsAll` over mega-regex snapshots.
 - If `capture.evidence: true` is set, assert `expect.evidenceJson`.
 - If `capture.trace: true` is set, assert `expect.traceSummary`.
 
@@ -88,11 +89,13 @@ A0_SCENARIO_ROOT_EXTRA=../private-scenarios npm run test:scenarios
 | `expect.stdoutJsonSubset` | `any` | No | Parse stdout as JSON, assert subset match |
 | `expect.stdoutText` | `string` | No | Compare stdout text (line endings normalized) |
 | `expect.stdoutContains` | `string` | No | Assert stdout contains this substring |
+| `expect.stdoutContainsAll` | `string[]` | No | Assert stdout contains every substring in this list |
 | `expect.stdoutRegex` | `string` | No | Assert stdout matches this regex |
 | `expect.stderrJson` | `any` | No | Parse stderr as JSON, deep-equal compare |
 | `expect.stderrJsonSubset` | `any` | No | Parse stderr as JSON, assert subset match |
 | `expect.stderrText` | `string` | No | Compare stderr text (line endings normalized) |
 | `expect.stderrContains` | `string` | No | Assert stderr contains this substring |
+| `expect.stderrContainsAll` | `string[]` | No | Assert stderr contains every substring in this list |
 | `expect.stderrRegex` | `string` | No | Assert stderr matches this regex |
 | `expect.evidenceJson` | `any` | No | Read `evidence.json`, deep-equal compare |
 | `expect.traceSummary` | `object` | No | Compute trace summary, deep-equal compare |

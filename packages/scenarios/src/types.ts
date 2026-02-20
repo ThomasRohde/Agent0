@@ -54,11 +54,13 @@ export interface Expectations {
   stdoutJsonSubset?: unknown;
   stdoutText?: string;
   stdoutContains?: string;
+  stdoutContainsAll?: string[];
   stdoutRegex?: string;
   stderrJson?: unknown;
   stderrJsonSubset?: unknown;
   stderrText?: string;
   stderrContains?: string;
+  stderrContainsAll?: string[];
   stderrRegex?: string;
   evidenceJson?: unknown;
   traceSummary?: TraceSummary;
@@ -295,6 +297,24 @@ export function validateScenarioConfig(
       throw new Error(
         `Scenario '${scenarioPath}': 'expect.${field}' must be a string`
       );
+    }
+  }
+
+  const stringArrayExpectFields = ["stdoutContainsAll", "stderrContainsAll"];
+  for (const field of stringArrayExpectFields) {
+    const value = expect[field];
+    if (value === undefined) continue;
+    if (!Array.isArray(value) || value.length === 0) {
+      throw new Error(
+        `Scenario '${scenarioPath}': 'expect.${field}' must be a non-empty string array`
+      );
+    }
+    for (let i = 0; i < value.length; i++) {
+      if (typeof value[i] !== "string" || value[i].length === 0) {
+        throw new Error(
+          `Scenario '${scenarioPath}': 'expect.${field}[${i}]' must be a non-empty string`
+        );
+      }
     }
   }
 

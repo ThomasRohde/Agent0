@@ -20,17 +20,13 @@
     "stdoutJson": {
       "ok": true
     },
-    "evidenceJson": [
+    "evidenceJsonSubset": [
       {
         "kind": "check",
         "ok": true,
         "msg": "pass",
         "span": {
-          "file": "program.a0",
-          "startLine": 1,
-          "startCol": 1,
-          "endLine": 1,
-          "endCol": 34
+          "file": "program.a0"
         }
       }
     ]

@@ -339,7 +339,10 @@ describe("A0 CLI Scenarios", () => {
           );
         }
 
-        if (config.expect.evidenceJson !== undefined) {
+        if (
+          config.expect.evidenceJson !== undefined ||
+          config.expect.evidenceJsonSubset !== undefined
+        ) {
           const evidencePath = path.join(workDir, "evidence.json");
           assert.ok(
             fs.existsSync(evidencePath),
@@ -347,14 +350,26 @@ describe("A0 CLI Scenarios", () => {
           );
           const evidenceContent = fs.readFileSync(evidencePath, "utf-8");
           const parsed = JSON.parse(evidenceContent);
-          assert.deepStrictEqual(
-            parsed,
-            config.expect.evidenceJson,
-            `evidenceJson mismatch for scenario '${scenario.id}'.\n${runContext}`
-          );
+          if (config.expect.evidenceJson !== undefined) {
+            assert.deepStrictEqual(
+              parsed,
+              config.expect.evidenceJson,
+              `evidenceJson mismatch for scenario '${scenario.id}'.\n${runContext}`
+            );
+          }
+          if (config.expect.evidenceJsonSubset !== undefined) {
+            assertJsonSubset(
+              parsed,
+              config.expect.evidenceJsonSubset,
+              `evidenceJsonSubset mismatch for scenario '${scenario.id}'.\n${runContext}`
+            );
+          }
         }
 
-        if (config.expect.traceSummary !== undefined) {
+        if (
+          config.expect.traceSummary !== undefined ||
+          config.expect.traceSummarySubset !== undefined
+        ) {
           const tracePath = path.join(workDir, "trace.jsonl");
           assert.ok(
             fs.existsSync(tracePath),
@@ -363,11 +378,20 @@ describe("A0 CLI Scenarios", () => {
           const traceContent = fs.readFileSync(tracePath, "utf-8");
           const events = parseTraceJsonl(traceContent);
           const summary = computeTraceSummary(events);
-          assert.deepStrictEqual(
-            summary,
-            config.expect.traceSummary,
-            `traceSummary mismatch for scenario '${scenario.id}'.\n${runContext}`
-          );
+          if (config.expect.traceSummary !== undefined) {
+            assert.deepStrictEqual(
+              summary,
+              config.expect.traceSummary,
+              `traceSummary mismatch for scenario '${scenario.id}'.\n${runContext}`
+            );
+          }
+          if (config.expect.traceSummarySubset !== undefined) {
+            assertJsonSubset(
+              summary,
+              config.expect.traceSummarySubset,
+              `traceSummarySubset mismatch for scenario '${scenario.id}'.\n${runContext}`
+            );
+          }
         }
 
         if (config.expect.files) {

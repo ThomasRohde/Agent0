@@ -40,7 +40,9 @@ const NON_EXIT_ASSERTION_KEYS: Array<keyof ScenarioConfig["expect"]> = [
   "stderrContainsAll",
   "stderrRegex",
   "evidenceJson",
+  "evidenceJsonSubset",
   "traceSummary",
+  "traceSummarySubset",
   "files",
 ];
 
@@ -143,6 +145,30 @@ function looksLikeMegaLookaheadSnapshotRegex(pattern: string | undefined): boole
   return lookaheadCount >= 5 && glueCount >= 1;
 }
 
+function containsExactSpanCoordinates(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (Array.isArray(value)) {
+    return value.some((item) => containsExactSpanCoordinates(item));
+  }
+  if (typeof value !== "object") return false;
+
+  const record = value as Record<string, unknown>;
+  const span = record["span"];
+  if (
+    span !== null &&
+    typeof span === "object" &&
+    !Array.isArray(span) &&
+    typeof (span as Record<string, unknown>)["startLine"] === "number" &&
+    typeof (span as Record<string, unknown>)["startCol"] === "number" &&
+    typeof (span as Record<string, unknown>)["endLine"] === "number" &&
+    typeof (span as Record<string, unknown>)["endCol"] === "number"
+  ) {
+    return true;
+  }
+
+  return Object.values(record).some((item) => containsExactSpanCoordinates(item));
+}
+
 describe("scenario intent guardrails", () => {
   const loaded = loadScenarioConfigs();
 
@@ -184,7 +210,8 @@ describe("scenario intent guardrails", () => {
       .filter(
         ({ config }) =>
           config.capture?.evidence === true &&
-          config.expect.evidenceJson === undefined
+          config.expect.evidenceJson === undefined &&
+          config.expect.evidenceJsonSubset === undefined
       )
       .map(({ id }) => id)
       .sort();
@@ -193,7 +220,8 @@ describe("scenario intent guardrails", () => {
       .filter(
         ({ config }) =>
           config.capture?.trace === true &&
-          config.expect.traceSummary === undefined
+          config.expect.traceSummary === undefined &&
+          config.expect.traceSummarySubset === undefined
       )
       .map(({ id }) => id)
       .sort();
@@ -201,13 +229,13 @@ describe("scenario intent guardrails", () => {
     assert.deepEqual(
       missingEvidence,
       [],
-      "Scenarios with capture.evidence must assert evidenceJson. Missing: " +
+      "Scenarios with capture.evidence must assert evidenceJson or evidenceJsonSubset. Missing: " +
         missingEvidence.join(", ")
     );
     assert.deepEqual(
       missingTrace,
       [],
-      "Scenarios with capture.trace must assert traceSummary. Missing: " +
+      "Scenarios with capture.trace must assert traceSummary or traceSummarySubset. Missing: " +
         missingTrace.join(", ")
     );
   });
@@ -290,6 +318,42 @@ describe("scenario intent guardrails", () => {
       offenders,
       [],
       "Use lightweight regex assertions for one property at a time and combine them with *ContainsAll checks; avoid mega-regex snapshots that mirror renderer layout. Offenders: " +
+        offenders.join(", ")
+    );
+  });
+
+  it("rejects exact evidence span snapshots in evidenceJson assertions", () => {
+    const offenders = loaded
+      .filter(
+        ({ config }) =>
+          config.expect.evidenceJson !== undefined &&
+          containsExactSpanCoordinates(config.expect.evidenceJson)
+      )
+      .map(({ id }) => id)
+      .sort();
+
+    assert.deepEqual(
+      offenders,
+      [],
+      "Prefer evidenceJsonSubset with stable fields (kind/ok/msg and optional span.file) instead of exact span coordinate snapshots. Offenders: " +
+        offenders.join(", ")
+    );
+  });
+
+  it("rejects exact traceSummary snapshots that pin totalEvents", () => {
+    const offenders = loaded
+      .filter(
+        ({ config }) =>
+          config.expect.traceSummary !== undefined &&
+          config.expect.traceSummary.totalEvents !== undefined
+      )
+      .map(({ id }) => id)
+      .sort();
+
+    assert.deepEqual(
+      offenders,
+      [],
+      "Prefer traceSummarySubset for intent checks; exact total event counts are instrumentation-coupled. Offenders: " +
         offenders.join(", ")
     );
   });

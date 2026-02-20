@@ -1,21 +1,24 @@
 {
-  "cmd": ["run", "program.a0"],
-  "policy": { "allow": [] },
-  "capture": { "evidence": true },
+  "cmd": [
+    "run",
+    "program.a0"
+  ],
+  "policy": {
+    "allow": []
+  },
+  "capture": {
+    "evidence": true
+  },
   "expect": {
     "exitCode": 5,
     "stderrContains": "E_ASSERT",
-    "evidenceJson": [
+    "evidenceJsonSubset": [
       {
         "kind": "assert",
         "ok": false,
         "msg": "this will fail",
         "span": {
-          "file": "program.a0",
-          "startLine": 2,
-          "startCol": 1,
-          "endLine": 2,
-          "endCol": 42
+          "file": "program.a0"
         }
       }
     ]

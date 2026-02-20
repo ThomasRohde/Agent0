@@ -1,12 +1,20 @@
 {
-  "cmd": ["run", "program.a0"],
-  "policy": { "allow": [] },
-  "capture": { "trace": true },
+  "cmd": [
+    "run",
+    "program.a0"
+  ],
+  "policy": {
+    "allow": []
+  },
+  "capture": {
+    "trace": true
+  },
   "expect": {
     "exitCode": 0,
-    "stdoutJson": { "value": 42 },
-    "traceSummary": {
-      "totalEvents": 6,
+    "stdoutJson": {
+      "value": 42
+    },
+    "traceSummarySubset": {
       "toolInvocations": 0,
       "toolsByName": {},
       "evidenceCount": 0,

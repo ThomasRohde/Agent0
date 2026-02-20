@@ -27,27 +27,30 @@ describe("scenario coverage guardrails", () => {
   const configs = loaded.map((x) => x.config);
 
   it("covers each expectation assertion mode at least once", () => {
-    const expectFields = [
-      "stdoutJson",
-      "stdoutJsonSubset",
-      "stdoutText",
-      "stdoutContains",
-      "stdoutContainsAll",
-      "stdoutRegex",
-      "stderrJson",
-      "stderrJsonSubset",
-      "stderrText",
-      "stderrContains",
-      "stderrContainsAll",
-      "stderrRegex",
-      "evidenceJson",
-      "traceSummary",
-      "files",
+    const assertionGroups = [
+      ["stdoutJson"],
+      ["stdoutJsonSubset"],
+      ["stdoutText"],
+      ["stdoutContains"],
+      ["stdoutContainsAll"],
+      ["stdoutRegex"],
+      ["stderrJson"],
+      ["stderrJsonSubset"],
+      ["stderrText"],
+      ["stderrContains"],
+      ["stderrContainsAll"],
+      ["stderrRegex"],
+      ["evidenceJson", "evidenceJsonSubset"],
+      ["traceSummary", "traceSummarySubset"],
+      ["files"],
     ] as const;
 
-    for (const field of expectFields) {
-      const usage = configs.filter((cfg) => cfg.expect[field] !== undefined).length;
-      assert.ok(usage > 0, `No scenarios use expect.${field}`);
+    for (const group of assertionGroups) {
+      const usage = configs.filter((cfg) =>
+        group.some((field) => cfg.expect[field] !== undefined)
+      ).length;
+      const label = group.join(" | ");
+      assert.ok(usage > 0, `No scenarios use expect.${label}`);
     }
   });
 

@@ -30,6 +30,8 @@ describe("validateScenarioConfig", () => {
         exitCode: 0,
         stdoutJsonSubset: { ok: true },
         stderrContains: "warn",
+        evidenceJsonSubset: [{ ok: true }],
+        traceSummarySubset: { failures: 0 },
         stdoutContainsAll: ["ok"],
         stderrContainsAll: ["warn"],
         files: [{ path: "out.txt", text: "ok" }],
@@ -74,6 +76,31 @@ describe("validateScenarioConfig", () => {
         expect: { exitCode: 0, stderrJson: {}, stderrJsonSubset: {} },
       },
       "'expect.stderrJson' and 'expect.stderrJsonSubset' are mutually exclusive"
+    );
+    expectInvalid(
+      {
+        cmd: ["run", "program.a0"],
+        expect: { exitCode: 0, evidenceJson: [], evidenceJsonSubset: [] },
+      },
+      "'expect.evidenceJson' and 'expect.evidenceJsonSubset' are mutually exclusive"
+    );
+    expectInvalid(
+      {
+        cmd: ["run", "program.a0"],
+        expect: {
+          exitCode: 0,
+          traceSummary: {
+            totalEvents: 1,
+            toolInvocations: 0,
+            toolsByName: {},
+            evidenceCount: 0,
+            failures: 0,
+            budgetExceeded: 0,
+          },
+          traceSummarySubset: { failures: 0 },
+        },
+      },
+      "'expect.traceSummary' and 'expect.traceSummarySubset' are mutually exclusive"
     );
   });
 

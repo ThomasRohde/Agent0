@@ -1,26 +1,29 @@
 {
-  "cmd": ["run", "program.a0"],
-  "policy": { "allow": [] },
-  "capture": { "evidence": true, "trace": true },
+  "cmd": [
+    "run",
+    "program.a0"
+  ],
+  "policy": {
+    "allow": []
+  },
+  "capture": {
+    "evidence": true,
+    "trace": true
+  },
   "expect": {
     "exitCode": 5,
     "stderrContains": "E_ASSERT",
-    "evidenceJson": [
+    "evidenceJsonSubset": [
       {
         "kind": "assert",
         "ok": false,
         "msg": "will fail and halt",
         "span": {
-          "file": "program.a0",
-          "startLine": 2,
-          "startCol": 1,
-          "endLine": 2,
-          "endCol": 46
+          "file": "program.a0"
         }
       }
     ],
-    "traceSummary": {
-      "totalEvents": 6,
+    "traceSummarySubset": {
       "toolInvocations": 0,
       "toolsByName": {},
       "evidenceCount": 1,

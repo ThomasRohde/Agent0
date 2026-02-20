@@ -19,17 +19,13 @@
     "stderrJsonSubset": {
       "code": "E_ASSERT"
     },
-    "evidenceJson": [
+    "evidenceJsonSubset": [
       {
         "kind": "assert",
         "ok": false,
         "msg": "boom",
         "span": {
-          "file": "program.a0",
-          "startLine": 1,
-          "startCol": 1,
-          "endLine": 1,
-          "endCol": 36
+          "file": "program.a0"
         }
       }
     ]

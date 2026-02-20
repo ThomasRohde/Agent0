@@ -59,14 +59,16 @@ A0_SCENARIO_ROOT_EXTRA=../private-scenarios npm run test:scenarios
 
 ### Scenario quality guardrails
 
-- Avoid `expect.exitCode`-only scenarios. Add at least one behavior assertion (`stdout*`, `stderr*`, `files`, `evidenceJson`, or `traceSummary`).
+- Avoid `expect.exitCode`-only scenarios. Add at least one behavior assertion (`stdout*`, `stderr*`, `files`, `evidenceJson*`, or `traceSummary*`).
 - Do not use placeholder checks like `stderrContains: "E_"`; assert a specific code (`E_PARSE`, `E_ASSERT`, etc.) or use `stderrJsonSubset`.
 - For `run`/`check`/`fmt` failures, assert a stable diagnostic code (`E_*`) rather than only message wording.
 - Prefer `stdoutJson`/`stderrJson` over raw JSON text snapshots (except when explicitly testing `--stable-json` output formatting).
-- For successful `trace` text output, prefer `stdoutRegex` (or `traceSummary` when available) over exact `stdoutText` snapshots.
+- For successful `trace` text output, prefer `stdoutRegex` (or `traceSummary*` when available) over exact `stdoutText` snapshots.
+- Prefer `traceSummarySubset` over exact `traceSummary` event-count snapshots; assert the behavior-relevant fields.
+- Prefer `evidenceJsonSubset` over exact `evidenceJson` span-coordinate snapshots; assert stable fields (`kind`, `ok`, `msg`, and optionally `span.file`).
 - For text rendering checks with multiple required tokens, prefer `stdoutContainsAll` / `stderrContainsAll` over mega-regex snapshots.
-- If `capture.evidence: true` is set, assert `expect.evidenceJson`.
-- If `capture.trace: true` is set, assert `expect.traceSummary`.
+- If `capture.evidence: true` is set, assert `expect.evidenceJson` or `expect.evidenceJsonSubset`.
+- If `capture.trace: true` is set, assert `expect.traceSummary` or `expect.traceSummarySubset`.
 
 ## `scenario.json` schema
 
@@ -98,7 +100,9 @@ A0_SCENARIO_ROOT_EXTRA=../private-scenarios npm run test:scenarios
 | `expect.stderrContainsAll` | `string[]` | No | Assert stderr contains every substring in this list |
 | `expect.stderrRegex` | `string` | No | Assert stderr matches this regex |
 | `expect.evidenceJson` | `any` | No | Read `evidence.json`, deep-equal compare |
+| `expect.evidenceJsonSubset` | `any` | No | Read `evidence.json`, assert subset match |
 | `expect.traceSummary` | `object` | No | Compute trace summary, deep-equal compare |
+| `expect.traceSummarySubset` | `object` | No | Compute trace summary, assert subset match |
 | `expect.files` | `array` | No | File artifact assertions |
 | `expect.files[].path` | `string` | Yes | Path relative to working directory |
 | `expect.files[].sha256` | `string` | No | Expected SHA-256 hex digest |

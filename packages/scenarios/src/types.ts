@@ -63,7 +63,9 @@ export interface Expectations {
   stderrContainsAll?: string[];
   stderrRegex?: string;
   evidenceJson?: unknown;
+  evidenceJsonSubset?: unknown;
   traceSummary?: TraceSummary;
+  traceSummarySubset?: Partial<TraceSummary>;
   files?: FileAssertion[];
 }
 
@@ -141,6 +143,22 @@ export function validateScenarioConfig(
   ) {
     throw new Error(
       `Scenario '${scenarioPath}': 'expect.stderrJson' and 'expect.stderrJsonSubset' are mutually exclusive`
+    );
+  }
+  if (
+    expect["evidenceJson"] !== undefined &&
+    expect["evidenceJsonSubset"] !== undefined
+  ) {
+    throw new Error(
+      `Scenario '${scenarioPath}': 'expect.evidenceJson' and 'expect.evidenceJsonSubset' are mutually exclusive`
+    );
+  }
+  if (
+    expect["traceSummary"] !== undefined &&
+    expect["traceSummarySubset"] !== undefined
+  ) {
+    throw new Error(
+      `Scenario '${scenarioPath}': 'expect.traceSummary' and 'expect.traceSummarySubset' are mutually exclusive`
     );
   }
 

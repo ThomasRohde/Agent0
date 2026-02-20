@@ -1,21 +1,26 @@
 {
-  "cmd": ["run", "program.a0"],
-  "policy": { "allow": [] },
-  "capture": { "evidence": true },
+  "cmd": [
+    "run",
+    "program.a0"
+  ],
+  "policy": {
+    "allow": []
+  },
+  "capture": {
+    "evidence": true
+  },
   "expect": {
     "exitCode": 5,
-    "stdoutJson": { "x": 1 },
-    "evidenceJson": [
+    "stdoutJson": {
+      "x": 1
+    },
+    "evidenceJsonSubset": [
       {
         "kind": "check",
         "ok": false,
         "msg": "should fail",
         "span": {
-          "file": "program.a0",
-          "startLine": 2,
-          "startCol": 1,
-          "endLine": 2,
-          "endCol": 39
+          "file": "program.a0"
         }
       }
     ]

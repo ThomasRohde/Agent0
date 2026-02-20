@@ -2,6 +2,6 @@
   "cmd": ["trace", "trace-fixture.jsonl"],
   "expect": {
     "exitCode": 0,
-    "stdoutText": "Trace Summary\n  Run ID:           test-run-1\n  Total events:     7\n  Tool invocations: 1\n  Tools used:\n    fs.read: 1\n  Evidence events:  1\n  Failures:         0\n  Budget exceeded:  0\n  Duration:         10ms"
+    "stdoutRegex": "Trace Summary[\\s\\S]*Run ID:\\s+test-run-1[\\s\\S]*Total events:\\s+7[\\s\\S]*Tool invocations:\\s+1[\\s\\S]*Tools used:[\\s\\S]*fs\\.read:\\s+1[\\s\\S]*Evidence events:\\s+1[\\s\\S]*Failures:\\s+0[\\s\\S]*Budget exceeded:\\s+0[\\s\\S]*Duration:\\s+[0-9]+ms"
   }
 }

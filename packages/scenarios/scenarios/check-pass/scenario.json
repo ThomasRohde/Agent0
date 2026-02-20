@@ -3,6 +3,6 @@
   "policy": { "allow": [] },
   "expect": {
     "exitCode": 0,
-    "stdoutText": "[]"
+    "stdoutJson": []
   }
 }

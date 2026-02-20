@@ -65,6 +65,40 @@ return { config: step3 }
 
 The merge is shallow -- nested records are not recursively merged. Use [`put`](./data-functions.md) or [`patch`](./data-functions.md) for deep updates.
 
+## entries
+
+Convert a record into a list of `{ key, value }` pairs.
+
+**Signature:** `entries { in: rec }` returns `list`.
+
+Each key-value pair in the record becomes a record with `key` (string) and `value` fields.
+
+```a0
+let pairs = entries { in: { name: "alice", age: 30 } }
+# -> [{ key: "name", value: "alice" }, { key: "age", value: 30 }]
+
+return { pairs: pairs }
+```
+
+This is useful for iterating over record fields with `for` or `map`:
+
+```a0
+let config = { host: "localhost", port: 8080, debug: true }
+let pairs = entries { in: config }
+
+let labels = for { in: pairs, as: "p" } {
+  let label = str.concat { parts: [p.key, "=", p.value] }
+  return { label: label }
+}
+
+let summary = join { in: labels, sep: ", " }
+# -> "host=localhost, port=8080, debug=true"
+
+return { summary: summary }
+```
+
+Throws `E_FN` if `in` is not a record.
+
 ## See Also
 
 - [Data Functions](./data-functions.md) -- get, put, patch for deep record access

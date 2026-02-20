@@ -115,7 +115,7 @@ do sh.exec { cmd: "ls -la", cwd: "/tmp", timeoutMs: 10000 } -> result
 
 These are pure functions (no capability needed). Call with `name { args }`.
 
-Valid stdlib functions: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or`, `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `map`, `reduce`, `unique`, `str.concat`, `str.split`, `str.starts`, `str.ends`, `str.replace`, `keys`, `values`, `merge`, `math.max`, `math.min`.
+Valid stdlib functions: `parse.json`, `get`, `put`, `patch`, `coalesce`, `typeof`, `eq`, `contains`, `not`, `and`, `or`, `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `map`, `reduce`, `unique`, `pluck`, `flat`, `str.concat`, `str.split`, `str.starts`, `str.ends`, `str.replace`, `str.template`, `keys`, `values`, `merge`, `entries`, `math.max`, `math.min`.
 
 ### parse.json
 
@@ -174,6 +174,40 @@ let result = patch {
   ]
 }
 # result is { name: "Bob", age: 30, email: "bob@example.com" }
+```
+
+### coalesce
+
+Return the input value if it is not null, otherwise return the default. Uses strict null-checking (NOT truthiness — `false`, `0`, and `""` are kept).
+
+- **Args**: `{ in: any, default: any }`
+  - `in` — The value to check
+  - `default` — The fallback value if `in` is `null`
+- **Returns**: `in` if it is not `null`, otherwise `default`
+
+```
+let safe = coalesce { in: null, default: "fallback" }
+# safe is "fallback"
+let kept = coalesce { in: 0, default: 99 }
+# kept is 0 (not null, so kept despite being falsy)
+```
+
+### typeof
+
+Return the type name of a value as a string.
+
+- **Args**: `{ in: any }`
+- **Returns**: `str` — one of `"null"`, `"boolean"`, `"number"`, `"string"`, `"list"`, `"record"`
+
+```
+let t1 = typeof { in: 42 }
+# t1 is "number"
+let t2 = typeof { in: null }
+# t2 is "null"
+let t3 = typeof { in: [1, 2] }
+# t3 is "list"
+let t4 = typeof { in: { a: 1 } }
+# t4 is "record"
 ```
 
 ### eq
@@ -315,16 +349,31 @@ let multiKey = sort { in: items, by: ["group", "name"] }
 
 ### filter
 
-Keep elements of a list where the given key is truthy.
+Keep elements of a list by key truthiness or a user-defined predicate function.
 
-- **Args**: `{ in: list, by: str }`
-  - `by` — Key name to check for truthiness on each element
-- **Returns**: `list` — elements where `element[by]` is truthy
-- **Error**: `E_FN` if `in` is not a list
+Two forms:
+
+- **By key**: `{ in: list, by: str }` — keep elements where `element[by]` is truthy
+- **By function**: `{ in: list, fn: str }` — keep elements where the named predicate function returns a record whose **first value** is truthy. By convention, predicate functions should return `{ ok: expr }`. The original item is kept (not the fn return value).
+
+Since A0 `return` requires a record (and records are always truthy), filter checks the truthiness of the **first value** in the returned record, not the record itself.
+
+- **Args**: `{ in: list, by?: str, fn?: str }` (exactly one of `by` or `fn` required)
+- **Returns**: `list` — filtered elements
+- **Error**: `E_FN` if `in` is not a list or neither `by`/`fn` provided; `E_UNKNOWN_FN` if `fn` names an undefined function
+- **Budget**: `fn:` form counts each invocation against `maxIterations`
 
 ```
+# By key
 let active = filter { in: [{ name: "A", ok: true }, { name: "B", ok: false }], by: "ok" }
 # active is [{ name: "A", ok: true }]
+
+# By predicate function — return { ok: expr } convention
+fn isHigh { item } {
+  return { ok: item.score > 80 }
+}
+let top = filter { in: scores, fn: "isHigh" }
+# keeps original items where isHigh returned { ok: true }
 ```
 
 ### find
@@ -432,6 +481,23 @@ let fixed = str.replace { in: "foo-bar-baz", from: "-", to: "_" }
 # fixed is "foo_bar_baz"
 ```
 
+### str.template
+
+Interpolate `{varName}` placeholders in a string with values from a vars record.
+
+- **Args**: `{ in: str, vars: rec }`
+  - `in` — Template string with `{placeholder}` markers
+  - `vars` — Record mapping placeholder names to replacement values (coerced to strings)
+- **Returns**: `str` — the resolved string
+- **Error**: `E_FN` if `in` is not a string or `vars` is not a record
+
+```
+let path = str.template { in: "packages/{name}/package.json", vars: { name: "core" } }
+# path is "packages/core/package.json"
+let msg = str.template { in: "Hello {who}, you have {n} items", vars: { who: "Alice", n: 3 } }
+# msg is "Hello Alice, you have 3 items"
+```
+
 ### keys
 
 Get the list of keys from a record.
@@ -471,6 +537,19 @@ let combined = merge { a: { x: 1, y: 2 }, b: { y: 3, z: 4 } }
 # combined is { x: 1, y: 3, z: 4 }
 ```
 
+### entries
+
+Convert a record into a list of `{ key, value }` pairs.
+
+- **Args**: `{ in: rec }`
+- **Returns**: `list` — list of `{ key: str, value: any }` records
+- **Error**: `E_FN` if `in` is not a record
+
+```
+let pairs = entries { in: { name: "Alice", age: 30 } }
+# pairs is [{ key: "name", value: "Alice" }, { key: "age", value: 30 }]
+```
+
 ### unique
 
 Remove duplicates from a list using deep equality.
@@ -482,6 +561,37 @@ Remove duplicates from a list using deep equality.
 ```
 let deduped = unique { in: [1, 2, 2, 3, 1] }
 # deduped is [1, 2, 3]
+```
+
+### pluck
+
+Extract a single field from each record in a list. Non-record elements yield `null`.
+
+- **Args**: `{ in: list, key: str }`
+  - `key` — The field name to extract from each element
+- **Returns**: `list` — a list of extracted values (null for non-record elements)
+- **Error**: `E_FN` if `in` is not a list or `key` is not a string
+
+```
+let names = pluck { in: [{ name: "Alice", age: 30 }, { name: "Bob", age: 25 }], key: "name" }
+# names is ["Alice", "Bob"]
+let mixed = pluck { in: [{ x: 1 }, 42, { x: 3 }], key: "x" }
+# mixed is [1, null, 3]
+```
+
+### flat
+
+Flatten one level of nested lists. Non-list elements are kept as-is.
+
+- **Args**: `{ in: list }`
+- **Returns**: `list` — the flattened list (one level only)
+- **Error**: `E_FN` if `in` is not a list
+
+```
+let result = flat { in: [[1, 2], [3, 4], [5]] }
+# result is [1, 2, 3, 4, 5]
+let mixed = flat { in: [[1, 2], 3, [4]] }
+# mixed is [1, 2, 3, 4]
 ```
 
 ### math.max

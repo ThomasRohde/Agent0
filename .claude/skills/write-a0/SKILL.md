@@ -21,7 +21,7 @@ return { key: val }          # required, must be last statement
 
 Primitives: `int` `float` `bool` `str` `null` — literals: `42` `3.14` `true` `false` `null` `"hello"`
 
-Records: `{ key: value, nested: { a: 1 } }` — keys may be dotted: `{ fs.read: true }`
+Records: `{ key: value, nested: { a: 1 } }` — keys may be dotted: `{ fs.read: true }`. Spread syntax: `{ ...base, extra: 42 }` merges `base` into the new record; later keys override earlier ones. Spreading a non-record produces `E_TYPE`.
 
 Lists: `[1, 2, "three"]`
 
@@ -46,6 +46,8 @@ let remainder = a % b
 Precedence follows standard math: `*`, `/`, `%` bind tighter than `+`, `-`. Use parentheses to override: `let x = (a + b) * c`.
 
 Operands must be numbers (int or float). Using arithmetic on non-numbers produces `E_TYPE` (exit 4). Division or modulo by zero also produces `E_TYPE`.
+
+**Exception: string concatenation with `+`.** The `+` operator also works on strings: `"hello" + " world"` produces `"hello world"`. Both operands must be the same type (both strings or both numbers). Mixing types (e.g., `"hello" + 1`) produces `E_TYPE`.
 
 ### Comparison Operators
 
@@ -115,6 +117,8 @@ Pure functions called like `name { args }`. No capability needed.
 | `get` | Read nested path | `{ in: record, path: "a.b[0]" }` |
 | `put` | Set nested path | `{ in: record, path: "a.b", value: x }` |
 | `patch` | JSON Patch (RFC 6902) | `{ in: record, ops: [...] }` |
+| `coalesce` | Return `in` if not null, else `default` | `{ in: any, default: any }` -> `any` |
+| `typeof` | Return type name of a value | `{ in: any }` -> `str` |
 
 ### Predicate Functions
 
@@ -136,13 +140,15 @@ Predicates use A0 truthiness: `false`, `null`, `0`, and `""` are falsy; everythi
 | `append` | Append element to list | `{ in: list, value: any }` -> `list` |
 | `concat` | Concatenate two lists | `{ a: list, b: list }` -> `list` |
 | `sort` | Sort list (natural order, by key, or multi-key) | `{ in: list, by?: str\|list }` -> `list` |
-| `filter` | Keep elements where predicate key is truthy | `{ in: list, by: str }` -> `list` |
+| `filter` | Keep elements by key truthiness or predicate fn (`return { ok: expr }`) | `{ in: list, by?: str, fn?: str }` -> `list` |
 | `find` | First element where key matches value | `{ in: list, key: str, value: any }` -> `any\|null` |
 | `range` | Generate integer list | `{ from: int, to: int }` -> `list` |
 | `join` | Join list of strings | `{ in: list, sep?: str }` -> `str` |
 | `map` | Transform list via named function | `{ in: list, fn: str }` -> `list` |
 | `reduce` | Reduce list to single value via named function | `{ in: list, fn: str, init: any }` -> `any` |
 | `unique` | Remove duplicate values (deep equality) | `{ in: list }` -> `list` |
+| `pluck` | Extract a field from each record in a list | `{ in: list, key: str }` -> `list` |
+| `flat` | Flatten one level of nested lists | `{ in: list }` -> `list` |
 
 ### Math Operations
 
@@ -160,6 +166,7 @@ Predicates use A0 truthiness: `false`, `null`, `0`, and `""` are falsy; everythi
 | `str.starts` | Starts-with check | `{ in: str, value: str }` -> `bool` |
 | `str.ends` | Ends-with check | `{ in: str, value: str }` -> `bool` |
 | `str.replace` | Replace substring | `{ in: str, from: str, to: str }` -> `str` |
+| `str.template` | Interpolate `{var}` placeholders in a string | `{ in: str, vars: rec }` -> `str` |
 
 ### Record Operations
 
@@ -168,6 +175,7 @@ Predicates use A0 truthiness: `false`, `null`, `0`, and `""` are falsy; everythi
 | `keys` | List of record keys | `{ in: rec }` -> `list` |
 | `values` | List of record values | `{ in: rec }` -> `list` |
 | `merge` | Shallow merge two records | `{ a: rec, b: rec }` -> `rec` |
+| `entries` | Convert record to list of `{ key, value }` pairs | `{ in: rec }` -> `list` |
 
 ```
 let parsed = parse.json { in: raw_string }
@@ -179,6 +187,12 @@ let nums = range { from: 1, to: 5 }
 let sorted = sort { in: items, by: "name" }
 let k = keys { in: record }
 let full = str.concat { parts: ["hello", " ", "world"] }
+let safe = coalesce { in: maybe_null, default: "fallback" }
+let t = typeof { in: 42 }                        # "number"
+let names = pluck { in: users, key: "name" }
+let flat_list = flat { in: [[1, 2], [3]] }        # [1, 2, 3]
+let pairs = entries { in: { a: 1 } }             # [{ key: "a", value: 1 }]
+let path = str.template { in: "pkg/{name}", vars: { name: "core" } }
 ```
 
 ## Evidence — assert & check
@@ -204,11 +218,25 @@ You can also use `assert { that: true, msg: "..." }` as an evidence marker to do
 
 ### if — Conditional expression
 
-Record-style with lazy evaluation (only the taken branch evaluates):
+**Record-style** (simple value expressions) with lazy evaluation (only the taken branch evaluates):
 
 ```
 let msg = if { cond: ok, then: "yes", else: "no" }
 ```
+
+**Block-style** (statement bodies with `return`) — parenthesized condition, both branches required:
+
+```
+let result = if (ok) {
+  let msg = "success"
+  return { status: msg }
+} else {
+  let msg = "failure"
+  return { status: msg }
+}
+```
+
+Block `if/else` bodies work like `fn` or `for` bodies: they can contain `let` bindings, tool calls (`call?`/`do`), stdlib calls, and must end with `return`. Both the `if` and `else` branches are required. The condition uses A0 truthiness.
 
 Uses A0 truthiness: `false`, `null`, `0`, `""` are falsy; everything else truthy.
 
@@ -223,7 +251,7 @@ let results = for { in: items, as: "item" } {
 }
 ```
 
-Body must end with `return`. Budget-aware via `maxIterations`. The loop variable (`item`) is scoped to the body.
+Body must end with `return`. Budget-aware via `maxIterations`. The loop variable (`item`) is scoped to the body. Tool calls (`call?`/`do`) work inside `for` bodies.
 
 ### map — Higher-order list transformation
 
@@ -247,7 +275,7 @@ fn fullName { first, last } {
 let names = map { in: users, fn: "fullName" }
 ```
 
-Budget-aware via `maxIterations` (shared counter with `for` and `reduce`). Errors propagate immediately — no partial results.
+Budget-aware via `maxIterations` (shared counter with `for`, `filter` (fn:), and `reduce`). Errors propagate immediately — no partial results.
 
 ### reduce — Accumulate a list to a single value
 
@@ -262,11 +290,11 @@ let result = reduce { in: items, fn: "addScore", init: { val: 0 } }
 # result.val contains the sum
 ```
 
-The callback must accept exactly 2 parameters. Budget-aware via `maxIterations` (shared counter with `for` and `map`).
+The callback must accept exactly 2 parameters. Budget-aware via `maxIterations` (shared counter with `for`, `map`, and `filter` (fn:)).
 
 ### fn — User-defined functions
 
-Define before use. Called with record-style arguments. Direct recursion allowed, no closures.
+Define before use. Called with record-style arguments. Direct recursion allowed. Functions can access variables from their defining scope (closure).
 
 ```
 fn greet { name } {
@@ -276,6 +304,18 @@ let result = greet { name: "world" }
 ```
 
 Parameters are destructured from the caller's record. Missing params default to `null`. Body must end with `return`.
+
+**Closure example** — a function capturing an outer variable:
+
+```
+let threshold = 18
+fn isAdult { item } {
+  return { ok: item.age >= threshold }
+}
+let adults = filter { in: users, fn: "isAdult" }
+```
+
+The function `isAdult` captures `threshold` from the scope where it was defined.
 
 ### match — ok/err discrimination
 
@@ -305,6 +345,24 @@ let output = match ({ ok: 42 }) {
 
 Subject must be a record with `ok` or `err` key. When matching on a variable, use `match ident { ... }`. When matching on an expression, wrap it in parentheses: `match ( expr ) { ... }`. Both arms must end with `return`.
 
+### try/catch — Error recovery
+
+Catch runtime errors (tool failures, type errors, stdlib errors, etc.) without halting the program. The catch binding receives a `{ code, message }` record.
+
+```
+let result = try {
+  call? fs.read { path: "maybe-missing.txt" } -> content
+  let parsed = parse.json { in: content }
+  return { data: parsed }
+} catch { e } {
+  return { error: e.code, detail: e.message }
+}
+```
+
+The `try` body executes normally. If any statement throws, control transfers to the `catch` body. The binding `{ e }` uses the same syntax as `match` arm bindings. Both bodies must end with `return`.
+
+Caught errors include: `E_TOOL`, `E_TOOL_ARGS`, `E_FN`, `E_TYPE`, `E_PATH`, `E_FOR_NOT_LIST`, `E_MATCH_NOT_RECORD`, `E_MATCH_NO_ARM`, and other runtime errors. Note: `E_ASSERT` (fatal assertion) is NOT catchable -- it always halts the program.
+
 ## Budget
 
 Declare resource limits with `budget { ... }` at the top of the file (before or after `cap`). Exceeding a limit stops execution with `E_BUDGET` (exit 4).
@@ -318,7 +376,7 @@ budget { timeMs: 30000, maxToolCalls: 10, maxBytesWritten: 1048576, maxIteration
 | `timeMs` | int | Maximum wall-clock time in milliseconds |
 | `maxToolCalls` | int | Maximum number of tool invocations |
 | `maxBytesWritten` | int | Maximum bytes written via `fs.write` |
-| `maxIterations` | int | Maximum `for` loop and `map` iterations (cumulative) |
+| `maxIterations` | int | Maximum `for`, `map`, `filter` (fn:), and `reduce` iterations (cumulative) |
 
 Only declare budget fields the program needs. Unknown fields produce `E_UNKNOWN_BUDGET` at validation time.
 
@@ -333,7 +391,7 @@ Dot notation on bound variables: `response.body`, `result.exitCode`, `data.items
 3. No duplicate `let` bindings in the same scope.
 4. `call?` for read-mode tools only; `do` for effect-mode tools only.
 5. Tool and function args are always records `{ ... }`.
-6. Reserved words cannot be variable names: `cap`, `let`, `return`, `do`, `assert`, `check`, `true`, `false`, `null`, `import`, `as`, `budget`, `if`, `for`, `fn`, `match`.
+6. Reserved words cannot be variable names: `cap`, `let`, `return`, `do`, `assert`, `check`, `true`, `false`, `null`, `import`, `as`, `budget`, `if`, `else`, `for`, `fn`, `match`, `try`, `catch`.
 7. `fn` bodies, `for` bodies, and `match` arms must each end with `return`.
 8. `fn` must be defined before use (no hoisting).
 
@@ -355,10 +413,13 @@ Avoid these frequent errors:
 - **`map` with unknown function** → `E_UNKNOWN_FN`. The named function must be defined with `fn` before the `map` call.
 - **`reduce` with non-2-param function** → `E_TYPE`. The callback must accept exactly 2 parameters (accumulator, item).
 - **`reduce` with unknown function** → `E_UNKNOWN_FN`. The named function must be defined with `fn` before the `reduce` call.
+- **`filter` with unknown function** → `E_UNKNOWN_FN`. When using `fn:`, the named function must be defined with `fn` before the `filter` call.
+- **`filter` with neither `by` nor `fn`** → `E_FN`. Must provide either `by:` (key name) or `fn:` (predicate function name).
 - **`for` on non-list** → `E_FOR_NOT_LIST`. The `in:` value must evaluate to a list.
 - **`match` on non-record** → `E_MATCH_NOT_RECORD`. The subject must be a record with `ok` or `err` key.
 - **`match` missing arm** → `E_MATCH_NO_ARM`. Subject record must have `ok` or `err` key.
-- **Type error in expression** → `E_TYPE`. Arithmetic on non-numbers, division by zero, or comparing incompatible types.
+- **Type error in expression** → `E_TYPE`. Arithmetic on non-numbers, division by zero, comparing incompatible types, mixed types with `+` (e.g., `"hello" + 1`), or spreading a non-record.
+- **Missing `else` in block `if`** → Parse error. Block `if/else` requires both branches.
 - **Reusing a variable name** → `E_DUP_BINDING`. Each `let` name must be unique.
 - **Using a variable before binding** → `E_UNBOUND`. Bind with `let` or `->` first.
 - **Positional arguments** → Parse error. Always use record syntax `{ key: value }`.

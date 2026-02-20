@@ -4,11 +4,15 @@ sidebar_position: 4
 
 # Control Flow
 
-A0 provides three control flow constructs: `if` for conditionals, `for` for iteration, and `match` for ok/err discrimination.
+A0 provides control flow constructs: `if` for conditionals (two forms), `for` for iteration, `match` for ok/err discrimination, and `try/catch` for error handling.
 
 ## if -- Conditional Expression
 
-`if` is an expression that returns a value based on a condition. It uses record-style syntax with three fields:
+A0 supports two forms of `if`: a record-style expression and a block-style statement.
+
+### Record-Style if
+
+The record-style `if` is an expression that returns a value based on a condition. It uses three fields:
 
 ```a0
 let msg = if { cond: ok, then: "success", else: "failure" }
@@ -44,6 +48,77 @@ let has_items = len { in: items }
 let msg = if { cond: has_items, then: "found items", else: "no items" }
 ```
 
+### Block-Style if/else
+
+The block-style `if/else` uses a parenthesized condition and block bodies. Both `if` and `else` branches are required, and each must end with `return`:
+
+```a0
+let result = if (score >= 60) {
+  return "pass"
+} else {
+  return "fail"
+}
+```
+
+- The condition must be wrapped in parentheses `( )`
+- Both the `if` branch and the `else` branch are required
+- Each branch is a block `{ ... }` that **must end with `return`**
+- The whole expression evaluates to the value returned by the taken branch
+- [Truthiness](./data-types.md) rules apply to the condition
+
+#### Block if/else Examples
+
+Simple branching:
+
+```a0
+let x = 10
+let label = if (x > 5) {
+  return "big"
+} else {
+  return "small"
+}
+return { label: label }
+```
+
+With tool calls in branches:
+
+```a0
+cap { fs.read: true, fs.write: true }
+budget { timeMs: 10000, maxToolCalls: 2 }
+
+call? fs.read { path: "config.json" } -> raw
+let config = parse.json { in: raw.data }
+
+let output = if (eq { a: config.mode, b: "verbose" }) {
+  do fs.write { path: "out.txt", data: config, format: "json" } -> written
+  return { mode: "verbose", wrote: written }
+} else {
+  return { mode: "quiet", summary: keys { in: config } }
+}
+
+return output
+```
+
+Nested block if/else:
+
+```a0
+let category = if (score >= 90) {
+  return "A"
+} else {
+  let mid = if (score >= 70) {
+    return "B"
+  } else {
+    return "C"
+  }
+  return mid
+}
+return { grade: category }
+```
+
+### Choosing Between Record-Style and Block-Style
+
+Use **record-style** `if { cond:, then:, else: }` for simple inline expressions where each branch is a single value. Use **block-style** `if () { } else { }` when branches need multiple statements, tool calls, or complex logic.
+
 ## for -- List Iteration
 
 `for` iterates over a list and produces a new list of results. Each iteration runs in its own scope.
@@ -75,9 +150,34 @@ let results = for { in: cmds, as: "cmd" } {
 return { results: results }
 ```
 
+### Tool Calls in for Loops
+
+`call?` and `do` work inside `for` bodies, allowing you to make tool calls on each iteration. Each tool call counts against the `maxToolCalls` budget:
+
+```a0
+cap { http.get: true }
+budget { timeMs: 30000, maxToolCalls: 5, maxIterations: 5 }
+
+let urls = [
+  "https://api.example.com/users/1",
+  "https://api.example.com/users/2",
+  "https://api.example.com/users/3"
+]
+
+let results = for { in: urls, as: "url" } {
+  call? http.get { url: url } -> response
+  let body = parse.json { in: response.body }
+  return { url: url, name: get { in: body, path: "name" } }
+}
+
+return { users: results }
+```
+
+This is useful for batch operations -- fetching multiple resources, processing files in a directory, or running a series of commands.
+
 ### Budget Control
 
-The `maxIterations` budget field limits the total number of iterations across all `for` loops and `map` calls in a program. If the limit is exceeded, execution stops with `E_BUDGET`:
+The `maxIterations` budget field limits the total number of iterations across all `for` loops, `map`, `reduce`, and `filter` (with `fn:`) calls in a program. If the limit is exceeded, execution stops with `E_BUDGET`:
 
 ```a0
 budget { maxIterations: 100 }
@@ -172,3 +272,127 @@ let failure = { err: "something went wrong" }
 ```
 
 The `if` expression is often used to produce ok/err values based on conditions, as shown in the example above.
+
+## try/catch -- Error Handling
+
+`try/catch` lets you catch runtime errors instead of halting execution. The catch binding receives a record with `code` and `message` fields describing the error.
+
+```a0
+let result = try {
+  let parsed = parse.json { in: "not valid json" }
+  return { data: parsed }
+} catch { e } {
+  return { error: e.code, detail: e.message }
+}
+```
+
+- The `try` block is executed first
+- If the `try` block completes without error, its `return` value is used
+- If the `try` block throws a runtime error, the `catch` block runs
+- The catch binding (e.g., `e`) receives a record: `{ code: "E_...", message: "..." }`
+- Both blocks must end with `return`
+- The whole expression evaluates to the value returned by whichever block executed
+
+### Catch Binding
+
+The catch binding is always a record with two fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `code` | string | The diagnostic code (e.g., `"E_FN"`, `"E_TOOL"`, `"E_TYPE"`) |
+| `message` | string | A human-readable error description |
+
+### try/catch Examples
+
+Catching a tool error:
+
+```a0
+cap { fs.read: true }
+budget { timeMs: 5000, maxToolCalls: 1 }
+
+let result = try {
+  call? fs.read { path: "missing-file.txt" } -> data
+  return { ok: data }
+} catch { e } {
+  return { err: e.message, code: e.code }
+}
+
+return result
+```
+
+Using try/catch with match for structured error handling:
+
+```a0
+cap { http.get: true }
+budget { timeMs: 10000, maxToolCalls: 1 }
+
+let response = try {
+  call? http.get { url: "https://api.example.com/data" } -> resp
+  let body = parse.json { in: resp.body }
+  return { ok: body }
+} catch { e } {
+  return { err: e.message }
+}
+
+let output = match response {
+  ok { data } {
+    return { status: "success", data: data }
+  }
+  err { msg } {
+    return { status: "failed", reason: msg }
+  }
+}
+
+return output
+```
+
+Catching type errors:
+
+```a0
+let result = try {
+  let x = "hello" + 42
+  return { value: x }
+} catch { e } {
+  return { caught: true, code: e.code }
+}
+# result == { caught: true, code: "E_TYPE" }
+
+return result
+```
+
+## Record Spread
+
+Records support the spread operator `...` to merge fields from an existing record into a new one. Later keys override earlier ones:
+
+```a0
+let base = { host: "localhost", port: 8080, debug: false }
+let config = { ...base, debug: true, name: "my-app" }
+# config == { host: "localhost", port: 8080, debug: true, name: "my-app" }
+return config
+```
+
+- `...expr` must appear inside a record literal `{ }`
+- The spread expression must evaluate to a record (`E_TYPE` otherwise)
+- Multiple spreads are allowed; later keys override earlier ones
+- Explicit keys in the record also override spread keys
+
+### Spread Examples
+
+Overriding defaults:
+
+```a0
+let defaults = { timeout: 5000, retries: 3, verbose: false }
+let user_opts = { timeout: 10000, verbose: true }
+let final = { ...defaults, ...user_opts }
+# final == { timeout: 10000, retries: 3, verbose: true }
+return final
+```
+
+Adding computed fields:
+
+```a0
+let item = { name: "widget", price: 10 }
+let with_tax = { ...item, total: item.price * 1.2 }
+# with_tax == { name: "widget", price: 10, total: 12 }
+return with_tax
+```

@@ -25,20 +25,33 @@ function resolveTopic(topic: string): string | null {
 
 function renderStdlibIndex(): string {
   const names = [...getStdlibFns().keys()].sort((a, b) => a.localeCompare(b));
+  const numWidth = String(names.length).length;
   return [
     "A0 STDLIB INDEX",
     "===============",
-    ...names.map((name) => `  ${name}`),
+    "",
+    ...names.map((name, idx) => `  ${String(idx + 1).padStart(numWidth, " ")}. ${name}`),
     "",
     `Total: ${names.length}`,
+    "",
+    "More details:",
+    "  a0 help stdlib",
   ].join("\n");
+}
+
+function renderUsage(commands: string[]): string {
+  return ["Usage:", ...commands.map((command) => `  ${command}`)].join("\n");
+}
+
+function renderTopicList(): string {
+  return ["Available topics:", ...TOPIC_LIST.map((name) => `  - ${name}`)].join("\n");
 }
 
 export function runHelp(topic?: string, opts: { index?: boolean } = {}): void {
   if (opts.index) {
     if (!topic) {
       console.error("The --index flag is only supported with the stdlib topic.");
-      console.error("Usage: a0 help stdlib --index");
+      console.error(renderUsage(["a0 help stdlib --index"]));
       process.exitCode = 1;
       return;
     }
@@ -46,7 +59,7 @@ export function runHelp(topic?: string, opts: { index?: boolean } = {}): void {
     const resolved = resolveTopic(topic);
     if (resolved !== "stdlib") {
       console.error("The --index flag is only supported with the stdlib topic.");
-      console.error("Usage: a0 help stdlib --index");
+      console.error(renderUsage(["a0 help stdlib --index"]));
       process.exitCode = 1;
       return;
     }
@@ -67,7 +80,7 @@ export function runHelp(topic?: string, opts: { index?: boolean } = {}): void {
   }
 
   console.error(`Unknown help topic: "${topic}"`);
-  console.error(`Available topics: ${TOPIC_LIST.join(", ")}`);
-  console.error(`Usage: a0 help <topic>`);
+  console.error(renderTopicList());
+  console.error(renderUsage(["a0 help <topic>", "a0 help stdlib --index"]));
   process.exitCode = 1;
 }

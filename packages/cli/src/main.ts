@@ -15,20 +15,23 @@ const require = createRequire(import.meta.url);
 const pkg = require("../package.json") as { version: string };
 
 const program = new Command();
+const HELP_WIDTH = 100;
 
 program
   .name("a0")
   .description("A0: Agent-Optimized General-Purpose CLI Interpreter")
   .version(pkg.version)
+  .configureHelp({ helpWidth: HELP_WIDTH })
   .addHelpText("after", "\n" + QUICKREF);
 
 program
   .command("check")
+  .summary("Validate without execution")
   .description("Static validation without execution")
   .argument("<file>", "A0 source file to check")
-  .option("--pretty", "Human-readable output", false)
-  .option("--stable-json", "Stable machine-readable success output", false)
-  .option("--debug-parse", "Show raw parser internals on parse errors", false)
+  .option("--pretty", "Human-readable output")
+  .option("--stable-json", "Stable machine-readable success output")
+  .option("--debug-parse", "Show raw parser internals on parse errors")
   .action(async (file: string, opts: { pretty?: boolean; stableJson?: boolean; debugParse?: boolean }) => {
     const code = await runCheck(file, opts);
     process.exit(code);
@@ -36,13 +39,14 @@ program
 
 program
   .command("run")
+  .summary("Run an A0 program")
   .description("Run an A0 program")
   .argument("<file>", "A0 source file to run (or - for stdin)")
   .option("--trace <path>", "Write JSONL trace to file")
   .option("--evidence <path>", "Write evidence JSON to file")
-  .option("--pretty", "Human-readable error output", false)
-  .option("--debug-parse", "Show raw parser internals on parse errors", false)
-  .option("--unsafe-allow-all", "[DEV ONLY] Bypass all capability restrictions", false)
+  .option("--pretty", "Human-readable error output")
+  .option("--debug-parse", "Show raw parser internals on parse errors")
+  .option("--unsafe-allow-all", "[DEV ONLY] Bypass all capability restrictions")
   .action(async (file: string, opts: { trace?: string; evidence?: string; pretty?: boolean; debugParse?: boolean; unsafeAllowAll?: boolean }) => {
     const code = await runRun(file, opts);
     process.exit(code);
@@ -50,9 +54,10 @@ program
 
 program
   .command("fmt")
+  .summary("Format A0 source")
   .description("Canonical formatter")
   .argument("<file>", "A0 source file to format")
-  .option("--write", "Overwrite file in place", false)
+  .option("--write", "Overwrite file in place")
   .action(async (file: string, opts: { write?: boolean }) => {
     const code = await runFmt(file, opts);
     process.exit(code);
@@ -60,9 +65,10 @@ program
 
 program
   .command("trace")
+  .summary("Summarize trace output")
   .description("Display trace summary")
   .argument("<file>", "JSONL trace file")
-  .option("--json", "Output as JSON", false)
+  .option("--json", "Output as JSON")
   .action(async (file: string, opts: { json?: boolean }) => {
     const code = await runTrace(file, opts);
     process.exit(code);
@@ -70,8 +76,9 @@ program
 
 program
   .command("policy")
+  .summary("Show effective policy")
   .description("Display effective capability policy and resolution source")
-  .option("--json", "Output as JSON", false)
+  .option("--json", "Output as JSON")
   .action(async (opts: { json?: boolean }) => {
     const code = await runPolicy(opts);
     process.exit(code);
@@ -79,9 +86,10 @@ program
 
 program
   .command("help")
+  .summary("Show reference topics")
   .description("Language reference — run 'a0 help <topic>' for details")
   .argument("[topic]", "Topic: syntax, types, tools, stdlib, caps, budget, flow, diagnostics, examples")
-  .option("--index", "For stdlib topic, print a compact full stdlib index", false)
+  .option("--index", "For stdlib topic, print a compact full stdlib index")
   .action((topic: string | undefined, opts: { index?: boolean }) => {
     runHelp(topic, opts);
   });

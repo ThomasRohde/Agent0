@@ -6,10 +6,10 @@ import * as assert from "node:assert/strict";
 import { parseJsonFn } from "./parse-json.js";
 import { getFn, putFn } from "./path-ops.js";
 import { patchFn } from "./patch.js";
-import { lenFn, appendFn, concatFn, sortFn, filterFn, findFn, rangeFn, joinFn, uniqueFn } from "./list-ops.js";
-import { strConcatFn, strSplitFn, strStartsFn, strEndsFn, strReplaceFn } from "./string-ops.js";
+import { lenFn, appendFn, concatFn, sortFn, filterFn, findFn, rangeFn, joinFn, uniqueFn, pluckFn, flatFn } from "./list-ops.js";
+import { strConcatFn, strSplitFn, strStartsFn, strEndsFn, strReplaceFn, strTemplateFn } from "./string-ops.js";
 import { mathMaxFn, mathMinFn } from "./math-ops.js";
-import { keysFn, valuesFn, mergeFn } from "./record-ops.js";
+import { keysFn, valuesFn, mergeFn, entriesFn } from "./record-ops.js";
 import type { A0Record, A0Value } from "@a0/core";
 
 describe("parse.json", () => {
@@ -775,6 +775,173 @@ describe("str.ends", () => {
   });
 });
 
+describe("pluck", () => {
+  it("extracts values from records", () => {
+    const input = [{ name: "Alice", age: 30 }, { name: "Bob", age: 25 }];
+    assert.deepEqual(pluckFn.execute({ in: input, key: "name" }), ["Alice", "Bob"]);
+  });
+
+  it("returns null for missing keys", () => {
+    const input: A0Value[] = [{ name: "Alice" }, { age: 25 }];
+    assert.deepEqual(pluckFn.execute({ in: input, key: "name" }), ["Alice", null]);
+  });
+
+  it("returns null for non-record elements", () => {
+    const input = [{ name: "Alice" }, 42, null];
+    assert.deepEqual(pluckFn.execute({ in: input, key: "name" }), ["Alice", null, null]);
+  });
+
+  it("works with empty list", () => {
+    assert.deepEqual(pluckFn.execute({ in: [], key: "name" }), []);
+  });
+
+  it("throws on non-list input", () => {
+    assert.throws(
+      () => pluckFn.execute({ in: "not a list", key: "name" }),
+      (err: Error) => err.message.includes("must be a list")
+    );
+  });
+
+  it("throws on non-string key", () => {
+    assert.throws(
+      () => pluckFn.execute({ in: [{ a: 1 }], key: 42 }),
+      (err: Error) => err.message.includes("must be a string")
+    );
+  });
+});
+
+describe("flat", () => {
+  it("flattens one level", () => {
+    assert.deepEqual(flatFn.execute({ in: [[1, 2], [3, 4]] }), [1, 2, 3, 4]);
+  });
+
+  it("preserves non-list elements", () => {
+    assert.deepEqual(flatFn.execute({ in: [1, [2, 3], 4] }), [1, 2, 3, 4]);
+  });
+
+  it("flattens only one level deep", () => {
+    assert.deepEqual(flatFn.execute({ in: [[1, [2, 3]], [4]] }), [1, [2, 3], 4]);
+  });
+
+  it("works with empty sublists", () => {
+    assert.deepEqual(flatFn.execute({ in: [[], [1], []] }), [1]);
+  });
+
+  it("works with empty list", () => {
+    assert.deepEqual(flatFn.execute({ in: [] }), []);
+  });
+
+  it("preserves records and null", () => {
+    assert.deepEqual(flatFn.execute({ in: [{ a: 1 }, [null, "x"]] }), [{ a: 1 }, null, "x"]);
+  });
+
+  it("throws on non-list input", () => {
+    assert.throws(
+      () => flatFn.execute({ in: "not a list" }),
+      (err: Error) => err.message.includes("must be a list")
+    );
+  });
+});
+
+describe("entries", () => {
+  it("converts record to key-value pairs", () => {
+    const result = entriesFn.execute({ in: { a: 1, b: 2 } }) as A0Value[];
+    assert.equal(result.length, 2);
+    assert.deepEqual(result[0], { key: "a", value: 1 });
+    assert.deepEqual(result[1], { key: "b", value: 2 });
+  });
+
+  it("works with empty record", () => {
+    assert.deepEqual(entriesFn.execute({ in: {} }), []);
+  });
+
+  it("handles null values", () => {
+    const result = entriesFn.execute({ in: { a: null } }) as A0Value[];
+    assert.deepEqual(result[0], { key: "a", value: null });
+  });
+
+  it("handles nested records", () => {
+    const result = entriesFn.execute({ in: { x: { nested: true } } }) as A0Value[];
+    assert.deepEqual(result[0], { key: "x", value: { nested: true } });
+  });
+
+  it("throws on non-record input", () => {
+    assert.throws(
+      () => entriesFn.execute({ in: [1, 2] }),
+      (err: Error) => err.message.includes("must be a record")
+    );
+  });
+});
+
+describe("str.template", () => {
+  it("replaces single placeholder", () => {
+    assert.equal(
+      strTemplateFn.execute({ in: "Hello, {name}!", vars: { name: "World" } }),
+      "Hello, World!"
+    );
+  });
+
+  it("replaces multiple placeholders", () => {
+    assert.equal(
+      strTemplateFn.execute({ in: "{a}/{b}/{c}", vars: { a: "x", b: "y", c: "z" } }),
+      "x/y/z"
+    );
+  });
+
+  it("leaves unmatched placeholders as-is", () => {
+    assert.equal(
+      strTemplateFn.execute({ in: "Hello, {name}! {unknown}", vars: { name: "World" } }),
+      "Hello, World! {unknown}"
+    );
+  });
+
+  it("handles no placeholders", () => {
+    assert.equal(
+      strTemplateFn.execute({ in: "no placeholders here", vars: { name: "World" } }),
+      "no placeholders here"
+    );
+  });
+
+  it("converts numbers to strings", () => {
+    assert.equal(
+      strTemplateFn.execute({ in: "version {v}", vars: { v: 42 } }),
+      "version 42"
+    );
+  });
+
+  it("leaves null values as placeholder", () => {
+    assert.equal(
+      strTemplateFn.execute({ in: "val: {x}", vars: { x: null } }),
+      "val: {x}"
+    );
+  });
+
+  it("handles empty template", () => {
+    assert.equal(strTemplateFn.execute({ in: "", vars: { a: 1 } }), "");
+  });
+
+  it("handles path-like template", () => {
+    assert.equal(
+      strTemplateFn.execute({ in: "packages/{name}/package.json", vars: { name: "core" } }),
+      "packages/core/package.json"
+    );
+  });
+
+  it("throws on non-string input", () => {
+    assert.throws(
+      () => strTemplateFn.execute({ in: 42, vars: { a: 1 } }),
+      (err: Error) => err.message.includes("must be a string")
+    );
+  });
+
+  it("throws on non-record vars", () => {
+    assert.throws(
+      () => strTemplateFn.execute({ in: "hello", vars: "not a record" }),
+      (err: Error) => err.message.includes("must be a record")
+    );
+  });
+});
+
 describe("getStdlibFns", () => {
   it("returns all stdlib functions", async () => {
     const { getStdlibFns } = await import("./index.js");
@@ -807,6 +974,12 @@ describe("getStdlibFns", () => {
     assert.ok(fns.has("math.min"));
     assert.ok(fns.has("str.ends"));
     assert.ok(fns.has("unique"));
-    assert.equal(fns.size, 28);
+    assert.ok(fns.has("coalesce"));
+    assert.ok(fns.has("typeof"));
+    assert.ok(fns.has("pluck"));
+    assert.ok(fns.has("flat"));
+    assert.ok(fns.has("entries"));
+    assert.ok(fns.has("str.template"));
+    assert.equal(fns.size, 34);
   });
 });

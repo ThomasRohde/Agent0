@@ -1,0 +1,14 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "adults": [
+        { "name": "Alice", "age": 25 },
+        { "name": "Charlie", "age": 30 }
+      ],
+      "names": ["Alice", "Charlie"]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+let hello = "hello" + " " + "world"
+let chain = "a" + "b" + "c"
+let with_var = "prefix-" + chain
+let empty = "" + "nonempty"
+let nums_still_work = 1 + 2
+
+return {
+  hello: hello,
+  chain: chain,
+  with_var: with_var,
+  empty: empty,
+  nums_still_work: nums_still_work
+}

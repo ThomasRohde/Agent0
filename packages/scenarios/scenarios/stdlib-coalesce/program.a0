@@ -1,0 +1,16 @@
+let from_value = coalesce { in: 42, default: 0 }
+let from_null = coalesce { in: null, default: 99 }
+let keep_false = coalesce { in: false, default: true }
+let keep_zero = coalesce { in: 0, default: 1 }
+let keep_empty = coalesce { in: "", default: "fallback" }
+let both_null = coalesce { in: null, default: null }
+let nested = coalesce { in: null, default: { key: "default" } }
+return {
+  from_value: from_value,
+  from_null: from_null,
+  keep_false: keep_false,
+  keep_zero: keep_zero,
+  keep_empty: keep_empty,
+  both_null: both_null,
+  nested: nested
+}

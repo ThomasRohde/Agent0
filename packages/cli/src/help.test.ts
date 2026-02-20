@@ -55,6 +55,12 @@ describe("A0 CLI Help Content", () => {
     );
   });
 
+  it("QUICKREF lists help topics as indented commands", () => {
+    assert.ok(QUICKREF.includes("HELP TOPICS"));
+    assert.ok(QUICKREF.includes("  a0 help syntax"));
+    assert.ok(QUICKREF.includes("  a0 help stdlib --index"));
+  });
+
   it("all TOPIC_LIST entries exist in TOPICS", () => {
     for (const topic of TOPIC_LIST) {
       assert.ok(topic in TOPICS, `Topic '${topic}' listed but not in TOPICS`);
@@ -147,14 +153,16 @@ describe("A0 CLI Help Content", () => {
     const result = captureHelp("tools", { index: true });
     assert.equal(result.exitCode, 1);
     assert.ok(result.stderr.includes("only supported with the stdlib topic"));
-    assert.ok(result.stderr.includes("Usage: a0 help stdlib --index"));
+    assert.ok(result.stderr.includes("Usage:"));
+    assert.ok(result.stderr.includes("  a0 help stdlib --index"));
   });
 
   it("runHelp rejects --index when no topic is provided", () => {
     const result = captureHelp(undefined, { index: true });
     assert.equal(result.exitCode, 1);
     assert.ok(result.stderr.includes("only supported with the stdlib topic"));
-    assert.ok(result.stderr.includes("Usage: a0 help stdlib --index"));
+    assert.ok(result.stderr.includes("Usage:"));
+    assert.ok(result.stderr.includes("  a0 help stdlib --index"));
   });
 
   it("runHelp sets exit code 1 for unknown topic", () => {
@@ -162,7 +170,38 @@ describe("A0 CLI Help Content", () => {
     assert.equal(result.exitCode, 1);
     assert.ok(result.stderr.includes("Unknown help topic"));
     assert.ok(result.stderr.includes("Available topics:"));
-    assert.ok(result.stderr.includes("Usage: a0 help <topic>"));
+    assert.ok(result.stderr.includes("  - syntax"));
+    assert.ok(result.stderr.includes("Usage:"));
+    assert.ok(result.stderr.includes("  a0 help <topic>"));
+  });
+
+  it("stdlib topic documents new stdlib functions", () => {
+    assert.ok(TOPICS.stdlib.includes("coalesce"));
+    assert.ok(TOPICS.stdlib.includes("typeof"));
+    assert.ok(TOPICS.stdlib.includes("pluck"));
+    assert.ok(TOPICS.stdlib.includes("flat"));
+    assert.ok(TOPICS.stdlib.includes("entries"));
+    assert.ok(TOPICS.stdlib.includes("str.template"));
+  });
+
+  it("stdlib topic documents filter fn: overload", () => {
+    assert.ok(TOPICS.stdlib.includes('filter { in: list, fn: "fnName" }'));
+  });
+
+  it("flow topic documents filter fn: overload", () => {
+    assert.ok(TOPICS.flow.includes("filter"));
+    assert.ok(TOPICS.flow.includes("Predicate-based list filtering"));
+  });
+
+  it("runHelp stdlib --index lists all 34 functions", () => {
+    const result = captureHelp("stdlib", { index: true });
+    assert.ok(result.stdout.includes("coalesce"));
+    assert.ok(result.stdout.includes("typeof"));
+    assert.ok(result.stdout.includes("pluck"));
+    assert.ok(result.stdout.includes("flat"));
+    assert.ok(result.stdout.includes("entries"));
+    assert.ok(result.stdout.includes("str.template"));
+    assert.ok(result.stdout.includes("Total: 34"));
   });
 
   it("runHelp rejects prototype property names as topics", () => {

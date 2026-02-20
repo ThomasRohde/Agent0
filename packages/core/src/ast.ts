@@ -58,7 +58,7 @@ export interface RecordPair extends BaseNode {
 
 export interface RecordExpr extends BaseNode {
   kind: "RecordExpr";
-  pairs: RecordPair[];
+  pairs: (RecordPair | SpreadPair)[];
 }
 
 export interface ListExpr extends BaseNode {
@@ -125,6 +125,27 @@ export interface MatchExpr extends BaseNode {
   errArm: MatchArm;
 }
 
+// --- v0.4: Block if/else, try/catch, record spread ---
+
+export interface IfBlockExpr extends BaseNode {
+  kind: "IfBlockExpr";
+  cond: Expr;
+  thenBody: Stmt[];
+  elseBody: Stmt[];
+}
+
+export interface TryExpr extends BaseNode {
+  kind: "TryExpr";
+  tryBody: Stmt[];
+  catchBinding: string;
+  catchBody: Stmt[];
+}
+
+export interface SpreadPair extends BaseNode {
+  kind: "SpreadPair";
+  expr: Expr;
+}
+
 // --- v0.35: Arithmetic & comparison expressions ---
 
 export type BinaryOp = "+" | "-" | "*" | "/" | "%" | ">" | "<" | ">=" | "<=" | "==" | "!=";
@@ -155,10 +176,12 @@ export type Expr =
   | CheckExpr
   | FnCallExpr
   | IfExpr
+  | IfBlockExpr
   | ForExpr
   | MatchExpr
   | BinaryExpr
-  | UnaryExpr;
+  | UnaryExpr
+  | TryExpr;
 
 // --- Statements ---
 export interface LetStmt extends BaseNode {

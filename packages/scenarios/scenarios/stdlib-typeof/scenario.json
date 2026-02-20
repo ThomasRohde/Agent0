@@ -1,0 +1,19 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "t_null": "null",
+      "t_bool": "boolean",
+      "t_num": "number",
+      "t_float": "number",
+      "t_str": "string",
+      "t_list": "list",
+      "t_rec": "record",
+      "t_empty_str": "string",
+      "t_empty_list": "list",
+      "t_empty_rec": "record"
+    }
+  }
+}

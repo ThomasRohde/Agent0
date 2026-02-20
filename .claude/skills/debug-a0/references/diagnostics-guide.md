@@ -307,9 +307,9 @@ The tool ran but threw an error.
 
 The function name is not a recognized stdlib function.
 
-**Valid functions**: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or`, `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `str.concat`, `str.split`, `str.starts`, `str.replace`, `keys`, `values`, `merge`, `map`
+**Valid functions**: `parse.json`, `get`, `put`, `patch`, `coalesce`, `typeof`, `eq`, `contains`, `not`, `and`, `or`, `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `map`, `reduce`, `unique`, `pluck`, `flat`, `str.concat`, `str.split`, `str.starts`, `str.ends`, `str.replace`, `str.template`, `keys`, `values`, `merge`, `entries`, `math.max`, `math.min`
 
-**Note for `map`**: `E_UNKNOWN_FN` also occurs when `map { in: list, fn: "name" }` references a function that hasn't been defined with `fn`. Ensure the function is declared before the `map` call.
+**Note for `map`/`filter` with `fn:`**: `E_UNKNOWN_FN` also occurs when `map { in: list, fn: "name" }` or `filter { in: list, fn: "name" }` references a function that hasn't been defined with `fn`. Ensure the function is declared before the `map` or `filter` call. (`filter` supports both `by:` for key-truthiness filtering and `fn:` for predicate-based filtering.)
 
 **Before** (broken):
 ```

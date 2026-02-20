@@ -4,6 +4,7 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 import { parse } from "./parser.js";
+import type { RecordPair } from "./ast.js";
 
 describe("A0 Parser", () => {
   it("parses a minimal program with return", () => {
@@ -258,8 +259,8 @@ describe("A0 Parser", () => {
     assert.equal(result.diagnostics.length, 0);
     assert.ok(result.program);
     if (result.program.headers[0].kind === "CapDecl") {
-      assert.equal(result.program.headers[0].capabilities.pairs[0].key, "fs.read");
-      assert.equal(result.program.headers[0].capabilities.pairs[1].key, "http.get");
+      assert.equal((result.program.headers[0].capabilities.pairs[0] as RecordPair).key, "fs.read");
+      assert.equal((result.program.headers[0].capabilities.pairs[1] as RecordPair).key, "http.get");
     }
   });
 

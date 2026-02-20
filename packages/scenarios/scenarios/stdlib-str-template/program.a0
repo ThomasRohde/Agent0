@@ -1,0 +1,18 @@
+let simple = str.template { in: "Hello, {name}!", vars: { name: "World" } }
+let multi = str.template { in: "{a}/{b}/{c}", vars: { a: "x", b: "y", c: "z" } }
+let unmatched = str.template { in: "{known} and {unknown}", vars: { known: "yes" } }
+let no_placeholders = str.template { in: "no placeholders", vars: { x: 1 } }
+let with_number = str.template { in: "v{version}", vars: { version: 42 } }
+let path_build = str.template { in: "packages/{name}/package.json", vars: { name: "core" } }
+let null_var = str.template { in: "val={x}", vars: { x: null } }
+let empty = str.template { in: "", vars: { a: 1 } }
+return {
+  simple: simple,
+  multi: multi,
+  unmatched: unmatched,
+  no_placeholders: no_placeholders,
+  with_number: with_number,
+  path_build: path_build,
+  null_var: null_var,
+  empty: empty
+}

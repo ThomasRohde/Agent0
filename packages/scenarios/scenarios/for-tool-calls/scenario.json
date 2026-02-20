@@ -1,0 +1,10 @@
+{
+  "cmd": ["run", "program.a0", "--unsafe-allow-all"],
+  "policy": { "allow": ["fs.read"] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "results": [{ "file": "package.json", "name": "a0-lang" }]
+    }
+  }
+}

@@ -112,6 +112,18 @@ function formatExpr(e: AST.Expr, depth: number): string {
       return `${formatIdentPath(e.name)} ${formatRecord(e.args, depth)}`;
     case "IfExpr":
       return `if { cond: ${formatExpr(e.cond, depth + 1)}, then: ${formatExpr(e.then, depth + 1)}, else: ${formatExpr(e.else, depth + 1)} }`;
+    case "IfBlockExpr": {
+      const thenLines = formatBlock(e.thenBody, depth);
+      const elseLines = formatBlock(e.elseBody, depth);
+      const prefix = INDENT.repeat(depth);
+      return `if (${formatExpr(e.cond, depth)}) {\n${thenLines}\n${prefix}} else {\n${elseLines}\n${prefix}}`;
+    }
+    case "TryExpr": {
+      const tryLines = formatBlock(e.tryBody, depth);
+      const catchLines = formatBlock(e.catchBody, depth);
+      const prefix = INDENT.repeat(depth);
+      return `try {\n${tryLines}\n${prefix}} catch { ${e.catchBinding} } {\n${catchLines}\n${prefix}}`;
+    }
     case "ForExpr": {
       const bodyLines = formatBlock(e.body, depth);
       return `for { in: ${formatExpr(e.list, depth + 1)}, as: ${JSON.stringify(e.binding)} } {\n${bodyLines}\n${INDENT.repeat(depth)}}`;
@@ -184,12 +196,19 @@ function formatIdentPath(ip: AST.IdentPath): string {
   return ip.parts.join(".");
 }
 
+function formatPairOrSpread(p: AST.RecordPair | AST.SpreadPair, depth: number): string {
+  if (p.kind === "SpreadPair") {
+    return `...${formatExpr(p.expr, depth)}`;
+  }
+  return `${p.key}: ${formatExpr(p.value, depth)}`;
+}
+
 function formatRecord(rec: AST.RecordExpr, depth: number): string {
   if (rec.pairs.length === 0) return "{}";
 
   // Inline for short records
   const inlineParts = rec.pairs.map(
-    (p) => `${p.key}: ${formatExpr(p.value, depth + 1)}`
+    (p) => formatPairOrSpread(p, depth + 1)
   );
   const inline = `{ ${inlineParts.join(", ")} }`;
   if (inline.length <= 72) return inline;
@@ -198,7 +217,7 @@ function formatRecord(rec: AST.RecordExpr, depth: number): string {
   const inner = INDENT.repeat(depth + 1);
   const outer = INDENT.repeat(depth);
   const parts = rec.pairs.map(
-    (p) => `${inner}${p.key}: ${formatExpr(p.value, depth + 1)}`
+    (p) => `${inner}${formatPairOrSpread(p, depth + 1)}`
   );
   return `{\n${parts.join(",\n")}\n${outer}}`;
 }

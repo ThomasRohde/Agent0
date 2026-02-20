@@ -1,0 +1,19 @@
+# Demonstrates closures: fn accessing outer-scope variable with contains
+let allowed = ["admin", "editor"]
+
+fn isAllowed { item } {
+  let has = contains { in: allowed, value: item.role }
+  return { ok: has }
+}
+
+let users = [
+  { name: "Alice", role: "admin" },
+  { name: "Bob", role: "viewer" },
+  { name: "Carol", role: "editor" },
+  { name: "Dave", role: "viewer" }
+]
+
+let result = filter { in: users, fn: "isAllowed" }
+let names = pluck { in: result, key: "name" }
+
+return { names: names }

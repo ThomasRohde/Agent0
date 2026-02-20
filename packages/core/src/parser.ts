@@ -19,9 +19,13 @@ import {
   False,
   Null,
   If,
+  Else,
   For,
   Fn,
   Match,
+  Try,
+  Catch,
+  DotDotDot,
   Ident,
   FloatLit,
   IntLit,
@@ -167,6 +171,7 @@ class A0CstParser extends CstParser {
 
   expr = this.RULE("expr", () => {
     this.OR([
+      { ALT: () => this.SUBRULE(this.ifBlockExpr) },
       { ALT: () => this.SUBRULE(this.ifExpr) },
       { ALT: () => this.SUBRULE(this.forExpr) },
       { ALT: () => this.SUBRULE(this.matchExpr) },
@@ -174,6 +179,7 @@ class A0CstParser extends CstParser {
       { ALT: () => this.SUBRULE(this.doExpr) },
       { ALT: () => this.SUBRULE(this.assertExpr) },
       { ALT: () => this.SUBRULE(this.checkExpr) },
+      { ALT: () => this.SUBRULE(this.tryExpr) },
       { ALT: () => this.SUBRULE(this.comparison) },
     ]);
   });
@@ -242,6 +248,17 @@ class A0CstParser extends CstParser {
       { ALT: () => this.SUBRULE(this.literal) },
       { ALT: () => this.SUBRULE(this.identOrFnCall) },
     ]);
+  });
+
+  // v0.4: if (cond) { body } else { body }
+  ifBlockExpr = this.RULE("ifBlockExpr", () => {
+    this.CONSUME(If);
+    this.CONSUME(LParen);
+    this.SUBRULE(this.expr);
+    this.CONSUME(RParen);
+    this.SUBRULE(this.block);
+    this.CONSUME(Else);
+    this.SUBRULE2(this.block);
   });
 
   // v0.3: if { cond: ..., then: ..., else: ... }
@@ -314,6 +331,15 @@ class A0CstParser extends CstParser {
     this.SUBRULE(this.record);
   });
 
+  // v0.4: try { body } catch { binding } { body }
+  tryExpr = this.RULE("tryExpr", () => {
+    this.CONSUME(Try);
+    this.SUBRULE(this.block);
+    this.CONSUME(Catch);
+    this.SUBRULE(this.matchBinding);
+    this.SUBRULE2(this.block);
+  });
+
   // ident that might be followed by a record (function call)
   identOrFnCall = this.RULE("identOrFnCall", () => {
     this.SUBRULE(this.identPath);
@@ -325,16 +351,28 @@ class A0CstParser extends CstParser {
   record = this.RULE("record", () => {
     this.CONSUME(LBrace);
     this.OPTION(() => {
-      this.SUBRULE(this.pair);
+      this.SUBRULE(this.pairOrSpread);
       this.MANY(() => {
         this.CONSUME(Comma);
-        this.SUBRULE2(this.pair);
+        this.SUBRULE2(this.pairOrSpread);
       });
       this.OPTION2(() => {
         this.CONSUME2(Comma); // trailing comma
       });
     });
     this.CONSUME(RBrace);
+  });
+
+  pairOrSpread = this.RULE("pairOrSpread", () => {
+    this.OR([
+      { ALT: () => this.SUBRULE(this.spreadEntry) },
+      { ALT: () => this.SUBRULE(this.pair) },
+    ]);
+  });
+
+  spreadEntry = this.RULE("spreadEntry", () => {
+    this.CONSUME(DotDotDot);
+    this.SUBRULE(this.expr);
   });
 
   pair = this.RULE("pair", () => {
@@ -372,6 +410,7 @@ class A0CstParser extends CstParser {
     this.OR([
       { ALT: () => this.CONSUME(Ident) },
       { ALT: () => this.CONSUME(If) },
+      { ALT: () => this.CONSUME(Else) },
       { ALT: () => this.CONSUME(For) },
       { ALT: () => this.CONSUME(Fn) },
       { ALT: () => this.CONSUME(Match) },
@@ -384,6 +423,8 @@ class A0CstParser extends CstParser {
       { ALT: () => this.CONSUME(Do) },
       { ALT: () => this.CONSUME(Assert) },
       { ALT: () => this.CONSUME(Check) },
+      { ALT: () => this.CONSUME(Try) },
+      { ALT: () => this.CONSUME(Catch) },
     ]);
   });
 
@@ -610,6 +651,7 @@ function visitBlock(cst: CstNode, file: string): AST.Stmt[] {
 
 function visitExpr(cst: CstNode, file: string): AST.Expr {
   const children = cst.children;
+  if (children["ifBlockExpr"]) return visitIfBlockExpr((children["ifBlockExpr"] as CstNode[])[0], file);
   if (children["ifExpr"]) return visitIfExpr((children["ifExpr"] as CstNode[])[0], file);
   if (children["forExpr"]) return visitForExpr((children["forExpr"] as CstNode[])[0], file);
   if (children["matchExpr"]) return visitMatchExpr((children["matchExpr"] as CstNode[])[0], file);
@@ -617,6 +659,7 @@ function visitExpr(cst: CstNode, file: string): AST.Expr {
   if (children["doExpr"]) return visitDoExpr((children["doExpr"] as CstNode[])[0], file);
   if (children["assertExpr"]) return visitAssertExpr((children["assertExpr"] as CstNode[])[0], file);
   if (children["checkExpr"]) return visitCheckExpr((children["checkExpr"] as CstNode[])[0], file);
+  if (children["tryExpr"]) return visitTryExpr((children["tryExpr"] as CstNode[])[0], file);
   if (children["comparison"]) return visitComparison((children["comparison"] as CstNode[])[0], file);
   throw new Error("Unknown expression type");
 }
@@ -715,12 +758,24 @@ function visitPrimary(cst: CstNode, file: string): AST.Expr {
   throw new Error("Unknown primary expression type");
 }
 
+function visitIfBlockExpr(cst: CstNode, file: string): AST.IfBlockExpr {
+  const exprNode = (cst.children["expr"] as CstNode[])[0];
+  const blocks = cst.children["block"] as CstNode[];
+  return {
+    kind: "IfBlockExpr",
+    span: cstSpan(cst, file),
+    cond: visitExpr(exprNode, file),
+    thenBody: visitBlock(blocks[0], file),
+    elseBody: visitBlock(blocks[1], file),
+  };
+}
+
 function visitIfExpr(cst: CstNode, file: string): AST.IfExpr {
   const rec = visitRecord((cst.children["record"] as CstNode[])[0], file);
   let cond: AST.Expr | undefined;
   let thenExpr: AST.Expr | undefined;
   let elseExpr: AST.Expr | undefined;
-  for (const p of rec.pairs) {
+  for (const p of rec.pairs as AST.RecordPair[]) {
     if (p.key === "cond") cond = p.value;
     if (p.key === "then") thenExpr = p.value;
     if (p.key === "else") elseExpr = p.value;
@@ -748,7 +803,7 @@ function visitForExpr(cst: CstNode, file: string): AST.ForExpr {
 
   let list: AST.Expr | undefined;
   let binding: string | undefined;
-  for (const p of rec.pairs) {
+  for (const p of rec.pairs as AST.RecordPair[]) {
     if (p.key === "in") list = p.value;
     if (p.key === "as" && p.value.kind === "StrLiteral") binding = p.value.value;
   }
@@ -860,6 +915,19 @@ function visitCheckExpr(cst: CstNode, file: string): AST.CheckExpr {
   return { kind: "CheckExpr", span: cstSpan(cst, file), args };
 }
 
+function visitTryExpr(cst: CstNode, file: string): AST.TryExpr {
+  const blocks = cst.children["block"] as CstNode[];
+  const bindingNode = (cst.children["matchBinding"] as CstNode[])[0];
+  const binding = visitMatchBinding(bindingNode);
+  return {
+    kind: "TryExpr",
+    span: cstSpan(cst, file),
+    tryBody: visitBlock(blocks[0], file),
+    catchBinding: binding,
+    catchBody: visitBlock(blocks[1], file),
+  };
+}
+
 function visitIdentOrFnCall(cst: CstNode, file: string): AST.Expr {
   const idPath = visitIdentPath((cst.children["identPath"] as CstNode[])[0], file);
   if (cst.children["record"]) {
@@ -870,10 +938,20 @@ function visitIdentOrFnCall(cst: CstNode, file: string): AST.Expr {
 }
 
 function visitRecord(cst: CstNode, file: string): AST.RecordExpr {
-  const pairs: AST.RecordPair[] = [];
-  if (cst.children["pair"]) {
-    for (const p of cst.children["pair"] as CstNode[]) {
-      pairs.push(visitPair(p, file));
+  const pairs: (AST.RecordPair | AST.SpreadPair)[] = [];
+  if (cst.children["pairOrSpread"]) {
+    for (const ps of cst.children["pairOrSpread"] as CstNode[]) {
+      if (ps.children["spreadEntry"]) {
+        const spread = (ps.children["spreadEntry"] as CstNode[])[0];
+        const exprNode = (spread.children["expr"] as CstNode[])[0];
+        pairs.push({
+          kind: "SpreadPair",
+          span: cstSpan(spread, file),
+          expr: visitExpr(exprNode, file),
+        });
+      } else if (ps.children["pair"]) {
+        pairs.push(visitPair((ps.children["pair"] as CstNode[])[0], file));
+      }
     }
   }
   return { kind: "RecordExpr", span: cstSpan(cst, file), pairs };

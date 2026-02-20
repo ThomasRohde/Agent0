@@ -8,10 +8,17 @@ A0 supports arithmetic and comparison expressions with standard mathematical pre
 
 ## Arithmetic Operators
 
-All arithmetic operators work on numbers (integers and floats). Using them on non-numeric values produces an `E_TYPE` error.
+Arithmetic operators (`-`, `*`, `/`, `%`) work on numbers (integers and floats). Using them on non-numeric values produces an `E_TYPE` error.
+
+The `+` operator works on both numbers and strings:
+- **Numbers**: addition (`3 + 4` produces `7`)
+- **Strings**: concatenation (`"hello" + " world"` produces `"hello world"`)
+- **Mixed types**: produces `E_TYPE` (`"hello" + 1` is an error)
+
+Both operands must be the same type -- either both numbers or both strings.
 
 ```a0
-let sum = a + b        # addition
+let sum = a + b        # addition (numbers) or concatenation (strings)
 let diff = a - b       # subtraction
 let product = a * b    # multiplication
 let ratio = a / b      # division
@@ -23,6 +30,13 @@ When mixing integers and floats, the result is a float:
 ```a0
 let x = 10 + 3.5   # 13.5 (float)
 let y = 10 / 3     # 3.333... (float)
+```
+
+String concatenation with `+`:
+
+```a0
+let greeting = "hello" + " " + "world"   # "hello world"
+let path = dir + "/" + file               # build a path
 ```
 
 Division or modulo by zero produces an `E_TYPE` error.

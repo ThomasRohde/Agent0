@@ -1,0 +1,26 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "versions": ["1.0.0", "0.0.0", "2.1.0"],
+      "depsTypes": ["record", "null", "record"],
+      "names": ["core", "utils", "cli"],
+      "core_deps": [
+        { "key": "typescript", "value": "5.0" }
+      ],
+      "all_tags": [1, 2, 3, 4, 5, 6],
+      "built_paths": [
+        "packages/core/src/index.ts",
+        "packages/utils/src/index.ts",
+        "packages/cli/src/index.ts"
+      ],
+      "public_names": ["core", "cli"],
+      "dep_counts": [
+        { "name": "core", "depCount": 1 },
+        { "name": "cli", "depCount": 2 }
+      ]
+    }
+  }
+}

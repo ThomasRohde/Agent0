@@ -123,7 +123,7 @@ function extractBudget(program: AST.Program): Budget {
   const budget: Budget = {};
   for (const h of program.headers) {
     if (h.kind === "BudgetDecl") {
-      for (const p of h.budget.pairs) {
+      for (const p of h.budget.pairs as AST.RecordPair[]) {
         if (p.key === "timeMs" && p.value.kind === "IntLiteral") {
           budget.timeMs = p.value.value;
         }
@@ -304,7 +304,7 @@ function extractCapabilities(program: AST.Program): string[] {
   const caps: string[] = [];
   for (const h of program.headers) {
     if (h.kind === "CapDecl") {
-      for (const p of h.capabilities.pairs) {
+      for (const p of h.capabilities.pairs as AST.RecordPair[]) {
         if (p.value.kind === "BoolLiteral" && p.value.value === true) {
           caps.push(p.key);
         }
@@ -365,7 +365,20 @@ async function evalExpr(
     case "RecordExpr": {
       const rec: A0Record = {};
       for (const p of expr.pairs) {
-        rec[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
+        if (p.kind === "SpreadPair") {
+          const val = await evalExpr(p.expr, env, options, evidence, emitTrace, budget, tracker, userFns);
+          if (val !== null && typeof val === "object" && !Array.isArray(val)) {
+            Object.assign(rec, val);
+          } else {
+            throw new A0RuntimeError(
+              "E_TYPE",
+              `Spread requires a record, got ${val === null ? "null" : Array.isArray(val) ? "list" : typeof val}.`,
+              p.span
+            );
+          }
+        } else {
+          rec[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
+        }
       }
       return rec;
     }
@@ -411,7 +424,7 @@ async function evalExpr(
 
       // Evaluate args
       const args: A0Record = {};
-      for (const p of expr.args.pairs) {
+      for (const p of expr.args.pairs as AST.RecordPair[]) {
         args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
       }
 
@@ -513,7 +526,7 @@ async function evalExpr(
     case "AssertExpr":
     case "CheckExpr": {
       const args: A0Record = {};
-      for (const p of expr.args.pairs) {
+      for (const p of expr.args.pairs as AST.RecordPair[]) {
         args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
       }
 
@@ -551,7 +564,7 @@ async function evalExpr(
       // Built-in higher-order: map
       if (fnName === "map") {
         const mapArgs: A0Record = {};
-        for (const p of expr.args.pairs) {
+        for (const p of expr.args.pairs as AST.RecordPair[]) {
           mapArgs[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
         }
 
@@ -627,10 +640,123 @@ async function evalExpr(
         return results;
       }
 
+      // Built-in higher-order: filter (with fn: overload)
+      if (fnName === "filter") {
+        const filterArgs: A0Record = {};
+        for (const p of expr.args.pairs as AST.RecordPair[]) {
+          filterArgs[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
+        }
+
+        // Reject ambiguous calls with both by: and fn:
+        const hasFnArg = filterArgs["fn"] !== undefined && filterArgs["fn"] !== null;
+        const hasByArg = filterArgs["by"] !== undefined && filterArgs["by"] !== null;
+        if (hasFnArg && hasByArg) {
+          throw new A0RuntimeError(
+            "E_FN",
+            "filter requires exactly one of 'by' or 'fn', not both.",
+            expr.span,
+            { fn: "filter" }
+          );
+        }
+
+        // If no fn: arg, delegate to stdlib filter (by: key)
+        if (!hasFnArg) {
+          const fn = options.stdlib.get("filter");
+          if (!fn) {
+            throw new A0RuntimeError("E_UNKNOWN_FN", "Unknown function 'filter'.", expr.span);
+          }
+          try {
+            return fn.execute(filterArgs);
+          } catch (e) {
+            if (e instanceof A0RuntimeError) throw e;
+            const errMsg = e instanceof Error ? e.message : String(e);
+            throw new A0RuntimeError("E_FN", `Function 'filter' failed: ${errMsg}`, expr.span, { fn: "filter" });
+          }
+        }
+
+        // Higher-order filter with fn:
+        const listVal = filterArgs["in"];
+        if (!Array.isArray(listVal)) {
+          throw new A0RuntimeError(
+            "E_TYPE",
+            `filter 'in' must be a list, got ${listVal === null ? "null" : typeof listVal}.`,
+            expr.span
+          );
+        }
+
+        const fnNameVal = filterArgs["fn"];
+        if (typeof fnNameVal !== "string") {
+          throw new A0RuntimeError(
+            "E_TYPE",
+            `filter 'fn' must be a string, got ${fnNameVal === null ? "null" : typeof fnNameVal}.`,
+            expr.span
+          );
+        }
+
+        const filterFn = userFns.get(fnNameVal);
+        if (!filterFn) {
+          throw new A0RuntimeError("E_UNKNOWN_FN", `Unknown function '${fnNameVal}'.`, expr.span);
+        }
+
+        const results: A0Value[] = [];
+        for (const item of listVal) {
+          tracker.iterations++;
+          if (budget.maxIterations !== undefined && tracker.iterations > budget.maxIterations) {
+            emitTrace("budget_exceeded", expr.span, { budget: "maxIterations", limit: budget.maxIterations, actual: tracker.iterations });
+            throw new A0RuntimeError(
+              "E_BUDGET",
+              `Budget exceeded: maxIterations limit of ${budget.maxIterations} reached.`,
+              expr.span,
+              { budget: "maxIterations", limit: budget.maxIterations, actual: tracker.iterations }
+            );
+          }
+
+          emitTrace("fn_call_start", expr.span, { fn: fnNameVal });
+          const fnEnv = filterFn.closure.child();
+
+          if (filterFn.decl.params.length === 1) {
+            fnEnv.set(filterFn.decl.params[0], item);
+          } else if (item !== null && typeof item === "object" && !Array.isArray(item)) {
+            const rec = item as A0Record;
+            for (const param of filterFn.decl.params) {
+              fnEnv.set(param, rec[param] ?? null);
+            }
+          } else {
+            const itemType = item === null ? "null" : Array.isArray(item) ? "list" : typeof item;
+            throw new A0RuntimeError(
+              "E_TYPE",
+              `filter item must be a record when function '${fnNameVal}' expects ${filterFn.decl.params.length} parameters; got ${itemType}.`,
+              expr.span
+            );
+          }
+
+          const predResult = await executeBlock(filterFn.decl.body, fnEnv, options, evidence, emitTrace, budget, tracker, userFns);
+          emitTrace("fn_call_end", expr.span, { fn: fnNameVal });
+
+          // Unwrap record return: since A0 return always produces a record,
+          // check truthiness of the first value in the record (not the container).
+          // An empty record {} is treated as falsy (no meaningful predicate value).
+          let checkValue: A0Value = predResult;
+          if (predResult !== null && typeof predResult === "object" && !Array.isArray(predResult)) {
+            const vals = Object.values(predResult as A0Record);
+            if (vals.length > 0) {
+              checkValue = vals[0] ?? null;
+            } else {
+              checkValue = null;
+            }
+          }
+          if (isTruthy(checkValue)) {
+            results.push(item);
+          }
+        }
+
+        return results;
+      }
+
       // Built-in higher-order: reduce
       if (fnName === "reduce") {
         const reduceArgs: A0Record = {};
-        for (const p of expr.args.pairs) {
+        for (const p of expr.args.pairs as AST.RecordPair[]) {
           reduceArgs[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
         }
 
@@ -707,7 +833,7 @@ async function evalExpr(
 
         // Evaluate call arguments
         const args: A0Record = {};
-        for (const p of expr.args.pairs) {
+        for (const p of expr.args.pairs as AST.RecordPair[]) {
           args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
         }
 
@@ -732,7 +858,7 @@ async function evalExpr(
       }
 
       const args: A0Record = {};
-      for (const p of expr.args.pairs) {
+      for (const p of expr.args.pairs as AST.RecordPair[]) {
         args[p.key] = await evalExpr(p.value, env, options, evidence, emitTrace, budget, tracker, userFns);
       }
 
@@ -761,6 +887,13 @@ async function evalExpr(
       } else {
         return evalExpr(expr.else, env, options, evidence, emitTrace, budget, tracker, userFns);
       }
+    }
+
+    case "IfBlockExpr": {
+      const condVal = await evalExpr(expr.cond, env, options, evidence, emitTrace, budget, tracker, userFns);
+      const body = isTruthy(condVal) ? expr.thenBody : expr.elseBody;
+      const blockEnv = env.child();
+      return executeBlock(body, blockEnv, options, evidence, emitTrace, budget, tracker, userFns);
     }
 
     case "ForExpr": {
@@ -833,6 +966,23 @@ async function evalExpr(
       }
     }
 
+    case "TryExpr": {
+      try {
+        const tryEnv = env.child();
+        return await executeBlock(expr.tryBody, tryEnv, options, evidence, emitTrace, budget, tracker, userFns);
+      } catch (e) {
+        const catchEnv = env.child();
+        if (e instanceof A0RuntimeError) {
+          const errRec: A0Record = { code: e.code, message: e.message };
+          if (e.details) errRec["details"] = e.details as A0Value;
+          catchEnv.set(expr.catchBinding, errRec);
+        } else {
+          catchEnv.set(expr.catchBinding, { code: "E_RUNTIME", message: e instanceof Error ? e.message : String(e) });
+        }
+        return executeBlock(expr.catchBody, catchEnv, options, evidence, emitTrace, budget, tracker, userFns);
+      }
+    }
+
     case "BinaryExpr": {
       const left = await evalExpr(expr.left, env, options, evidence, emitTrace, budget, tracker, userFns);
       const right = await evalExpr(expr.right, env, options, evidence, emitTrace, budget, tracker, userFns);
@@ -854,8 +1004,19 @@ async function evalExpr(
 }
 
 function evalBinaryOp(op: string, left: A0Value, right: A0Value, span: Span): A0Value {
-  // Arithmetic operators: both must be numbers
-  if (op === "+" || op === "-" || op === "*" || op === "/" || op === "%") {
+  // '+' supports both numeric addition and string concatenation
+  if (op === "+") {
+    if (typeof left === "string" && typeof right === "string") return left + right;
+    if (typeof left === "number" && typeof right === "number") return left + right;
+    throw new A0RuntimeError(
+      "E_TYPE",
+      `Operator '+' requires two numbers or two strings, got ${left === null ? "null" : typeof left} and ${right === null ? "null" : typeof right}.`,
+      span
+    );
+  }
+
+  // Other arithmetic operators: both must be numbers
+  if (op === "-" || op === "*" || op === "/" || op === "%") {
     if (typeof left !== "number" || typeof right !== "number") {
       throw new A0RuntimeError(
         "E_TYPE",
@@ -864,7 +1025,6 @@ function evalBinaryOp(op: string, left: A0Value, right: A0Value, span: Span): A0
       );
     }
     switch (op) {
-      case "+": return left + right;
       case "-": return left - right;
       case "*": return left * right;
       case "/":

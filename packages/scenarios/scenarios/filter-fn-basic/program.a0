@@ -1,0 +1,28 @@
+fn isPositive { x } {
+  return { ok: x > 0 }
+}
+
+let nums = [-2, -1, 0, 1, 2, 3]
+let positives = filter { in: nums, fn: "isPositive" }
+
+fn isLong { item } {
+  let length = len { in: item.name }
+  return { ok: length > 3 }
+}
+
+let people = [
+  { name: "Al", score: 90 },
+  { name: "Alice", score: 85 },
+  { name: "Bo", score: 70 },
+  { name: "Charlie", score: 95 }
+]
+let long_names = filter { in: people, fn: "isLong" }
+let short_names = pluck { in: long_names, key: "name" }
+
+let empty_result = filter { in: [], fn: "isPositive" }
+
+return {
+  positives: positives,
+  long_names: short_names,
+  empty_result: empty_result
+}

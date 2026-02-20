@@ -1,0 +1,65 @@
+# Combined scenario exercising all 6 new stdlib functions + filter fn:
+let packages = [
+  { name: "core", version: "1.0.0", private: false, deps: { typescript: "5.0" } },
+  { name: "utils", version: null, private: true, deps: null },
+  { name: "cli", version: "2.1.0", private: false, deps: { commander: "11.0", typescript: "5.0" } }
+]
+
+# coalesce: default missing versions
+let versions = for { in: packages, as: "pkg" } {
+  let ver = coalesce { in: pkg.version, default: "0.0.0" }
+  return { name: pkg.name, version: ver }
+}
+
+# typeof: check types
+let types = for { in: packages, as: "pkg" } {
+  let dt = typeof { in: pkg.deps }
+  return { name: pkg.name, depsType: dt }
+}
+
+# pluck: extract names
+let names = pluck { in: packages, key: "name" }
+
+# entries: iterate deps of first package
+let core_deps = entries { in: { typescript: "5.0" } }
+
+# flat: flatten nested lists
+let tag_lists = [[1, 2], [3], [4, 5, 6]]
+let all_tags = flat { in: tag_lists }
+
+# str.template: build paths
+let paths = for { in: packages, as: "pkg" } {
+  let p = str.template { in: "packages/{name}/src/index.ts", vars: { name: pkg.name } }
+  return { path: p }
+}
+let built_paths = pluck { in: paths, key: "path" }
+
+# filter fn: keep only public packages
+fn isPublic { pkg } {
+  return { ok: not { in: pkg.private } }
+}
+let public_pkgs = filter { in: packages, fn: "isPublic" }
+let public_names = pluck { in: public_pkgs, key: "name" }
+
+# filter fn: keep packages with deps
+fn hasDeps { pkg } {
+  let t = typeof { in: pkg.deps }
+  return { ok: eq { a: t, b: "record" } }
+}
+let with_deps = filter { in: packages, fn: "hasDeps" }
+let dep_counts = for { in: with_deps, as: "pkg" } {
+  let k = keys { in: pkg.deps }
+  let cnt = len { in: k }
+  return { name: pkg.name, depCount: cnt }
+}
+
+return {
+  versions: pluck { in: versions, key: "version" },
+  depsTypes: pluck { in: types, key: "depsType" },
+  names: names,
+  core_deps: core_deps,
+  all_tags: all_tags,
+  built_paths: built_paths,
+  public_names: public_names,
+  dep_counts: dep_counts
+}

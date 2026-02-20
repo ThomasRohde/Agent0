@@ -97,6 +97,43 @@ return { result: result }
 
 All occurrences are replaced, not just the first.
 
+## str.template
+
+Replace `{key}` placeholders in a template string with values from a record.
+
+**Signature:** `str.template { in: str, vars: rec }` returns `str`.
+
+Each `{key}` in the template is replaced with the corresponding value from `vars`. Values are coerced to strings. Placeholders that do not match any key in `vars` are left as-is.
+
+```a0
+let url = str.template { in: "https://api.example.com/{version}/users/{id}", vars: { version: "v2", id: 42 } }
+# -> "https://api.example.com/v2/users/42"
+
+return { url: url }
+```
+
+Building file paths:
+
+```a0
+let path = str.template { in: "packages/{name}/src/{file}.ts", vars: { name: "core", file: "index" } }
+# -> "packages/core/src/index.ts"
+
+return { path: path }
+```
+
+Unmatched placeholders are preserved:
+
+```a0
+let partial = str.template { in: "Hello {name}, your {role} is ready", vars: { name: "Alice" } }
+# -> "Hello Alice, your {role} is ready"
+
+return { partial: partial }
+```
+
+:::tip
+`str.template` is more readable than `str.concat` for building strings with multiple variable parts. Use `str.concat` for simple concatenation, and `str.template` when you have a natural template pattern.
+:::
+
 ## See Also
 
 - [List Operations](./list-operations.md) -- join for the reverse of split

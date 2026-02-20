@@ -1,0 +1,20 @@
+# filter by: still works alongside filter fn:
+let items = [
+  { name: "Alice", active: true },
+  { name: "Bob", active: false },
+  { name: "Charlie", active: true }
+]
+
+# old form: filter by key
+let by_key = filter { in: items, by: "active" }
+
+# new form: filter by fn
+fn isActive { item } {
+  return { ok: item.active }
+}
+let by_fn = filter { in: items, fn: "isActive" }
+
+# both should give the same result
+let same = eq { a: by_key, b: by_fn }
+
+return { by_key: by_key, by_fn: by_fn, same: same }

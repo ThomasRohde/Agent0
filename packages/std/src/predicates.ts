@@ -118,3 +118,33 @@ export const orFn: StdlibFn = {
     return isTruthy(a) || isTruthy(b);
   },
 };
+
+/**
+ * coalesce { in: val, default: fallback } -> value
+ * Returns `in` if not null, else `default`. Strictly null-checking (NOT truthiness).
+ */
+export const coalesceFn: StdlibFn = {
+  name: "coalesce",
+  execute(args: A0Record): A0Value {
+    const input = args["in"] ?? null;
+    const fallback = args["default"] ?? null;
+    return input !== null ? input : fallback;
+  },
+};
+
+/**
+ * typeof { in: val } -> str
+ * Returns the A0 type name: "null", "boolean", "number", "string", "list", "record".
+ */
+export const typeofFn: StdlibFn = {
+  name: "typeof",
+  execute(args: A0Record): A0Value {
+    const input = args["in"] ?? null;
+    if (input === null) return "null";
+    if (typeof input === "boolean") return "boolean";
+    if (typeof input === "number") return "number";
+    if (typeof input === "string") return "string";
+    if (Array.isArray(input)) return "list";
+    return "record";
+  },
+};

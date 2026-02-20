@@ -1,0 +1,11 @@
+let rec = { a: 1, b: "hello", c: true }
+let pairs = entries { in: rec }
+let empty = entries { in: {} }
+let with_null = entries { in: { x: null, y: 42 } }
+let nested = entries { in: { config: { debug: true } } }
+return {
+  pairs: pairs,
+  empty: empty,
+  with_null: with_null,
+  nested: nested
+}

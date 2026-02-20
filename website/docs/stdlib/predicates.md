@@ -130,6 +130,72 @@ let first = or { a: "hello", b: false }
 return { either: either }
 ```
 
+## coalesce
+
+Null-coalescing: returns `in` if it is not `null`, otherwise returns `default`.
+
+**Signature:** `coalesce { in: any, default: any }` returns `any`.
+
+This uses **strict null-checking**, not truthiness. Values like `0`, `false`, and `""` are preserved -- only `null` triggers the fallback.
+
+```a0
+let a = coalesce { in: "hello", default: "fallback" }
+# -> "hello"
+
+let b = coalesce { in: null, default: "fallback" }
+# -> "fallback"
+
+let c = coalesce { in: 0, default: 42 }
+# -> 0 (0 is NOT null, so it is preserved)
+
+let d = coalesce { in: false, default: true }
+# -> false (false is NOT null, so it is preserved)
+
+let e = coalesce { in: "", default: "default" }
+# -> "" (empty string is NOT null, so it is preserved)
+
+return { a: a, b: b, c: c }
+```
+
+:::tip
+Use `coalesce` when you want to provide defaults for missing values without accidentally discarding `0`, `false`, or `""`. This is different from `if` with truthiness, which would treat those values as falsy.
+:::
+
+## typeof
+
+Returns the A0 type name of a value as a string.
+
+**Signature:** `typeof { in: any }` returns `str`.
+
+Possible return values: `"null"`, `"boolean"`, `"number"`, `"string"`, `"list"`, `"record"`.
+
+```a0
+let a = typeof { in: null }
+# -> "null"
+
+let b = typeof { in: true }
+# -> "boolean"
+
+let c = typeof { in: 42 }
+# -> "number"
+
+let d = typeof { in: 3.14 }
+# -> "number"
+
+let e = typeof { in: "hello" }
+# -> "string"
+
+let f = typeof { in: [1, 2, 3] }
+# -> "list"
+
+let g = typeof { in: { name: "alice" } }
+# -> "record"
+
+return { a: a, b: b, c: c, d: d, e: e, f: f, g: g }
+```
+
+Both integers and floats return `"number"`.
+
 ## See Also
 
 - [List Operations](./list-operations.md) -- filter, find (use predicates internally)

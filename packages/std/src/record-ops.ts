@@ -52,3 +52,19 @@ export const mergeFn: StdlibFn = {
     return { ...(a as A0Record), ...(b as A0Record) };
   },
 };
+
+/**
+ * entries { in: record } -> list
+ * Returns a list of { key, value } pairs from a record.
+ */
+export const entriesFn: StdlibFn = {
+  name: "entries",
+  execute(args: A0Record): A0Value {
+    const input = args["in"] ?? null;
+    if (input === null || typeof input !== "object" || Array.isArray(input)) {
+      throw new Error("entries: 'in' must be a record");
+    }
+    const rec = input as A0Record;
+    return Object.keys(rec).map((key) => ({ key, value: rec[key] ?? null }));
+  },
+};

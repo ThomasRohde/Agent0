@@ -63,6 +63,14 @@ Strings are double-quoted and support JSON escape sequences:
 
 The empty string `""` is falsy; all other strings are truthy.
 
+Strings can be concatenated with the `+` operator:
+
+```a0
+let full = "hello" + " " + "world"   # "hello world"
+```
+
+Both operands must be strings -- `"hello" + 1` produces `E_TYPE`. For joining mixed types, use `str.concat`.
+
 ## Records
 
 ```a0
@@ -85,6 +93,16 @@ Access record fields with dot notation:
 let name = user.name        # "Alice"
 let items = nested.data.items  # [1, 2, 3]
 ```
+
+**Record spread** merges fields from an existing record into a new one. Later keys override earlier:
+
+```a0
+let base = { host: "localhost", port: 8080 }
+let config = { ...base, port: 9090, debug: true }
+# config == { host: "localhost", port: 9090, debug: true }
+```
+
+The spread expression must evaluate to a record (`E_TYPE` otherwise). See [Control Flow -- Record Spread](./control-flow.md#record-spread) for more examples.
 
 ## Lists
 
@@ -130,7 +148,7 @@ let g = if { cond: [], then: "yes", else: "no" }      # "yes"
 
 A0 checks types at runtime. Using an operation on the wrong type produces an `E_TYPE` error (exit code 4). For example:
 
-- Arithmetic on non-numbers: `"hello" + 1` produces `E_TYPE`
+- Mixed-type `+`: `"hello" + 1` produces `E_TYPE` (both operands must be the same type)
 - Property access on non-records: `42.field` produces `E_PATH`
 - Comparing incompatible types: `"hello" > 42` produces `E_TYPE`
 

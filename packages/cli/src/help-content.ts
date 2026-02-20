@@ -35,6 +35,10 @@ STDLIB (pure, no cap needed)
   patch { in, ops }             -> patched record (RFC 6902)
   eq { a, b } -> bool           contains { in, value } -> bool
   not { in }  -> bool           and { a, b } / or { a, b } -> bool
+  coalesce { in, default } -> non-null value  typeof { in } -> type string
+  pluck { in, key } -> list       flat { in } -> flattened list
+  entries { in } -> [{ key, value }]
+  str.template { in, vars } -> interpolated string
 
 CONTROL FLOW
   let x = if { cond: expr, then: val, else: val }
@@ -43,16 +47,18 @@ CONTROL FLOW
   let x = match ident { ok {v} { return {} } err {e} { return {} } }
   let out = map { in: list, fn: "fnName" } # apply fn to each element
   let val = reduce { in: list, fn: "fnName", init: { val: 0 } } # accumulate
+  let f = filter { in: list, fn: "pred" }  # predicate filter; fn returns { ok: bool }
 
 EVIDENCE
   assert { that: bool_expr, msg?: "..." }  # fatal: false -> exit 5, halts immediately
   check  { that: bool_expr, msg?: "..." }  # non-fatal: records evidence, continues; exit 5 if any failed
   msg is optional; omitted msg becomes ""
 
-CAPS: fs.read  fs.write  http.get  sh.exec
-BUDGET: timeMs  maxToolCalls  maxBytesWritten  maxIterations
-EXIT CODES: 0=ok  1=cli-usage/help  2=parse/validate  3=cap-denied  4=runtime  5=assert/check
-PROPERTY ACCESS: resp.body  result.exitCode  data.items
+REFERENCE CHEAT SHEET
+  CAPS: fs.read  fs.write  http.get  sh.exec
+  BUDGET: timeMs  maxToolCalls  maxBytesWritten  maxIterations
+  EXIT CODES: 0=ok  1=cli-usage/help  2=parse/validate  3=cap-denied  4=runtime  5=assert/check
+  PROPERTY ACCESS: resp.body  result.exitCode  data.items
 
 MINIMAL EXAMPLE                        HTTP EXAMPLE
   let data = { name: "a0", v: 1 }       cap { http.get: true }
@@ -60,8 +66,17 @@ MINIMAL EXAMPLE                        HTTP EXAMPLE
                                          let body = parse.json { in: r.body }
                                          return { data: body }
 
-Topics: a0 help syntax|types|tools|stdlib|caps|budget|flow|diagnostics|examples
-Stdlib index: a0 help stdlib --index
+HELP TOPICS
+  a0 help syntax
+  a0 help types
+  a0 help tools
+  a0 help stdlib
+  a0 help caps
+  a0 help budget
+  a0 help flow
+  a0 help diagnostics
+  a0 help examples
+  a0 help stdlib --index    # compact full stdlib index
 `.trimStart();
 
 export const TOPICS: Record<string, string> = {
@@ -293,6 +308,15 @@ PREDICATE FUNCTIONS (use A0 truthiness: false/null/0/"" are falsy)
     Logical OR with truthiness coercion.
     Example: let either = or { a: cached, b: fetched }
 
+  coalesce { in: any, default: any } -> any
+    Returns 'in' if not null, else 'default'. Strictly null-checking (NOT truthiness).
+    0, false, "" are preserved — only null triggers fallback.
+    Example: let name = coalesce { in: user.name, default: "anonymous" }
+
+  typeof { in: any } -> str
+    Returns the A0 type name: "null", "boolean", "number", "string", "list", "record".
+    Example: let t = typeof { in: data }
+
 LIST FUNCTIONS
 
   len { in: list|str|record } -> int
@@ -310,6 +334,19 @@ LIST FUNCTIONS
 
   filter { in: list, by: str } -> list
     Keep record elements where element[by] is truthy.
+  filter { in: list, fn: "fnName" } -> list
+    Keep elements where user-defined predicate returns truthy.
+    The predicate returns { ok: bool_expr } — filter checks the first value.
+    The original item is kept (not the fn return value).
+    Shares maxIterations budget with for/map/reduce.
+    Example:
+      fn isActive { item } { return { ok: item.active } }
+      let active = filter { in: items, fn: "isActive" }
+
+  pluck { in: list, key: str } -> list
+    Extract a single field from each record in the list.
+    Non-record elements yield null.
+    Example: let names = pluck { in: users, key: "name" }
 
   find { in: list, key: str, value: any } -> any|null
     Return first record element where element[key] deeply equals value.
@@ -340,6 +377,10 @@ LIST FUNCTIONS
   unique { in: list } -> list
     Remove duplicates using deep equality. Preserves first-occurrence order.
 
+  flat { in: list } -> list
+    Flatten one level of nesting. Non-list elements preserved as-is.
+    Example: let all = flat { in: [[1, 2], [3, 4]] }  # -> [1, 2, 3, 4]
+
 MATH FUNCTIONS
 
   math.max { in: list } -> number
@@ -365,6 +406,11 @@ STRING FUNCTIONS
   str.replace { in: str, from: str, to: str } -> str
     Replace all occurrences of substring.
 
+  str.template { in: str, vars: record } -> str
+    Replace {key} placeholders with values from vars record.
+    Unmatched placeholders are left as-is for debugging visibility.
+    Example: let p = str.template { in: "packages/{name}/pkg.json", vars: { name: dir } }
+
 RECORD FUNCTIONS
 
   keys { in: record } -> list
@@ -375,6 +421,11 @@ RECORD FUNCTIONS
 
   merge { a: record, b: record } -> record
     Shallow-merge two records (b overwrites a).
+
+  entries { in: record } -> list
+    Return list of { key, value } pairs from a record.
+    Example: let pairs = entries { in: config }
+    # -> [{ key: "a", value: 1 }, { key: "b", value: 2 }]
 `.trimStart(),
 
 // ─── CAPS ───────────────────────────────────────────────────────────────────
@@ -438,7 +489,7 @@ FIELDS
   timeMs            int    Maximum wall-clock time in milliseconds
   maxToolCalls      int    Maximum number of tool invocations
   maxBytesWritten   int    Maximum bytes written via fs.write
-  maxIterations     int    Maximum for/map/reduce iterations (cumulative across all loops, maps, and reduces)
+  maxIterations     int    Maximum for/map/filter(fn:)/reduce iterations (cumulative)
 
 RULES
   - Only declare fields the program needs
@@ -446,7 +497,7 @@ RULES
   - Unknown fields produce E_UNKNOWN_BUDGET at validation time (exit 2)
   - Budget fields must be integer literals (E_BUDGET_TYPE)
   - timeMs is enforced during expression and statement evaluation
-  - maxToolCalls/maxIterations are checked during tool calls and loop/map/reduce iterations
+  - maxToolCalls/maxIterations are checked during tool calls and for/map/filter(fn:)/reduce iterations
   - maxBytesWritten is enforced after each write completes (post-effect);
     the write side effect occurs before the limit is checked
   - budget can appear before or after cap, but both must precede statements
@@ -529,7 +580,7 @@ map — Higher-order list transformation
   - Single-param fn receives each item directly
   - Multi-param fn destructures record items by key name
   - Non-record items with multi-param fn produce E_TYPE
-  - Shares maxIterations budget with for loops and reduce (cumulative)
+  - Shares maxIterations budget with for/filter(fn:)/reduce (cumulative)
   - E_TYPE if in: is not a list, fn: is not a string, or a multi-param item is not a record
   - E_UNKNOWN_FN if the named function doesn't exist
   Example:
@@ -539,12 +590,28 @@ map — Higher-order list transformation
     let nums = [1, 2, 3]
     let doubled = map { in: nums, fn: "double" }
 
+filter — Predicate-based list filtering (with fn:)
+  Syntax: filter { in: list_expr, fn: "fnName" }
+  - Calls the named user-defined function on each list element
+  - The predicate returns { ok: bool_expr } — filter checks the first value
+  - Keeps the original item when the first value in the result is truthy
+  - fn must be defined before use (with fn keyword)
+  - Single-param fn receives each item directly
+  - Multi-param fn destructures record items by key name
+  - Shares maxIterations budget with for/map/reduce (cumulative counter)
+  - Backward compatible: filter { in: list, by: "key" } still works
+  Example:
+    fn isActive { item } {
+      return { ok: item.active }
+    }
+    let active = filter { in: items, fn: "isActive" }
+
 reduce — Accumulate a list to a single value
   Syntax: reduce { in: list_expr, fn: "fnName", init: value }
   - Calls the named 2-param function with (accumulator, item) for each element
   - Returns the final accumulator value
   - fn must be defined before use and must accept exactly 2 parameters
-  - Shares maxIterations budget with for loops and map (cumulative)
+  - Shares maxIterations budget with for/map/filter(fn:) (cumulative)
   - E_TYPE if fn doesn't have 2 params, in: is not a list, or fn: is not a string
   - E_UNKNOWN_FN if the named function doesn't exist
   Example:
@@ -596,9 +663,10 @@ RUNTIME ERRORS (exit 3/4/5)
   E_RUNTIME         4     Unexpected runtime error    Report bug with repro; inspect trace/output context
   E_BUDGET          4     Budget limit exceeded       Increase limit or reduce usage
   E_UNKNOWN_FN      4     Unknown function at runtime (rare) Check: parse.json get put patch eq contains not and or
-                                                     len append concat sort filter find range join map reduce unique
-                                                     str.concat str.split str.starts str.ends str.replace
-                                                     keys values merge math.max math.min  (or user-defined fn names)
+                                                     coalesce typeof len append concat sort filter find range join
+                                                     map reduce unique pluck flat str.concat str.split str.starts
+                                                     str.ends str.replace str.template keys values merge entries
+                                                     math.max math.min  (or user-defined fn names)
   E_FN              4     Stdlib function threw        Check function args (e.g. invalid JSON)
   E_PATH            4     Dot-access on non-record   Verify variable holds a record
   E_TYPE            4     Type mismatch at runtime   Check arg types (e.g. map in:/fn: types)
@@ -708,6 +776,26 @@ A0 EXAMPLE PROGRAMS
     }
   }
   return { output: output }
+
+10. DYNAMIC FILE DISCOVERY + STR.TEMPLATE + COALESCE + FILTER FN:
+  cap { fs.read: true, fs.write: true }
+  call? fs.list { path: "packages" } -> entries
+  fn isDir { item } {
+    return { ok: eq { a: item.type, b: "directory" } }
+  }
+  let dirs = filter { in: entries, fn: "isDir" }
+  let packages = for { in: dirs, as: "d" } {
+    let path = str.template { in: "packages/{name}/package.json", vars: { name: d.name } }
+    call? fs.read { path: path } -> raw
+    let pkg = parse.json { in: raw }
+    let version = coalesce { in: pkg.version, default: "0.0.0" }
+    let t = typeof { in: pkg.dependencies }
+    let depNames = if { cond: eq { a: t, b: "record" }, then: keys { in: pkg.dependencies }, else: [] }
+    return { name: pkg.name, version: version, deps: depNames }
+  }
+  let names = pluck { in: packages, key: "name" }
+  do fs.write { path: "summary.json", data: { packages: packages, names: names }, format: "json" } -> out
+  return { artifact: out }
 
 CLI USAGE
   a0 run file.a0                        # execute (deny-by-default)

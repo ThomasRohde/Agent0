@@ -906,7 +906,25 @@ describe("A0 Evaluator", () => {
     assert.equal(val["b"], true);
   });
 
-  it("throws E_TYPE for arithmetic on non-numbers", async () => {
+  it("evaluates string concatenation with +", async () => {
+    const src = `let x = "hello" + " world"\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["x"], "hello world");
+  });
+
+  it("evaluates chained string concatenation", async () => {
+    const src = `let x = "a" + "b" + "c"\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["x"], "abc");
+  });
+
+  it("throws E_TYPE for mixed string + number", async () => {
     const src = `let x = "hello" + 1\nreturn { x: x }`;
     const pr = parse(src, "test.a0");
     assert.ok(pr.program);
@@ -1217,6 +1235,337 @@ return { from_loop: from_loop }`;
         return true;
       }
     );
+  });
+
+  // --- filter with fn: tests ---
+
+  it("filter with fn: keeps items where predicate returns truthy", async () => {
+    const src = `fn isPositive { x } {\n  return { ok: x > 0 }\n}\nlet nums = [-1, 0, 1, 2, -3, 4]\nlet result = filter { in: nums, fn: "isPositive" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.deepEqual(val["result"], [1, 2, 4]);
+  });
+
+  it("filter with fn: multi-param destructures record items", async () => {
+    const src = `fn isAdult { name, age } {\n  return { ok: age >= 18 }\n}\nlet people = [{ name: "Alice", age: 25 }, { name: "Bob", age: 15 }, { name: "Charlie", age: 30 }]\nlet result = filter { in: people, fn: "isAdult" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const filtered = val["result"] as A0Record[];
+    assert.equal(filtered.length, 2);
+    assert.equal(filtered[0]["name"], "Alice");
+    assert.equal(filtered[1]["name"], "Charlie");
+  });
+
+  it("filter with fn: returns empty list for empty input", async () => {
+    const src = `fn isPositive { x } {\n  return { ok: x > 0 }\n}\nlet result = filter { in: [], fn: "isPositive" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.deepEqual(val["result"], []);
+  });
+
+  it("filter with fn: respects maxIterations budget", async () => {
+    const src = `budget { maxIterations: 2 }\nfn isPositive { x } {\n  return { ok: x > 0 }\n}\nlet result = filter { in: [1, 2, 3], fn: "isPositive" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_BUDGET");
+        assert.ok(err.message.includes("maxIterations"));
+        return true;
+      }
+    );
+  });
+
+  it("filter with fn: E_UNKNOWN_FN when function does not exist", async () => {
+    const src = `let result = filter { in: [1, 2], fn: "nonexistent" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_UNKNOWN_FN");
+        return true;
+      }
+    );
+  });
+
+  it("filter without fn: falls back to stdlib by-key behavior", async () => {
+    const filterStdlib: StdlibFn = {
+      name: "filter",
+      execute(args: A0Record): A0Value {
+        const input = args["in"] as A0Value[];
+        const by = args["by"] as string;
+        return input.filter((el) => {
+          if (el !== null && typeof el === "object" && !Array.isArray(el)) {
+            const rec = el as A0Record;
+            return rec[by] !== null && rec[by] !== false && rec[by] !== 0 && rec[by] !== "";
+          }
+          return false;
+        });
+      },
+    };
+    const stdlib = new Map([["filter", filterStdlib]]);
+    const src = `let items = [{ name: "a", active: true }, { name: "b", active: false }]\nlet result = filter { in: items, by: "active" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program!, makeOptions({ stdlib }));
+    const val = result.value as A0Record;
+    const filtered = val["result"] as A0Record[];
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0]["name"], "a");
+  });
+
+  it("filter with fn: E_TYPE when in is not a list", async () => {
+    const src = `fn isOk { x } {\n  return { ok: true }\n}\nlet result = filter { in: 42, fn: "isOk" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        assert.ok(err.message.includes("list"));
+        return true;
+      }
+    );
+  });
+
+  it("filter with fn: keeps original items (not predicate return values)", async () => {
+    const src = `fn hasName { item } {\n  return { ok: not { in: eq { a: item.name, b: null } } }\n}\nlet items = [{ name: "Alice", age: 30 }, { name: null, age: 20 }, { name: "Bob", age: 25 }]\nlet result = filter { in: items, fn: "hasName" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    // Provide not and eq stdlib
+    const eqStdlib: StdlibFn = {
+      name: "eq",
+      execute(args: A0Record): A0Value {
+        return args["a"] === args["b"];
+      },
+    };
+    const notStdlib: StdlibFn = {
+      name: "not",
+      execute(args: A0Record): A0Value {
+        const v = args["in"] ?? null;
+        return v === null || v === false || v === 0 || v === "" ? true : false;
+      },
+    };
+    const stdlib = new Map([["eq", eqStdlib], ["not", notStdlib]]);
+    const result = await execute(pr.program!, makeOptions({ stdlib }));
+    const val = result.value as A0Record;
+    const filtered = val["result"] as A0Record[];
+    assert.equal(filtered.length, 2);
+    assert.equal(filtered[0]["name"], "Alice");
+    assert.equal(filtered[0]["age"], 30);
+    assert.equal(filtered[1]["name"], "Bob");
+  });
+
+  it("filter rejects both by: and fn: together", async () => {
+    const src = `fn isOk { x } {\n  return { ok: x.active }\n}\nlet items = [{ name: "A", active: true }]\nlet result = filter { in: items, by: "active", fn: "isOk" }\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.ok(err.message.includes("exactly one of"));
+        return true;
+      }
+    );
+  });
+
+  // --- Block if/else tests ---
+
+  it("evaluates block if/else with true condition", async () => {
+    const src = `let result = if (true) {\n  return { val: "yes" }\n} else {\n  return { val: "no" }\n}\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const inner = val["result"] as A0Record;
+    assert.equal(inner["val"], "yes");
+  });
+
+  it("evaluates block if/else with false condition", async () => {
+    const src = `let result = if (false) {\n  return { val: "yes" }\n} else {\n  return { val: "no" }\n}\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const inner = val["result"] as A0Record;
+    assert.equal(inner["val"], "no");
+  });
+
+  it("block if/else supports tool calls in branches", async () => {
+    const mockTool: import("./evaluator.js").ToolDef = {
+      name: "test.read",
+      mode: "read",
+      capabilityId: "test.read",
+      async execute(args: A0Record): Promise<A0Value> {
+        return `read:${args["key"]}`;
+      },
+    };
+    const tools = new Map([["test.read", mockTool]]);
+    const caps = new Set(["test.read"]);
+
+    const src = `let flag = true\nlet result = if (flag) {\n  call? test.read { key: "a" } -> data\n  return { ok: data }\n} else {\n  return { ok: "none" }\n}\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions({ tools, allowedCapabilities: caps }));
+    const val = result.value as A0Record;
+    const inner = val["result"] as A0Record;
+    assert.equal(inner["ok"], "read:a");
+  });
+
+  it("block if/else scopes variables to branches", async () => {
+    const src = `let x = 1\nlet result = if (true) {\n  let y = x + 10\n  return { val: y }\n} else {\n  return { val: 0 }\n}\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const inner = val["result"] as A0Record;
+    assert.equal(inner["val"], 11);
+  });
+
+  it("record-style if still works (backward compat)", async () => {
+    const src = `let x = if { cond: true, then: "yes", else: "no" }\nreturn { x: x }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["x"], "yes");
+  });
+
+  // --- Record spread tests ---
+
+  it("evaluates record spread", async () => {
+    const src = `let base = { a: 1, b: 2 }\nlet ext = { ...base, c: 3 }\nreturn { ext: ext }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const ext = val["ext"] as A0Record;
+    assert.equal(ext["a"], 1);
+    assert.equal(ext["b"], 2);
+    assert.equal(ext["c"], 3);
+  });
+
+  it("record spread: later keys override earlier", async () => {
+    const src = `let base = { x: 1, y: 2 }\nlet ext = { x: 99, ...base }\nreturn { ext: ext }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const ext = val["ext"] as A0Record;
+    assert.equal(ext["x"], 1); // base overrides x: 99
+    assert.equal(ext["y"], 2);
+  });
+
+  it("record spread: multiple spreads", async () => {
+    const src = `let a = { x: 1 }\nlet b = { y: 2, x: 10 }\nlet merged = { ...a, ...b }\nreturn { merged: merged }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const merged = val["merged"] as A0Record;
+    assert.equal(merged["x"], 10); // b overrides a
+    assert.equal(merged["y"], 2);
+  });
+
+  it("record spread: E_TYPE on non-record", async () => {
+    const src = `let arr = [1, 2]\nlet bad = { ...arr }\nreturn { bad: bad }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        assert.ok(err.message.includes("record"));
+        return true;
+      }
+    );
+  });
+
+  it("record spread: E_TYPE on null", async () => {
+    const src = `let n = null\nlet bad = { ...n }\nreturn { bad: bad }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        return true;
+      }
+    );
+  });
+
+  // --- try/catch tests ---
+
+  it("try/catch: no error returns try body result", async () => {
+    const src = `let result = try {\n  let x = 42\n  return { ok: x }\n} catch { e } {\n  return { err: e }\n}\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const inner = val["result"] as A0Record;
+    assert.equal(inner["ok"], 42);
+  });
+
+  it("try/catch: catches tool failure", async () => {
+    const mockTool: import("./evaluator.js").ToolDef = {
+      name: "test.fail",
+      mode: "read",
+      capabilityId: "test.fail",
+      async execute(): Promise<A0Value> {
+        throw new Error("tool broke");
+      },
+    };
+    const tools = new Map([["test.fail", mockTool]]);
+    const caps = new Set(["test.fail"]);
+
+    const src = `let result = try {\n  call? test.fail { key: "val" } -> data\n  return { ok: data }\n} catch { e } {\n  return { err: e }\n}\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions({ tools, allowedCapabilities: caps }));
+    const val = result.value as A0Record;
+    const inner = val["result"] as A0Record;
+    const errRec = inner["err"] as A0Record;
+    assert.equal(errRec["code"], "E_TOOL");
+    assert.ok(typeof errRec["message"] === "string");
+  });
+
+  it("try/catch: catches stdlib error", async () => {
+    const brokenFn: StdlibFn = {
+      name: "broken.fn",
+      execute(): A0Value {
+        throw new Error("stdlib broke");
+      },
+    };
+    const stdlib = new Map([["broken.fn", brokenFn]]);
+
+    const src = `let result = try {\n  let x = broken.fn { in: "hello" }\n  return { ok: x }\n} catch { e } {\n  return { err: e }\n}\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions({ stdlib }));
+    const val = result.value as A0Record;
+    const inner = val["result"] as A0Record;
+    const errRec = inner["err"] as A0Record;
+    assert.equal(errRec["code"], "E_FN");
+  });
+
+  it("try/catch: nested try/catch", async () => {
+    const src = `let result = try {\n  let inner = try {\n    return { ok: 1 }\n  } catch { e1 } {\n    return { err: e1 }\n  }\n  return { ok: inner }\n} catch { e2 } {\n  return { err: e2 }\n}\nreturn { result: result }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const inner = val["result"] as A0Record;
+    const ok = inner["ok"] as A0Record;
+    assert.equal(ok["ok"], 1);
   });
 
   it("tool_start trace includes mode", async () => {

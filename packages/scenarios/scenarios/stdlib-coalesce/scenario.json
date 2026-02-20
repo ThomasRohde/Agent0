@@ -1,0 +1,16 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "from_value": 42,
+      "from_null": 99,
+      "keep_false": false,
+      "keep_zero": 0,
+      "keep_empty": "",
+      "both_null": null,
+      "nested": { "key": "default" }
+    }
+  }
+}

@@ -98,3 +98,28 @@ export const strReplaceFn: StdlibFn = {
     return input.replaceAll(from, to);
   },
 };
+
+/**
+ * str.template { in: str, vars: record } -> str
+ * Replaces {key} placeholders in the template string with values from vars.
+ * Unmatched placeholders are left as-is for debugging visibility.
+ */
+export const strTemplateFn: StdlibFn = {
+  name: "str.template",
+  execute(args: A0Record): A0Value {
+    const input = args["in"] ?? null;
+    const vars = args["vars"] ?? null;
+    if (typeof input !== "string") {
+      throw new Error("str.template: 'in' must be a string");
+    }
+    if (vars === null || typeof vars !== "object" || Array.isArray(vars)) {
+      throw new Error("str.template: 'vars' must be a record");
+    }
+    const rec = vars as A0Record;
+    return input.replace(/\{([^}]+)\}/g, (match, key: string) => {
+      const val = rec[key];
+      if (val === undefined || val === null) return match;
+      return String(val);
+    });
+  },
+};

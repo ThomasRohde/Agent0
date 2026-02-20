@@ -246,3 +246,53 @@ export const uniqueFn: StdlibFn = {
     return result;
   },
 };
+
+/**
+ * pluck { in: list, key: str } -> list
+ * Extracts the value of a given key from each record in a list.
+ * Non-record elements yield null.
+ */
+export const pluckFn: StdlibFn = {
+  name: "pluck",
+  execute(args: A0Record): A0Value {
+    const input = args["in"] ?? null;
+    const key = args["key"] ?? null;
+    if (!Array.isArray(input)) {
+      throw new Error("pluck: 'in' must be a list");
+    }
+    if (typeof key !== "string") {
+      throw new Error("pluck: 'key' must be a string");
+    }
+    return input.map((el) => {
+      if (el !== null && typeof el === "object" && !Array.isArray(el)) {
+        return (el as A0Record)[key] ?? null;
+      }
+      return null;
+    });
+  },
+};
+
+/**
+ * flat { in: list } -> list
+ * Flattens one level of nesting. Non-list elements are preserved as-is.
+ */
+export const flatFn: StdlibFn = {
+  name: "flat",
+  execute(args: A0Record): A0Value {
+    const input = args["in"] ?? null;
+    if (!Array.isArray(input)) {
+      throw new Error("flat: 'in' must be a list");
+    }
+    const result: A0Value[] = [];
+    for (const item of input) {
+      if (Array.isArray(item)) {
+        for (const sub of item) {
+          result.push(sub);
+        }
+      } else {
+        result.push(item);
+      }
+    }
+    return result;
+  },
+};

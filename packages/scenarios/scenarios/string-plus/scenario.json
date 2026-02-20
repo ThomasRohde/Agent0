@@ -1,0 +1,14 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "hello": "hello world",
+      "chain": "abc",
+      "with_var": "prefix-abc",
+      "empty": "nonempty",
+      "nums_still_work": 3
+    }
+  }
+}

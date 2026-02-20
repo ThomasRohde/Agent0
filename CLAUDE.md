@@ -38,7 +38,7 @@ Tests use Node's built-in test runner (`node --test`), not Jest or Vitest.
 npm workspaces with four packages, strict dependency order:
 
 - **`@a0/core`** (`packages/core`) — Lexer (Chevrotain), CST parser, AST types, semantic validator, evaluator, formatter, capability policy loader. This is the foundation — all other packages depend on it.
-- **`@a0/std`** (`packages/std`) — Pure stdlib functions: `parse.json`, `get`/`put` (path ops), `patch` (JSON Patch), predicate helpers (`eq`, `contains`, `not`, `and`, `or`), list ops (`len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`), string ops (`str.concat`, `str.split`, `str.starts`, `str.replace`), and record ops (`keys`, `values`, `merge`). Implements the `StdlibFn` interface from core.
+- **`@a0/std`** (`packages/std`) — Pure stdlib functions: `parse.json`, `get`/`put` (path ops), `patch` (JSON Patch), predicate helpers (`eq`, `contains`, `not`, `and`, `or`, `coalesce`, `typeof`), list ops (`len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `unique`, `pluck`, `flat`), math ops (`math.max`, `math.min`), string ops (`str.concat`, `str.split`, `str.starts`, `str.ends`, `str.replace`, `str.template`), and record ops (`keys`, `values`, `merge`, `entries`). `filter` supports both `by:` key-truthiness and `fn:` predicate function overloads. Implements the `StdlibFn` interface from core.
 - **`@a0/tools`** (`packages/tools`) — Built-in side-effectful tools: `fs.read`, `fs.write`, `http.get`, `sh.exec`. Implements the `ToolDef` interface from core. Uses Zod for schema validation.
 - **`a0`** (`packages/cli`) — Commander-based CLI with four commands: `run`, `check`, `fmt`, `trace`. Wires core + std + tools together.
 
@@ -47,16 +47,16 @@ All packages are ESM (`"type": "module"`) targeting ES2022, with TypeScript comp
 ## Architecture: How a Program Executes
 
 1. **Lexer** (`core/src/lexer.ts`) — Chevrotain tokenizer. Token order matters: keywords before `Ident`, `FloatLit` before `IntLit`.
-2. **Parser** (`core/src/parser.ts`) — Chevrotain CST parser → CST-to-AST visitor functions produce typed AST nodes. Includes arithmetic/comparison expression rules with standard precedence. AST node types include `BinaryExpr` (for `+`, `-`, `*`, `/`, `%`, `>`, `<`, `>=`, `<=`, `==`, `!=`) and `UnaryExpr` (for unary `-`). Parenthesized grouping `( )` is supported for controlling precedence.
-3. **Validator** (`core/src/validator.ts`) — Semantic checks: `return` required and last, known capabilities, unique bindings, no unbound variables, declared capabilities match used tools, known budget fields. Scoped validation for `fn`/`for`/`match` block bodies via `validateBlockBindings`.
-4. **Evaluator** (`core/src/evaluator.ts`) — Step-by-step async execution. `Env` class with parent-chained scoping. Tool calls go through `ExecOptions.tools` map; stdlib through `ExecOptions.stdlib` map; user-defined functions through `userFns` map. Emits trace events via callback.
+2. **Parser** (`core/src/parser.ts`) — Chevrotain CST parser → CST-to-AST visitor functions produce typed AST nodes. Includes arithmetic/comparison expression rules with standard precedence. AST node types include `BinaryExpr` (for `+`, `-`, `*`, `/`, `%`, `>`, `<`, `>=`, `<=`, `==`, `!=` — `+` also concatenates strings), `UnaryExpr` (for unary `-`), `IfBlockExpr` (block `if/else` with statement bodies), `TryExpr` (`try/catch` error handling), and `SpreadPair` (record spread `{ ...base, key: val }`). Parenthesized grouping `( )` is supported for controlling precedence.
+3. **Validator** (`core/src/validator.ts`) — Semantic checks: `return` required and last, known capabilities, unique bindings, no unbound variables, declared capabilities match used tools, known budget fields. Scoped validation for `fn`/`for`/`match`/`if-block`/`try-catch` block bodies via `validateBlockBindings`.
+4. **Evaluator** (`core/src/evaluator.ts`) — Step-by-step async execution. `Env` class with parent-chained scoping. Tool calls go through `ExecOptions.tools` map; stdlib through `ExecOptions.stdlib` map; user-defined functions through `userFns` map. Functions support closures (capture variables from their defining scope). `try/catch` blocks catch runtime errors and bind a `{ code, message }` record to the catch variable. Emits trace events via callback.
 5. **Capabilities** (`core/src/capabilities.ts`) — Policy loaded from `.a0policy.json` (project) → `~/.a0/policy.json` (user) → deny-all default. `--unsafe-allow-all` overrides for dev.
 
 Key interfaces defined in the evaluator that tools/stdlib implement:
 - `ToolDef`: `{ name, mode: "read"|"effect", capabilityId, execute(args, signal?), inputSchema?, outputSchema? }`
 - `StdlibFn`: `{ name, execute(args) }`
 
-**Stdlib error model:** Stdlib functions throw on errors (never return `{err:...}` records). The evaluator's try/catch wraps thrown errors as `E_FN` (exit 4). This ensures consistent, documented error behavior — programs that need to handle failures should validate inputs before calling stdlib functions.
+**Stdlib error model:** Stdlib functions throw on errors (never return `{err:...}` records). The evaluator's internal try/catch wraps thrown errors as `E_FN` (exit 4). This ensures consistent, documented error behavior. Programs can handle failures either by validating inputs before calling stdlib functions, or by using the `try/catch` expression to catch runtime errors and inspect the `{ code, message }` error record.
 
 ## Language Contribution Rules
 
@@ -72,15 +72,17 @@ Stable string codes: `E_LEX`, `E_PARSE`, `E_AST`, `E_NO_RETURN`, `E_RETURN_NOT_L
 
 ## Keywords
 
-Reserved keywords (lexer tokens): `cap`, `budget`, `import`, `as`, `let`, `return`, `call?`, `do`, `assert`, `check`, `true`, `false`, `null`, `if`, `for`, `fn`, `match`.
+Reserved keywords (lexer tokens): `cap`, `budget`, `import`, `as`, `let`, `return`, `call?`, `do`, `assert`, `check`, `true`, `false`, `null`, `if`, `else`, `for`, `fn`, `match`, `try`, `catch`.
 
-Note: `ok`, `err`, `in`, `cond`, `then`, `else` are NOT keywords — they are parsed as identifiers or record keys.
+Note: `ok`, `err`, `in`, `cond`, `then` are NOT keywords — they are parsed as identifiers or record keys.
+
+**New token:** `...` (`DotDotDot`) for record spread syntax `{ ...base, key: val }`.
 
 **Diagnostic phase notes:** `E_CALL_EFFECT` is a compile-time error (caught by `a0 check`, exit 2). `E_TOOL_ARGS` is a runtime error (exit 4) — tool arg schemas are validated at execution time, not statically.
 
 ## Trace Events
 
-`run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `tool_end`, `evidence`, `budget_exceeded`, `for_start`, `for_end`, `fn_call_start`, `fn_call_end`, `match_start`, `match_end`, `map_start`, `map_end`, `reduce_start`, `reduce_end`.
+`run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `tool_end`, `evidence`, `budget_exceeded`, `for_start`, `for_end`, `fn_call_start`, `fn_call_end`, `match_start`, `match_end`, `map_start`, `map_end`, `reduce_start`, `reduce_end`, `try_start`, `try_end`.
 
 ## Budget Fields
 

@@ -1,0 +1,17 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "simple": "Hello, World!",
+      "multi": "x/y/z",
+      "unmatched": "yes and {unknown}",
+      "no_placeholders": "no placeholders",
+      "with_number": "v42",
+      "path_build": "packages/core/package.json",
+      "null_var": "val={x}",
+      "empty": ""
+    }
+  }
+}

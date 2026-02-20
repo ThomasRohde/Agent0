@@ -1,0 +1,15 @@
+let nested = [[1, 2], [3, 4]]
+let flattened = flat { in: nested }
+let mixed = flat { in: [1, [2, 3], 4] }
+let deep = flat { in: [[1, [2, 3]], [4]] }
+let with_records = flat { in: [{ a: 1 }, [{ b: 2 }, null]] }
+let empty_sub = flat { in: [[], [1], []] }
+let empty = flat { in: [] }
+return {
+  flattened: flattened,
+  mixed: mixed,
+  deep: deep,
+  with_records: with_records,
+  empty_sub: empty_sub,
+  empty: empty
+}

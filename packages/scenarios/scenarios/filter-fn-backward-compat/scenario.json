@@ -1,0 +1,18 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "by_key": [
+        { "name": "Alice", "active": true },
+        { "name": "Charlie", "active": true }
+      ],
+      "by_fn": [
+        { "name": "Alice", "active": true },
+        { "name": "Charlie", "active": true }
+      ],
+      "same": true
+    }
+  }
+}

@@ -1,0 +1,21 @@
+let base = { name: "test", version: 1 }
+let extended = { ...base, extra: true }
+
+# Override a key from base
+let override = { ...base, version: 2, debug: false }
+
+# Multiple spreads
+let a = { x: 1 }
+let b = { y: 2, x: 10 }
+let merged = { ...a, ...b }
+
+# Spread with computed values
+let prefix = { type: "lib" }
+let full = { ...prefix, name: "core" + "-pkg" }
+
+return {
+  extended: extended,
+  override: override,
+  merged: merged,
+  full: full
+}

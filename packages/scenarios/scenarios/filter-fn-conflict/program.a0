@@ -1,0 +1,9 @@
+fn isActive { x } {
+  return { ok: x.active }
+}
+
+let items = [{ name: "A", active: true }, { name: "B", active: false }]
+
+# Passing both by: and fn: is ambiguous — should be rejected
+let result = filter { in: items, by: "active", fn: "isActive" }
+return { result: result }

@@ -100,7 +100,9 @@ return { sorted: sorted }
 
 ## filter
 
-Filter a list of records, keeping elements where the specified key is truthy.
+Filter a list, keeping elements that match a condition. Supports two forms: filter by record key, or filter by user-defined predicate function.
+
+### Filter by key
 
 **Signature:** `filter { in: list, by: str }` returns `list`.
 
@@ -118,6 +120,50 @@ let active = filter { in: items, by: "active" }
 # -> [{ name: "alice", active: true }, { name: "charlie", active: true }]
 
 return { active: active }
+```
+
+### Filter by predicate function
+
+**Signature:** `filter { in: list, fn: str }` returns `list`.
+
+The `fn` argument names a user-defined function. The function is called once per element. Since A0 `return` requires a record (and records are always truthy), filter checks the truthiness of the **first value** in the returned record, not the record itself. By convention, predicate functions should return `{ ok: expr }`. If the `ok` value is truthy, the **original element** is kept (not the function's return value). This works exactly like `map` for dispatch: single-parameter functions receive the element directly, multi-parameter functions destructure record elements.
+
+Filter iterations count toward the [`maxIterations`](../capabilities/budgets.md) budget (shared with `for`, `map`, and `reduce`).
+
+```a0
+fn isAdult { age } {
+  return { ok: age >= 18 }
+}
+
+let people = [
+  { name: "alice", age: 25 },
+  { name: "bob", age: 12 },
+  { name: "charlie", age: 30 }
+]
+
+let adults = filter { in: people, fn: "isAdult" }
+# -> [{ name: "alice", age: 25 }, { name: "charlie", age: 30 }]
+
+return { adults: adults }
+```
+
+The predicate function must return a record. Filter unwraps the record and checks the truthiness of its **first value** -- if truthy the item is kept, if falsy it is discarded. The original list element is always what appears in the result. Use the `{ ok: expr }` convention for clarity:
+
+```a0
+fn hasHighScore { item } {
+  return { ok: item.score > 50 }
+}
+
+let entries = [
+  { name: "A", score: 80 },
+  { name: "B", score: 30 },
+  { name: "C", score: 90 }
+]
+
+let winners = filter { in: entries, fn: "hasHighScore" }
+# -> [{ name: "A", score: 80 }, { name: "C", score: 90 }]
+
+return { winners: winners }
 ```
 
 ## find
@@ -268,9 +314,80 @@ return { deduped: deduped }
 
 Throws `E_FN` if `in` is not a list.
 
+## pluck
+
+Extract a single field from each record in a list. Returns a new list of the extracted values.
+
+**Signature:** `pluck { in: list, key: str }` returns `list`.
+
+For each element, if it is a record containing the specified key, that value is extracted. Non-record elements or records missing the key yield `null`.
+
+```a0
+let users = [
+  { name: "alice", age: 30 },
+  { name: "bob", age: 25 },
+  { name: "charlie", age: 35 }
+]
+
+let names = pluck { in: users, key: "name" }
+# -> ["alice", "bob", "charlie"]
+
+let ages = pluck { in: users, key: "age" }
+# -> [30, 25, 35]
+
+return { names: names }
+```
+
+Missing keys and non-record elements produce `null`:
+
+```a0
+let mixed = pluck { in: [{ a: 1 }, "not a record", { b: 2 }], key: "a" }
+# -> [1, null, null]
+
+return { mixed: mixed }
+```
+
+Throws `E_FN` if `in` is not a list.
+
+## flat
+
+Flatten one level of nesting in a list. Non-list elements are preserved as-is.
+
+**Signature:** `flat { in: list }` returns `list`.
+
+```a0
+let nested = [[1, 2], [3, 4], [5]]
+let result = flat { in: nested }
+# -> [1, 2, 3, 4, 5]
+
+return { result: result }
+```
+
+Only one level is flattened. Deeper nesting is preserved:
+
+```a0
+let deep = [[1, [2, 3]], [4]]
+let result = flat { in: deep }
+# -> [1, [2, 3], 4]
+
+return { result: result }
+```
+
+Non-list elements are kept in place:
+
+```a0
+let mixed = [1, [2, 3], "hello", [4]]
+let result = flat { in: mixed }
+# -> [1, 2, 3, "hello", 4]
+
+return { result: result }
+```
+
+Throws `E_FN` if `in` is not a list.
+
 ## See Also
 
 - [Predicates](./predicates.md) -- Truthiness rules used by filter
 - [String Operations](./string-operations.md) -- str.concat for building strings
 - [Math Operations](./math-operations.md) -- math.max, math.min for numeric aggregation
-- [Budgets](../capabilities/budgets.md) -- maxIterations budget for map, reduce, and for loops
+- [Budgets](../capabilities/budgets.md) -- maxIterations budget for filter (fn:), map, reduce, and for loops

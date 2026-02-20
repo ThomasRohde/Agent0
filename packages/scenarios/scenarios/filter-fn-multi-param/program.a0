@@ -1,0 +1,15 @@
+# filter fn: with multi-param destructuring
+fn isAdult { name, age } {
+  return { ok: age >= 18 }
+}
+
+let people = [
+  { name: "Alice", age: 25 },
+  { name: "Bob", age: 15 },
+  { name: "Charlie", age: 30 },
+  { name: "Daisy", age: 12 }
+]
+let adults = filter { in: people, fn: "isAdult" }
+let adult_names = pluck { in: adults, key: "name" }
+
+return { adults: adults, names: adult_names }

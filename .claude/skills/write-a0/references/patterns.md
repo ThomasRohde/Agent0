@@ -354,6 +354,109 @@ let minScore = math.min { in: [10, 20, 30] }
 return { total: result.val, max: maxScore, min: minScore }
 ```
 
+## Pattern 19: Null-Defaulting with coalesce
+
+Use `coalesce` for safe null-defaulting. Unlike truthiness checks, `coalesce` is strictly null-checking -- `false`, `0`, and `""` are preserved.
+
+```
+# safe-defaults.a0
+cap { fs.read: true }
+
+call? fs.read { path: "config.json" } -> raw
+let config = parse.json { in: raw }
+let port = get { in: config, path: "port" }
+let host = get { in: config, path: "host" }
+let debug = get { in: config, path: "debug" }
+
+# coalesce keeps 0 and false — only replaces null
+let safe_port = coalesce { in: port, default: 8080 }
+let safe_host = coalesce { in: host, default: "localhost" }
+let safe_debug = coalesce { in: debug, default: false }
+
+return { port: safe_port, host: safe_host, debug: safe_debug }
+```
+
+## Pattern 20: Path Building with str.template
+
+Use `str.template` to construct paths and URLs with named placeholders instead of multiple `str.concat` calls.
+
+```
+# build-paths.a0
+cap { fs.read: true }
+
+let dirs = ["core", "std", "cli"]
+let paths = for { in: dirs, as: "dir" } {
+  let pkg = str.template { in: "packages/{name}/package.json", vars: { name: dir } }
+  let src = str.template { in: "packages/{name}/src/index.ts", vars: { name: dir } }
+  return { pkg: pkg, src: src }
+}
+
+let api_url = str.template {
+  in: "https://registry.npmjs.org/{scope}/{pkg}",
+  vars: { scope: "@a0", pkg: "core" }
+}
+
+return { paths: paths, api_url: api_url }
+```
+
+## Pattern 21: Record Iteration with entries
+
+Use `entries` to convert a record into a list of `{ key, value }` pairs for iteration and transformation.
+
+```
+# iterate-record.a0
+let config = { host: "localhost", port: 8080, debug: true }
+let pairs = entries { in: config }
+
+# Transform into "key=value" strings
+let env_lines = for { in: pairs, as: "pair" } {
+  let line = str.template { in: "{k}={v}", vars: { k: pair.key, v: pair.value } }
+  return { line: line }
+}
+let env_vals = pluck { in: env_lines, key: "line" }
+let env_file = join { in: env_vals, sep: "\n" }
+
+return { pairs: pairs, env_file: env_file }
+```
+
+## Pattern 22: Predicate Filtering with filter + fn
+
+Use `filter` with `fn:` to apply a user-defined predicate function. The original items are kept (not the fn return value). Counts against `maxIterations`.
+
+Since A0 `return` requires a record (and records are always truthy), filter checks the truthiness of the **first value** in the returned record, not the record itself. By convention, predicate functions should return `{ ok: expr }`.
+
+```
+# predicate-filter.a0
+budget { maxIterations: 100 }
+
+fn isAdult { item } {
+  return { ok: item.age >= 18 }
+}
+
+fn hasEmail { item } {
+  let t = typeof { in: item.email }
+  let is_str = eq { a: t, b: "string" }
+  return { ok: is_str }
+}
+
+let users = [
+  { name: "Alice", age: 30, email: "alice@example.com" },
+  { name: "Bob", age: 15, email: null },
+  { name: "Carol", age: 25, email: "carol@example.com" }
+]
+
+let adults = filter { in: users, fn: "isAdult" }
+let with_email = filter { in: users, fn: "hasEmail" }
+let contactable = filter { in: adults, fn: "hasEmail" }
+
+return { adults: adults, with_email: with_email, contactable: contactable }
+```
+
+**When to use `filter` by: vs fn:**
+- Use `by:` when filtering by a single boolean/truthy field already on the record
+- Use `fn:` when the filter condition requires computation, comparison, or multi-field logic
+- Predicate functions must return `{ ok: expr }` -- filter checks the truthiness of the first value in the returned record
+
 ## Anti-Patterns to Avoid
 
 ### Missing return
@@ -393,3 +496,150 @@ let x = 2
 # WRONG — y not declared
 return { result: y }
 ```
+
+## Pattern 23: Closure-Based Filtering
+
+Use closures to capture outer variables in filter predicates, avoiding hardcoded values inside functions.
+
+```
+# closure-filter.a0
+let allowed_roles = ["admin", "editor"]
+
+fn isAllowed { item } {
+  let role_match = contains { in: allowed_roles, value: item.role }
+  return { ok: role_match }
+}
+
+let users = [
+  { name: "Alice", role: "admin" },
+  { name: "Bob", role: "viewer" },
+  { name: "Carol", role: "editor" }
+]
+
+let permitted = filter { in: users, fn: "isAllowed" }
+
+return { permitted: permitted }
+```
+
+The function `isAllowed` captures `allowed_roles` from the outer scope. This pattern is useful when the filter criteria come from configuration or earlier computation.
+
+## Pattern 24: Dynamic File Discovery
+
+Use `fs.list` to discover files, then `for` with tool calls to read and process each one.
+
+```
+# discover-and-read.a0
+cap { fs.read: true }
+budget { maxIterations: 50, maxToolCalls: 50 }
+
+call? fs.list { path: "data" } -> entries
+let json_files = filter { in: entries, by: "name" }
+
+let results = for { in: entries, as: "entry" } {
+  let is_file = eq { a: entry.type, b: "file" }
+  let is_json = str.ends { in: entry.name, value: ".json" }
+  let should_read = and { a: is_file, b: is_json }
+  let path = "data/" + entry.name
+  let content = if (should_read) {
+    call? fs.read { path: path } -> raw
+    let parsed = parse.json { in: raw }
+    return { data: parsed, file: entry.name }
+  } else {
+    return { data: null, file: entry.name }
+  }
+  return { file: content.file, data: content.data }
+}
+
+return { files: results }
+```
+
+This pattern combines `fs.list`, `for` with tool calls inside the loop body, string `+` for path building, and block `if/else` for conditional processing.
+
+## Pattern 25: Error Recovery with try/catch
+
+Use `try/catch` to gracefully handle failures from tool calls or stdlib functions.
+
+```
+# safe-read.a0
+cap { fs.read: true }
+
+let result = try {
+  call? fs.read { path: "config.json" } -> raw
+  let config = parse.json { in: raw }
+  return { ok: true, config: config }
+} catch { e } {
+  return { ok: false, error: e.code, detail: e.message }
+}
+
+let has_config = eq { a: result.ok, b: true }
+let port = if (has_config) {
+  let p = get { in: result.config, path: "port" }
+  let safe = coalesce { in: p, default: 8080 }
+  return { val: safe }
+} else {
+  return { val: 8080 }
+}
+
+return { port: port.val, config_loaded: result.ok }
+```
+
+The `try` body runs normally. If any statement throws (file not found, invalid JSON, etc.), the `catch` body runs with `e` bound to `{ code: "E_...", message: "..." }`. This avoids fatal errors and lets the program provide defaults or alternative behavior.
+
+## Pattern 26: Record Composition with Spread
+
+Use spread syntax to compose records from a base, applying overrides or extensions.
+
+```
+# record-spread.a0
+let defaults = { host: "localhost", port: 8080, debug: false, retries: 3 }
+let env_overrides = { port: 3000, debug: true }
+let config = { ...defaults, ...env_overrides, app: "myservice" }
+
+# Later keys override earlier ones:
+# config == { host: "localhost", port: 3000, debug: true, retries: 3, app: "myservice" }
+
+let items = [
+  { name: "Alice", score: 85 },
+  { name: "Bob", score: 92 }
+]
+
+let tagged = for { in: items, as: "item" } {
+  let rank = if (item.score >= 90) {
+    return { val: "A" }
+  } else {
+    return { val: "B" }
+  }
+  return { ...item, rank: rank.val }
+}
+
+return { config: config, tagged: tagged }
+```
+
+Spread is useful for merging defaults with overrides, extending records inside loops, and building composite records without manually listing every key.
+
+## Pattern 27: String Building with + Operator
+
+Use the `+` operator for simple string concatenation instead of `str.concat` when combining two values.
+
+```
+# string-plus.a0
+let greeting = "Hello" + ", " + "World!"
+let name = "Alice"
+let msg = "Welcome, " + name + "!"
+
+let files = ["main.ts", "utils.ts", "types.ts"]
+let paths = for { in: files, as: "file" } {
+  let full = "src/" + file
+  return { path: full }
+}
+
+let labels = pluck { in: paths, key: "path" }
+let result = join { in: labels, sep: "\n" }
+
+return { greeting: greeting, msg: msg, paths: result }
+```
+
+**When to use `+` vs `str.concat`:**
+- Use `+` for simple two-operand concatenation: `"prefix" + name`
+- Use `str.concat` when combining many parts: `str.concat { parts: [a, b, c, d] }`
+- Use `str.template` when building strings with named placeholders: `str.template { in: "Hello {name}", vars: { name: "Alice" } }`

@@ -1,0 +1,11 @@
+{
+  "cmd": ["run", "program.a0", "--unsafe-allow-all"],
+  "policy": { "allow": ["fs.read"] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "ok_result": { "ok": 42 },
+      "fail_result": { "caught": "E_TOOL" }
+    }
+  }
+}

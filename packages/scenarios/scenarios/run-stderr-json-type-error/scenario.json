@@ -4,7 +4,7 @@
     "exitCode": 4,
     "stderrJson": {
       "code": "E_TYPE",
-      "message": "Operator '+' requires numbers, got string and number.",
+      "message": "Operator '+' requires two numbers or two strings, got string and number.",
       "span": {
         "file": "program.a0",
         "startLine": 1,

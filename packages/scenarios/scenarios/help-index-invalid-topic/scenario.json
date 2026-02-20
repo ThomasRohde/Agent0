@@ -11,6 +11,6 @@
   },
   "expect": {
     "exitCode": 1,
-    "stderrContains": "Usage: a0 help stdlib --index"
+    "stderrContains": "a0 help stdlib --index"
   }
 }

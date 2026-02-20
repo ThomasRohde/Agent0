@@ -1,0 +1,22 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "pairs": [
+        { "key": "a", "value": 1 },
+        { "key": "b", "value": "hello" },
+        { "key": "c", "value": true }
+      ],
+      "empty": [],
+      "with_null": [
+        { "key": "x", "value": null },
+        { "key": "y", "value": 42 }
+      ],
+      "nested": [
+        { "key": "config", "value": { "debug": true } }
+      ]
+    }
+  }
+}

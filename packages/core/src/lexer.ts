@@ -20,9 +20,14 @@ export const Null = createToken({ name: "Null", pattern: /null/, longer_alt: und
 
 // v0.3 keywords
 export const If = createToken({ name: "If", pattern: /if/, longer_alt: undefined });
+export const Else = createToken({ name: "Else", pattern: /else/, longer_alt: undefined });
 export const For = createToken({ name: "For", pattern: /for/, longer_alt: undefined });
 export const Fn = createToken({ name: "Fn", pattern: /fn/, longer_alt: undefined });
 export const Match = createToken({ name: "Match", pattern: /match/, longer_alt: undefined });
+
+// v0.4 keywords
+export const Try = createToken({ name: "Try", pattern: /try/, longer_alt: undefined });
+export const Catch = createToken({ name: "Catch", pattern: /catch/, longer_alt: undefined });
 
 // Identifiers (must come after all keywords)
 export const Ident = createToken({ name: "Ident", pattern: /[A-Za-z_][A-Za-z0-9_]*/ });
@@ -41,9 +46,12 @@ True.LONGER_ALT = Ident;
 False.LONGER_ALT = Ident;
 Null.LONGER_ALT = Ident;
 If.LONGER_ALT = Ident;
+Else.LONGER_ALT = Ident;
 For.LONGER_ALT = Ident;
 Fn.LONGER_ALT = Ident;
 Match.LONGER_ALT = Ident;
+Try.LONGER_ALT = Ident;
+Catch.LONGER_ALT = Ident;
 
 // Literals (no leading minus — unary minus is now an operator)
 export const FloatLit = createToken({
@@ -68,6 +76,7 @@ export const LParen = createToken({ name: "LParen", pattern: /\(/ });
 export const RParen = createToken({ name: "RParen", pattern: /\)/ });
 export const Colon = createToken({ name: "Colon", pattern: /:/ });
 export const Comma = createToken({ name: "Comma", pattern: /,/ });
+export const DotDotDot = createToken({ name: "DotDotDot", pattern: /\.\.\./ });
 export const Dot = createToken({ name: "Dot", pattern: /\./ });
 export const Arrow = createToken({ name: "Arrow", pattern: /->/ });
 export const Equals = createToken({ name: "Equals", pattern: /=/ });
@@ -127,9 +136,12 @@ export const allTokens = [
   Do,
   Check,
   Match,
+  Catch,
   If,
+  Else,
   For,
   Fn,
+  Try,
   True,
   False,
   Null,
@@ -148,6 +160,7 @@ export const allTokens = [
   RParen,
   Colon,
   Comma,
+  DotDotDot,
   Dot,
   Equals,
   Gt,

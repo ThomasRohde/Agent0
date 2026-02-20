@@ -29,7 +29,7 @@ Only declare the budget fields you need. Omitted fields are unconstrained.
 | `timeMs` | `int` | Maximum wall-clock time in milliseconds. Enforced during statement and expression evaluation. |
 | `maxToolCalls` | `int` | Maximum total number of tool calls (both `call?` and `do`). |
 | `maxBytesWritten` | `int` | Maximum cumulative bytes written via `fs.write`. |
-| `maxIterations` | `int` | Maximum cumulative iterations across all `for` loops and `map` calls. |
+| `maxIterations` | `int` | Maximum cumulative iterations across all `for` loops, `map`, `reduce`, and `filter` (with `fn:`) calls. |
 
 ### timeMs
 
@@ -72,7 +72,7 @@ return { result: result }
 
 ### maxIterations
 
-Limits the cumulative number of iterations across **all** `for` loops and `map` calls. Each iteration increments a shared counter. This prevents infinite or excessively long loops.
+Limits the cumulative number of iterations across **all** `for` loops, `map`, `reduce`, and `filter` (with `fn:`) calls. Each iteration increments a shared counter. This prevents infinite or excessively long loops.
 
 ```a0
 budget { maxIterations: 100 }

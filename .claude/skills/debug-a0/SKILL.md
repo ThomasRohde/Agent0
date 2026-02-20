@@ -65,13 +65,13 @@ Map exit codes to error categories:
 | `E_TOOL_ARGS` | Invalid tool arguments | Check required fields in tool signature |
 | `E_TOOL` | Tool execution failed | Check tool args, file paths, URLs, permissions |
 | `E_BUDGET` | Budget limit exceeded | Increase budget limit or reduce resource usage |
-| `E_UNKNOWN_FN` | Stdlib/user function not found | Check spelling: `parse.json`, `get`, `put`, `patch`, `eq`, `contains`, `not`, `and`, `or`, `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `map`, `reduce`, `unique`, `str.concat`, `str.split`, `str.starts`, `str.ends`, `str.replace`, `keys`, `values`, `merge`, `math.max`, `math.min`. For `map`/`reduce`, ensure the `fn` name matches a defined `fn` |
+| `E_UNKNOWN_FN` | Stdlib/user function not found | Check spelling: `parse.json`, `get`, `put`, `patch`, `coalesce`, `typeof`, `eq`, `contains`, `not`, `and`, `or`, `len`, `append`, `concat`, `sort`, `filter`, `find`, `range`, `join`, `map`, `reduce`, `unique`, `pluck`, `flat`, `str.concat`, `str.split`, `str.starts`, `str.ends`, `str.replace`, `str.template`, `keys`, `values`, `merge`, `entries`, `math.max`, `math.min`. For `map`/`reduce`, ensure the `fn` name matches a defined `fn`. `filter` supports `by:` (key truthiness) or `fn:` (predicate function) |
 | `E_FN` | Stdlib function threw | Check function args (e.g., invalid JSON to `parse.json`) |
 | `E_PATH` | Property access on non-record | Verify the variable holds a record before dot access |
 | `E_FOR_NOT_LIST` | `for` `in:` value is not a list | Ensure `in:` evaluates to a list `[...]` |
 | `E_MATCH_NOT_RECORD` | `match` subject is not a record | Ensure subject evaluates to `{ ok: ... }` or `{ err: ... }` |
 | `E_MATCH_NO_ARM` | `match` subject has no `ok`/`err` key | Subject record must contain an `ok` or `err` key |
-| `E_TYPE` | Type error in expression | Ensure arithmetic operands are numbers; avoid division/modulo by zero; compare compatible types |
+| `E_TYPE` | Type error in expression | Ensure arithmetic operands are numbers (or both strings for `+`); avoid division/modulo by zero; compare compatible types; ensure spread targets are records |
 | `E_ASSERT` | `assert` condition is false (fatal — halts immediately) | Fix the condition or the data producing it |
 | `E_CHECK` | `check` condition is false (non-fatal — records evidence, continues) | Fix the condition or upstream data; runner returns exit 5 after execution |
 
@@ -105,6 +105,25 @@ Common fix patterns:
 - **Unbound variable**: Ensure the variable is bound with `let x = ...` or `expr -> x` before use
 - **Duplicate binding**: Rename one variable (A0 has no reassignment)
 - **Capability denied**: Add the capability to the `cap { ... }` block
+
+### Step 3b: Use try/catch for Recoverable Errors
+
+If the error is a runtime failure that should not halt the program (e.g., a missing file, invalid JSON, network error), wrap the failing code in `try/catch` instead of fixing the root cause:
+
+```
+let result = try {
+  call? fs.read { path: "optional.json" } -> raw
+  let data = parse.json { in: raw }
+  return { ok: true, data: data }
+} catch { e } {
+  # e is { code: "E_TOOL", message: "..." } or similar
+  return { ok: false, error: e.code }
+}
+```
+
+The catch binding `{ e }` receives a record with `code` (e.g., `E_TOOL`, `E_FN`, `E_TYPE`) and `message` fields. Use this for graceful degradation when failures are expected and recoverable.
+
+Note: `E_ASSERT` (fatal assertion) is NOT catchable -- it always halts the program. `E_CHECK` is non-fatal and does not throw, so it cannot be caught either.
 
 ### Step 4: Use Trace for Runtime Issues
 
@@ -167,6 +186,27 @@ Use trace to see the raw tool return value. Common issues:
 - `http.get` returns `body` as a string — must `parse.json` before dot access
 - `fs.read` returns a string — must `parse.json` if the file is JSON
 - `sh.exec` returns `{ exitCode, stdout, stderr }` — check `exitCode`
+
+### "E_TYPE on + operator"
+
+The `+` operator works on numbers and strings, but both operands must be the same type. Common issues:
+- `"count: " + 42` -- mixed string + number produces `E_TYPE`. Convert to string first, or use `str.template`.
+- `{ ...x, key: 1 }` where `x` is not a record -- spread of non-record produces `E_TYPE`.
+
+### "Unrecoverable error that should be recoverable"
+
+If a tool call or stdlib function throws and you want the program to continue, wrap it in `try/catch`:
+
+```
+let result = try {
+  call? fs.read { path: "missing.txt" } -> raw
+  return { data: raw }
+} catch { e } {
+  return { data: null, error: e.code }
+}
+```
+
+The catch binding `e` has `{ code, message }`. Note that `E_ASSERT` cannot be caught -- it always halts.
 
 ## Additional Resources
 

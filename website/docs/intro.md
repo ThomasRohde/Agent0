@@ -13,7 +13,7 @@ LLM agents that generate shell scripts or Python hit a wall: implicit side effec
 
 ## Design Principles
 
-- **Structured data over strings** — Records and lists are first-class. No string interpolation or template hacking.
+- **Structured data over strings** — Records and lists are first-class. String building uses `str.concat`, `str.template`, or the `+` operator for simple concatenation.
 - **Explicit effects** — Read-only operations use `call?`, effectful operations use `do`. The distinction is enforced at compile time.
 - **Deny-by-default capabilities** — Every tool call requires an explicit capability grant. Programs declare what they need; the host decides what to allow.
 - **Machine-readable traces** — Every execution can produce a JSONL trace with 16 event types. Failures include structured diagnostics with stable error codes.
@@ -37,11 +37,11 @@ return { artifact: artifact }
 
 | Concept | Description |
 |---------|-------------|
-| **Data types** | `null`, `bool`, `int`, `float`, `string`, records `{}`, lists `[]` |
+| **Data types** | `null`, `bool`, `int`, `float`, `string`, records `{}` (with spread `...`), lists `[]` |
 | **Bindings** | `let x = expr` or `expr -> x` (no reassignment) |
 | **Tools** | `call?` for reads, `do` for effects — 4 built-in tools |
-| **Stdlib** | 25+ pure functions for data manipulation |
-| **Control flow** | `if`, `for`, `fn`, `match`, `map` |
+| **Stdlib** | 30+ pure functions for data manipulation |
+| **Control flow** | `if`/`else`, `for`, `fn`, `match`, `try`/`catch`, `map`, `filter`, `reduce` |
 | **Evidence** | `assert` / `check` with trace output |
 | **Capabilities** | `cap { ... }` declaration + policy files |
 | **Budgets** | `budget { ... }` for resource limits |

@@ -1,0 +1,15 @@
+{
+  "cmd": ["run", "program.a0"],
+  "policy": { "allow": [] },
+  "expect": {
+    "exitCode": 0,
+    "stdoutJson": {
+      "flattened": [1, 2, 3, 4],
+      "mixed": [1, 2, 3, 4],
+      "deep": [1, [2, 3], 4],
+      "with_records": [{ "a": 1 }, { "b": 2 }, null],
+      "empty_sub": [1],
+      "empty": []
+    }
+  }
+}

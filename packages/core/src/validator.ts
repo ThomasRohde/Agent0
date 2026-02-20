@@ -55,6 +55,12 @@ export const KNOWN_STDLIB = new Set([
   "str.ends",
   "unique",
   "reduce",
+  "coalesce",
+  "typeof",
+  "pluck",
+  "flat",
+  "entries",
+  "str.template",
 ]);
 
 export const KNOWN_BUDGET_FIELDS = new Set([
@@ -126,7 +132,7 @@ export function validate(program: AST.Program): Diagnostic[] {
   // Validate capability identifiers
   for (const h of program.headers) {
     if (h.kind === "CapDecl") {
-      for (const pair of h.capabilities.pairs) {
+      for (const pair of h.capabilities.pairs as AST.RecordPair[]) {
         if (!KNOWN_CAPABILITIES.has(pair.key)) {
           diags.push(
             makeDiag(
@@ -154,7 +160,7 @@ export function validate(program: AST.Program): Diagnostic[] {
   // Validate budget field names
   for (const h of program.headers) {
     if (h.kind === "BudgetDecl") {
-      for (const pair of h.budget.pairs) {
+      for (const pair of h.budget.pairs as AST.RecordPair[]) {
         if (!KNOWN_BUDGET_FIELDS.has(pair.key)) {
           diags.push(
             makeDiag(
@@ -386,7 +392,7 @@ function validateCapUsage(
   const declaredCaps = new Set<string>();
   for (const h of program.headers) {
     if (h.kind === "CapDecl") {
-      for (const p of h.capabilities.pairs) {
+      for (const p of h.capabilities.pairs as AST.RecordPair[]) {
         if (p.value.kind === "BoolLiteral" && p.value.value === true) {
           declaredCaps.add(p.key);
         }
@@ -481,7 +487,11 @@ function validateExprBindings(
       break;
     case "RecordExpr":
       for (const p of expr.pairs) {
-        validateExprBindings(p.value, bindings, fnNames, diags);
+        if (p.kind === "SpreadPair") {
+          validateExprBindings(p.expr, bindings, fnNames, diags);
+        } else {
+          validateExprBindings(p.value, bindings, fnNames, diags);
+        }
       }
       break;
     case "ListExpr":
@@ -491,13 +501,13 @@ function validateExprBindings(
       break;
     case "CallExpr":
     case "DoExpr":
-      for (const p of expr.args.pairs) {
+      for (const p of expr.args.pairs as AST.RecordPair[]) {
         validateExprBindings(p.value, bindings, fnNames, diags);
       }
       break;
     case "AssertExpr":
     case "CheckExpr":
-      for (const p of expr.args.pairs) {
+      for (const p of expr.args.pairs as AST.RecordPair[]) {
         validateExprBindings(p.value, bindings, fnNames, diags);
       }
       break;
@@ -515,8 +525,8 @@ function validateExprBindings(
       }
       // map/reduce resolve callback names from user-defined functions only.
       // If the callback is a string literal, validate eagerly at check-time.
-      if (fnName === "map" || fnName === "reduce") {
-        const fnArg = expr.args.pairs.find((p) => p.key === "fn");
+      if (fnName === "map" || fnName === "reduce" || fnName === "filter") {
+        const fnArg = (expr.args.pairs as AST.RecordPair[]).find((p) => p.key === "fn");
         if (fnArg?.value.kind === "StrLiteral" && !fnNames.has(fnArg.value.value)) {
           diags.push(
             makeDiag(
@@ -528,7 +538,7 @@ function validateExprBindings(
           );
         }
       }
-      for (const p of expr.args.pairs) {
+      for (const p of expr.args.pairs as AST.RecordPair[]) {
         validateExprBindings(p.value, bindings, fnNames, diags);
       }
       break;
@@ -537,6 +547,15 @@ function validateExprBindings(
       validateExprBindings(expr.cond, bindings, fnNames, diags);
       validateExprBindings(expr.then, bindings, fnNames, diags);
       validateExprBindings(expr.else, bindings, fnNames, diags);
+      break;
+    case "IfBlockExpr":
+      validateExprBindings(expr.cond, bindings, fnNames, diags);
+      validateBlockBindings(expr.thenBody, bindings, fnNames, [], diags, true, "if body");
+      validateBlockBindings(expr.elseBody, bindings, fnNames, [], diags, true, "else body");
+      break;
+    case "TryExpr":
+      validateBlockBindings(expr.tryBody, bindings, fnNames, [], diags, true, "try body");
+      validateBlockBindings(expr.catchBody, bindings, fnNames, [expr.catchBinding], diags, true, "catch body");
       break;
     case "ForExpr":
       validateExprBindings(expr.list, bindings, fnNames, diags);
@@ -588,26 +607,41 @@ function visitExpr(
   visitor(expr);
   switch (expr.kind) {
     case "RecordExpr":
-      for (const p of expr.pairs) visitExpr(p.value, visitor);
+      for (const p of expr.pairs) {
+        if (p.kind === "SpreadPair") {
+          visitExpr(p.expr, visitor);
+        } else {
+          visitExpr(p.value, visitor);
+        }
+      }
       break;
     case "ListExpr":
       for (const e of expr.elements) visitExpr(e, visitor);
       break;
     case "CallExpr":
     case "DoExpr":
-      for (const p of expr.args.pairs) visitExpr(p.value, visitor);
+      for (const p of expr.args.pairs as AST.RecordPair[]) visitExpr(p.value, visitor);
       break;
     case "AssertExpr":
     case "CheckExpr":
-      for (const p of expr.args.pairs) visitExpr(p.value, visitor);
+      for (const p of expr.args.pairs as AST.RecordPair[]) visitExpr(p.value, visitor);
       break;
     case "FnCallExpr":
-      for (const p of expr.args.pairs) visitExpr(p.value, visitor);
+      for (const p of expr.args.pairs as AST.RecordPair[]) visitExpr(p.value, visitor);
       break;
     case "IfExpr":
       visitExpr(expr.cond, visitor);
       visitExpr(expr.then, visitor);
       visitExpr(expr.else, visitor);
+      break;
+    case "IfBlockExpr":
+      visitExpr(expr.cond, visitor);
+      for (const bodyStmt of expr.thenBody) visitExprInStmt(bodyStmt, visitor);
+      for (const bodyStmt of expr.elseBody) visitExprInStmt(bodyStmt, visitor);
+      break;
+    case "TryExpr":
+      for (const bodyStmt of expr.tryBody) visitExprInStmt(bodyStmt, visitor);
+      for (const bodyStmt of expr.catchBody) visitExprInStmt(bodyStmt, visitor);
       break;
     case "ForExpr":
       visitExpr(expr.list, visitor);

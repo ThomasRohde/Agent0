@@ -3,7 +3,7 @@
  */
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
-import { eqFn, containsFn, notFn, andFn, orFn } from "./predicates.js";
+import { eqFn, containsFn, notFn, andFn, orFn, coalesceFn, typeofFn } from "./predicates.js";
 
 describe("eq", () => {
   it("equal primitives (numbers)", () => {
@@ -273,5 +273,81 @@ describe("or", () => {
 
   it("null OR null -> false", () => {
     assert.equal(orFn.execute({ a: null, b: null }), false);
+  });
+});
+
+describe("coalesce", () => {
+  it("returns non-null value", () => {
+    assert.equal(coalesceFn.execute({ in: 42, default: 0 }), 42);
+  });
+
+  it("returns default when null", () => {
+    assert.equal(coalesceFn.execute({ in: null, default: 99 }), 99);
+  });
+
+  it("preserves false (not null)", () => {
+    assert.equal(coalesceFn.execute({ in: false, default: true }), false);
+  });
+
+  it("preserves 0 (not null)", () => {
+    assert.equal(coalesceFn.execute({ in: 0, default: 1 }), 0);
+  });
+
+  it("preserves empty string (not null)", () => {
+    assert.equal(coalesceFn.execute({ in: "", default: "fallback" }), "");
+  });
+
+  it("returns null when both null", () => {
+    assert.equal(coalesceFn.execute({ in: null, default: null }), null);
+  });
+
+  it("works with record values", () => {
+    assert.deepEqual(coalesceFn.execute({ in: { a: 1 }, default: {} }), { a: 1 });
+  });
+});
+
+describe("typeof", () => {
+  it("returns 'null' for null", () => {
+    assert.equal(typeofFn.execute({ in: null }), "null");
+  });
+
+  it("returns 'boolean' for true", () => {
+    assert.equal(typeofFn.execute({ in: true }), "boolean");
+  });
+
+  it("returns 'boolean' for false", () => {
+    assert.equal(typeofFn.execute({ in: false }), "boolean");
+  });
+
+  it("returns 'number' for integer", () => {
+    assert.equal(typeofFn.execute({ in: 42 }), "number");
+  });
+
+  it("returns 'number' for float", () => {
+    assert.equal(typeofFn.execute({ in: 3.14 }), "number");
+  });
+
+  it("returns 'string' for string", () => {
+    assert.equal(typeofFn.execute({ in: "hello" }), "string");
+  });
+
+  it("returns 'string' for empty string", () => {
+    assert.equal(typeofFn.execute({ in: "" }), "string");
+  });
+
+  it("returns 'list' for array", () => {
+    assert.equal(typeofFn.execute({ in: [1, 2, 3] }), "list");
+  });
+
+  it("returns 'list' for empty array", () => {
+    assert.equal(typeofFn.execute({ in: [] }), "list");
+  });
+
+  it("returns 'record' for object", () => {
+    assert.equal(typeofFn.execute({ in: { a: 1 } }), "record");
+  });
+
+  it("returns 'null' for missing arg", () => {
+    assert.equal(typeofFn.execute({}), "null");
   });
 });

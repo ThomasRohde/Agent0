@@ -1,0 +1,22 @@
+cap { fs.read: true }
+
+# Successful try returns the try body result
+let ok_result = try {
+  let x = 42
+  return { ok: x }
+} catch { e } {
+  return { err: e }
+}
+
+# Failed tool call gets caught
+let fail_result = try {
+  call? fs.read { path: "nonexistent-file-that-does-not-exist.txt" } -> content
+  return { ok: content }
+} catch { e } {
+  return { caught: e.code }
+}
+
+return {
+  ok_result: ok_result,
+  fail_result: fail_result
+}

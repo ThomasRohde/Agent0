@@ -1,0 +1,12 @@
+# Demonstrates tool calls inside for loops
+cap { fs.read: true }
+
+let files = ["package.json"]
+let results = for { in: files, as: "file" } {
+  call? fs.read { path: file } -> content
+  let parsed = parse.json { in: content }
+  let name = get { in: parsed, path: "name" }
+  return { file: file, name: name }
+}
+
+return { results: results }

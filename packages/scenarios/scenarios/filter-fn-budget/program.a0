@@ -1,0 +1,10 @@
+budget { maxIterations: 3 }
+
+fn isPositive { x } {
+  return { ok: x > 0 }
+}
+
+# 5 items but budget is 3 iterations
+let nums = [1, 2, 3, 4, 5]
+let result = filter { in: nums, fn: "isPositive" }
+return { result: result }

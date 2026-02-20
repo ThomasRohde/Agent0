@@ -45,6 +45,8 @@ let parsed = parse.json { in: rawData }
 | `not` | Boolean negation | [Predicates](./predicates.md) |
 | `and` | Logical AND | [Predicates](./predicates.md) |
 | `or` | Logical OR | [Predicates](./predicates.md) |
+| `coalesce` | Null-coalescing (return value or default) | [Predicates](./predicates.md) |
+| `typeof` | Return A0 type name | [Predicates](./predicates.md) |
 
 ### List Operations
 
@@ -54,15 +56,21 @@ let parsed = parse.json { in: rawData }
 | `append` | Append an element to a list | [List Operations](./list-operations.md) |
 | `concat` | Concatenate two lists | [List Operations](./list-operations.md) |
 | `sort` | Sort a list | [List Operations](./list-operations.md) |
-| `filter` | Filter list elements by a key | [List Operations](./list-operations.md) |
+| `filter` | Filter list elements by key or predicate function | [List Operations](./list-operations.md) |
 | `find` | Find an element by key-value match | [List Operations](./list-operations.md) |
 | `range` | Generate a range of integers | [List Operations](./list-operations.md) |
 | `join` | Join list elements into a string | [List Operations](./list-operations.md) |
 | `map` | Apply a function to each element | [List Operations](./list-operations.md) |
 | `reduce` | Accumulate a list into a value | [List Operations](./list-operations.md) |
 | `unique` | Remove duplicate values | [List Operations](./list-operations.md) |
+| `pluck` | Extract a field from each record | [List Operations](./list-operations.md) |
+| `flat` | Flatten one level of nesting | [List Operations](./list-operations.md) |
 
 ### String Operations
+
+:::tip String concatenation with `+`
+For simple two-string concatenation, you can use the `+` operator directly: `"hello" + " world"`. Both operands must be strings (mixing strings and numbers produces `E_TYPE`). For joining multiple parts or mixed types, use `str.concat` which coerces all parts to strings.
+:::
 
 | Function | Description | Reference |
 |----------|-------------|-----------|
@@ -71,6 +79,7 @@ let parsed = parse.json { in: rawData }
 | `str.starts` | Check if string starts with a value | [String Operations](./string-operations.md) |
 | `str.ends` | Check if string ends with a value | [String Operations](./string-operations.md) |
 | `str.replace` | Replace all occurrences | [String Operations](./string-operations.md) |
+| `str.template` | Replace `{key}` placeholders with values | [String Operations](./string-operations.md) |
 
 ### Math Operations
 
@@ -86,3 +95,4 @@ let parsed = parse.json { in: rawData }
 | `keys` | Get record keys | [Record Operations](./record-operations.md) |
 | `values` | Get record values | [Record Operations](./record-operations.md) |
 | `merge` | Shallow-merge two records | [Record Operations](./record-operations.md) |
+| `entries` | Convert record to key-value pair list | [Record Operations](./record-operations.md) |

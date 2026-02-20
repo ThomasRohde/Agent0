@@ -1,0 +1,24 @@
+let x = 10
+
+let result1 = if (x > 5) {
+  let msg = "big"
+  return { val: msg }
+} else {
+  return { val: "small" }
+}
+
+let result2 = if (false) {
+  return { val: "yes" }
+} else {
+  let computed = x * 2
+  return { val: computed }
+}
+
+# Record-style if still works
+let result3 = if { cond: true, then: "inline", else: "nope" }
+
+return {
+  result1: result1,
+  result2: result2,
+  result3: result3
+}

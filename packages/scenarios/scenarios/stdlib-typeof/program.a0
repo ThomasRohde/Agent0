@@ -1,0 +1,22 @@
+let t_null = typeof { in: null }
+let t_bool = typeof { in: true }
+let t_num = typeof { in: 42 }
+let t_float = typeof { in: 3.14 }
+let t_str = typeof { in: "hello" }
+let t_list = typeof { in: [1, 2, 3] }
+let t_rec = typeof { in: { a: 1 } }
+let t_empty_str = typeof { in: "" }
+let t_empty_list = typeof { in: [] }
+let t_empty_rec = typeof { in: {} }
+return {
+  t_null: t_null,
+  t_bool: t_bool,
+  t_num: t_num,
+  t_float: t_float,
+  t_str: t_str,
+  t_list: t_list,
+  t_rec: t_rec,
+  t_empty_str: t_empty_str,
+  t_empty_list: t_empty_list,
+  t_empty_rec: t_empty_rec
+}

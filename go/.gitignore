@@ -1,0 +1,27 @@
+# Binaries
+a0
+a0.exe
+a0.wasm
+a0-wasi.wasm
+
+# WASM output
+*.wasm
+
+# Test binary
+*.test
+*.test.exe
+
+# Coverage
+coverage.out
+coverage.html
+
+# Synced scenario data (comes from TS side)
+testdata/scenarios/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db

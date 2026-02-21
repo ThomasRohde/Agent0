@@ -8,11 +8,11 @@ A0 QUICK REFERENCE (v0.5)
 =========================
 
 PROGRAM STRUCTURE
-  cap { fs.read: true, sh.exec: true }      # declare capabilities (top)
-  budget { timeMs: 30000, maxToolCalls: 10 } # resource limits (optional)
-  let x = expr                               # bind value
-  expr -> name                               # bind result of statement
-  return { key: val }                        # required, must be last
+  cap { fs.read: true, sh.exec: true }        # declare capabilities (top)
+  budget { timeMs: 30000, maxToolCalls: 10 }  # resource limits (optional)
+  let x = expr                                # bind value
+  expr -> name                                # bind result of statement
+  return { key: val }                         # required, must be last
 
 TYPES
   int: 42   float: 3.14   bool: true/false   str: "hello"   null
@@ -43,11 +43,11 @@ STDLIB (pure, no cap needed)
 CONTROL FLOW
   let x = if { cond: expr, then: val, else: val }
   let results = for { in: list, as: "item" } { ... return { } }
-  fn name { params } { ... return { } }    # define before use
+  fn name { params } { ... return { } }               # define before use
   let x = match ident { ok {v} { return {} } err {e} { return {} } }
-  let out = map { in: list, fn: "fnName" } # apply fn to each element
-  let val = reduce { in: list, fn: "fnName", init: { val: 0 } } # accumulate
-  let f = filter { in: list, fn: "pred" }  # predicate filter; fn returns { ok: bool }
+  let out = map { in: list, fn: "fnName" }            # apply fn to each element
+  let val = reduce { in: list, fn: "add", init: 0 }   # accumulate to single value
+  let f = filter { in: list, fn: "pred" }             # keep where fn is truthy
 
 EVIDENCE
   assert { that: bool_expr, msg?: "..." }  # fatal: false -> exit 5, halts immediately
@@ -101,16 +101,16 @@ STATEMENTS
   fn name { params } { body }            # define a function
   assert { that: expr, msg?: "str" }     # fatal: halt immediately if falsy (exit 5)
   check { that: expr, msg?: "str" }      # non-fatal: record evidence, continue; exit 5 if any failed
-  return { key: val, ... }              # required, must be last statement
+  return { key: val, ... }               # required, must be last statement
 
 EXPRESSIONS
   42  3.14  true  false  null  "str"     # literals
-  { key: val, k2: v2 }                  # record literal
-  [1, 2, 3]                             # list literal
+  { key: val, k2: v2 }                   # record literal
+  [1, 2, 3]                              # list literal
   name                                   # variable reference
   name.field                             # property access (dot notation)
-  if { cond: x, then: y, else: z }      # conditional (lazy evaluation)
-  for { in: list, as: "v" } { body }    # iteration (produces list)
+  if { cond: x, then: y, else: z }       # conditional (lazy evaluation)
+  for { in: list, as: "v" } { body }     # iteration (produces list)
   match ident { ok {v} {body} err {e} {body} }  # ok/err discrimination
   match ( expr ) { ok {v} {body} err {e} {body} }  # match on expression
   fn_name { key: val }                   # function/stdlib call
@@ -154,14 +154,14 @@ PRIMITIVES
 RECORDS
   { key: value }                         # simple record
   { key: value, another: value }         # multiple fields
-  { nested: { a: 1 } }                  # nested records
-  { fs.read: true }                     # dotted keys (capability style)
+  { nested: { a: 1 } }                   # nested records
+  { fs.read: true }                      # dotted keys (capability style)
   Records are unordered key-value maps. Keys are identifiers or dotted names.
 
 LISTS
-  [1, 2, 3]                             # homogeneous list
-  [1, "two", true, null]                # heterogeneous list
-  [{ a: 1 }, { a: 2 }]                  # list of records
+  [1, 2, 3]                              # homogeneous list
+  [1, "two", true, null]                 # heterogeneous list
+  [{ a: 1 }, { a: 2 }]                   # list of records
   Lists are ordered, zero-indexed sequences.
 
 STRING ESCAPES
@@ -457,7 +457,7 @@ POLICY FILE FORMAT
   }
 
 DEV OVERRIDE
-  a0 run file.a0 --unsafe-allow-all       # bypasses all policy checks
+  a0 run file.a0 --unsafe-allow-all        # bypasses all policy checks
 
 COMMON ERRORS
   E_UNKNOWN_CAP    — invalid capability name in cap { ... }
@@ -632,57 +632,51 @@ DIAGNOSTIC FORMAT
     hint: Suggested fix
 
 COMPILE-TIME ERRORS (exit 2) — caught by a0 check
-  Code              Cause                           Fix
-  E_LEX             Invalid token                   Check quotes, escapes, special chars
-  E_PARSE           Syntax error                    Verify statement structure, braces
-  E_AST             AST construction failed (rare)   Report bug with minimal repro
-  E_NO_RETURN       Missing return                  Add return { ... } as last stmt
-  E_RETURN_NOT_LAST Statements after return          Move return to end
-  E_UNKNOWN_CAP     Invalid capability name          Caps: fs.read fs.write http.get sh.exec
-  E_IMPORT_UNSUPPORTED Import declarations are reserved Remove import headers for now
-  E_CAP_VALUE       Capability value not true        Use capability declarations like fs.read: true
-  E_UNDECLARED_CAP  Tool used without cap            Add capability to cap { ... }
-  E_DUP_BUDGET      Multiple budget headers          Merge fields into one budget { ... }
-  E_UNKNOWN_BUDGET  Invalid budget field             Use: timeMs maxToolCalls maxBytesWritten maxIterations
-  E_BUDGET_TYPE     Budget value not int literal     Use integer literals in budget { ... }
-  E_DUP_BINDING     Duplicate let name               Rename one binding
-  E_UNBOUND         Undefined variable               Bind with let or -> first
-  E_CALL_EFFECT     call? on effect tool              Use do for fs.write, sh.exec
-  E_FN_DUP          Duplicate fn name                Rename one function
-  E_UNKNOWN_FN      Unknown function name            Define function before use / fix spelling
-  E_UNKNOWN_TOOL    Unknown tool name                Tools: fs.read fs.write fs.list fs.exists http.get sh.exec
+  E_LEX                  Invalid token; check quotes, escapes, special chars
+  E_PARSE                Syntax error; verify statement structure and braces
+  E_AST                  AST construction failed; report bug with minimal repro
+  E_NO_RETURN            Missing return; add return { ... } as last stmt
+  E_RETURN_NOT_LAST      Statements after return; move return to end
+  E_UNKNOWN_CAP          Invalid capability name; use: fs.read fs.write http.get sh.exec
+  E_IMPORT_UNSUPPORTED   Import reserved; remove import headers for now
+  E_CAP_VALUE            Cap value not true; use: fs.read: true
+  E_UNDECLARED_CAP       Tool used without cap; add capability to cap { ... }
+  E_DUP_BUDGET           Multiple budget headers; merge into one budget { ... }
+  E_UNKNOWN_BUDGET       Invalid budget field; use: timeMs maxToolCalls maxBytesWritten maxIterations
+  E_BUDGET_TYPE          Budget value not int literal; use integers in budget { ... }
+  E_DUP_BINDING          Duplicate let name; rename one binding
+  E_UNBOUND              Undefined variable; bind with let or -> first
+  E_CALL_EFFECT          call? on effect tool; use do for fs.write, sh.exec
+  E_FN_DUP               Duplicate fn name; rename one function
+  E_UNKNOWN_FN           Unknown function name; define fn before use / check spelling
+  E_UNKNOWN_TOOL         Unknown tool name; valid: fs.read fs.write fs.list fs.exists http.get sh.exec
 
 RUNTIME ERRORS (exit 3/4/5)
-  Code              Exit  Cause                      Fix
-  E_CAP_DENIED      3     Policy denies capability   Update cap {} or policy file
-  E_IO              4     CLI I/O error               Check file paths and permissions
-  E_TRACE           4     Invalid trace input          Use valid single-run JSONL with at least one event
-  E_UNKNOWN_TOOL    4     Unknown tool at runtime (rare) Usually caught by validation (exit 2)
-  E_TOOL_ARGS       4     Invalid tool arguments     Check args match tool schema
-  E_TOOL            4     Tool execution failed       Check args, paths, URLs, perms
-  E_RUNTIME         4     Unexpected runtime error    Report bug with repro; inspect trace/output context
-  E_BUDGET          4     Budget limit exceeded       Increase limit or reduce usage
-  E_UNKNOWN_FN      4     Unknown function at runtime (rare) Check: parse.json get put patch eq contains not and or
-                                                     coalesce typeof len append concat sort filter find range join
-                                                     map reduce unique pluck flat str.concat str.split str.starts
-                                                     str.ends str.replace str.template keys values merge entries
-                                                     math.max math.min  (or user-defined fn names)
-  E_FN              4     Stdlib function threw        Check function args (e.g. invalid JSON)
-  E_PATH            4     Dot-access on non-record   Verify variable holds a record
-  E_TYPE            4     Type mismatch at runtime   Check arg types (e.g. map in:/fn: types)
-  E_FOR_NOT_LIST    4     for in: is not a list      Ensure in: evaluates to [...]
-  E_MATCH_NOT_RECORD 4    match on non-record         Ensure subject is { ok: ... } or { err: ... }
-  E_MATCH_NO_ARM    4     No ok/err key in subject   Subject must have ok or err key
-  E_ASSERT          5     assert condition false (fatal, halts)        Fix condition or upstream data
-  check failed      5     non-fatal evidence failure                    Fix condition or upstream data; exit 5 after run
+  E_CAP_DENIED       (3)  Policy denies capability; update cap {} or policy file
+  E_IO               (4)  CLI I/O error; check file paths and permissions
+  E_TRACE            (4)  Invalid trace input; use valid single-run JSONL
+  E_UNKNOWN_TOOL     (4)  Unknown tool at runtime; usually caught by validation (exit 2)
+  E_TOOL_ARGS        (4)  Invalid tool arguments; check args match tool schema
+  E_TOOL             (4)  Tool execution failed; check args, paths, URLs, perms
+  E_RUNTIME          (4)  Unexpected runtime error; report bug with repro
+  E_BUDGET           (4)  Budget limit exceeded; increase limit or reduce usage
+  E_UNKNOWN_FN       (4)  Unknown fn at runtime; check stdlib/user-defined fn names
+  E_FN               (4)  Stdlib function threw; check function args (e.g. invalid JSON)
+  E_PATH             (4)  Dot-access on non-record; verify variable holds a record
+  E_TYPE             (4)  Type mismatch at runtime; check arg types (e.g. map in:/fn:)
+  E_FOR_NOT_LIST     (4)  for in: is not a list; ensure in: evaluates to [...]
+  E_MATCH_NOT_RECORD (4)  match on non-record; ensure subject is { ok/err: ... }
+  E_MATCH_NO_ARM     (4)  No ok/err key in subject; subject must have ok or err key
+  E_ASSERT           (5)  Assertion false (fatal, halts); fix condition or data
+  check failed       (5)  Evidence failure (non-fatal); exit 5 after run
 
 DEBUGGING WORKFLOW
-  1. a0 check file.a0              # catch compile-time errors first
-  2. Read error code + line:col    # look up in table above
-  3. Apply hint if present         # hints give direct fix
-  4. a0 run file.a0 --trace t.jsonl --unsafe-allow-all   # for runtime issues
-  5. a0 trace t.jsonl              # inspect execution events
-  6. a0 fmt file.a0 --write        # normalize after fixing
+  1. a0 check file.a0                        # catch compile-time errors first
+  2. Read error code + line:col              # look up in table above
+  3. Apply hint if present                   # hints give direct fix
+  4. a0 run file.a0 --trace t.jsonl          # for runtime issues (add --unsafe-allow-all)
+  5. a0 trace t.jsonl                        # inspect execution events
+  6. a0 fmt file.a0 --write                  # normalize after fixing
 
 COMMON PITFALLS
   - http.get body is a string — must parse.json before dot access

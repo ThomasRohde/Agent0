@@ -4,7 +4,11 @@
       "Bash(npm run test:*)",
       "Bash(npm test)",
       "Bash(a0 run:*)",
-      "Bash(npx a0 check:*)"
+      "Bash(npx a0 check:*)",
+      "Bash(npx a0:*)",
+      "Bash(node:*)",
+      "Bash(npm install:*)",
+      "Bash(a0 help:*)"
     ]
   }
 }

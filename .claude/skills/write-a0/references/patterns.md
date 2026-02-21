@@ -320,22 +320,70 @@ return { doubled: doubled, labels: labels }
 - Use `map` when each element transforms independently via a reusable function
 - Use `for` when the body needs `let` bindings, tool calls, or multi-step logic
 
-## Pattern 17: Dynamic Directory Discovery
+## Pattern 17: Dynamic Workspace Processing
 
-Use `fs.list` to dynamically discover files and directories instead of hardcoding paths.
+Use `fs.list` to dynamically discover directories, then read, transform, and aggregate data from each one. This is the preferred approach for monorepo/workspace tasks — never hardcode package paths.
+
+The full pipeline: `fs.list` → filter directories → `for` with `call?`/`parse.json` → `coalesce` for config inheritance → `keys`/`filter`/`pluck` for dependency detection → `spread` for record extension → multi-key `sort` → `fs.write`.
 
 ```
-# list-packages.a0
-cap { fs.read: true }
+# workspace-report.a0
+cap { fs.read: true, fs.write: true }
+budget { maxIterations: 200, maxToolCalls: 50 }
 
+# 1. Discover workspace directories dynamically
 call? fs.list { path: "packages" } -> entries
 let tagged = for { in: entries, as: "entry" } {
   let isDir = eq { a: entry.type, b: "directory" }
   return { name: entry.name, isDir: isDir }
 }
 let dirs = filter { in: tagged, by: "isDir" }
-return { packages: dirs }
+
+# 2. Read each package's manifest and extract metadata
+let pkgs = for { in: dirs, as: "d" } {
+  let path = "packages/" + d.name + "/package.json"
+  call? fs.read { path: path } -> raw
+  let pkg = parse.json { in: raw }
+
+  # coalesce: inherit defaults for optional fields
+  let desc = get { in: pkg, path: "description" }
+  let safeDesc = coalesce { in: desc, default: "(no description)" }
+
+  # Detect dependency count from the dependencies record
+  let deps = get { in: pkg, path: "dependencies" }
+  let safeDeps = coalesce { in: deps, default: {} }
+  let depKeys = keys { in: safeDeps }
+  let depCount = len { in: depKeys }
+
+  # spread: extend the record without repeating every field
+  return { ...pkg, dir: d.name, description: safeDesc, depCount: depCount }
+}
+
+# 3. Compute aggregate stats
+let depCounts = pluck { in: pkgs, key: "depCount" }
+let maxDeps = math.max { in: depCounts }
+
+# 4. Multi-key sort: by depCount descending (negate), then name ascending
+fn addSortKey { item } {
+  return { ...item, negDeps: 0 - item.depCount }
+}
+let withKey = map { in: pkgs, fn: "addSortKey" }
+let sorted = sort { in: withKey, by: ["negDeps", "name"] }
+
+# 5. Write the report
+let report = { packageCount: len { in: sorted }, maxDeps: maxDeps, packages: sorted }
+do fs.write { path: "workspace-report.json", data: report, format: "json" } -> artifact
+
+return { artifact: artifact, report: report }
 ```
+
+**Key techniques demonstrated:**
+- **`fs.list`** instead of hardcoded paths — adapts to any workspace structure
+- **`coalesce`** for null-safe defaults — one line vs. five-line `if`/`else`
+- **`keys` + `len`** to count record entries algorithmically
+- **`{ ...pkg, extra: val }`** spread to extend records inside loops
+- **`pluck` + `math.max`** to compute aggregates without manual loops
+- **Multi-key `sort`** with `by: [...]` for compound ordering
 
 ## Pattern 18: Reduce for Aggregation
 
@@ -598,6 +646,8 @@ return { permitted: permitted }
 The function `isAllowed` captures `allowed_roles` from the outer scope. This pattern is useful when the filter criteria come from configuration or earlier computation.
 
 ## Pattern 27: Dynamic File Discovery
+
+See also Pattern 17 for a complete workspace processing pipeline.
 
 Use `fs.list` to discover files, then `for` with tool calls to read and process each one.
 

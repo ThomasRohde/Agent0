@@ -470,6 +470,16 @@ Avoid these frequent errors:
 - **Using a variable before binding** → `E_UNBOUND`. Bind with `let` or `->` first.
 - **Positional arguments** → Parse error. Always use record syntax `{ key: value }`.
 
+## Best Practices
+
+Prefer these patterns to produce shorter, more robust programs:
+
+1. **Discover dynamically** — Use `fs.list` to discover directories and files at runtime instead of hardcoding paths. Hardcoded paths break when the project structure changes and bloat the program with repetitive path literals. See Pattern 17.
+2. **Inherit with `coalesce`** — Use `coalesce { in: val, default: fallback }` for null-defaulting instead of manual `if`/`else` fallback chains. It's one line vs. five, and preserves falsy values (`0`, `false`, `""`).
+3. **Compose with spread** — Use `{ ...base, key: val }` to extend records instead of manually repeating every field. This is especially valuable inside `for` loops when augmenting each item.
+4. **Compute, don't enumerate** — Derive values algorithmically with `keys`, `filter`, `pluck`, `math.max`, `sort { by: [...] }` (multi-key) instead of writing out each case. If you find yourself listing items one-by-one, there's usually a stdlib function that computes the answer.
+5. **Define functions before use** — `fn` declarations are not hoisted. Define helper functions before the first `filter { fn: "..." }`, `map { fn: "..." }`, or `reduce { fn: "..." }` call that references them.
+
 ## Idiomatic Patterns
 
 For complete patterns (HTTP+transform, shell exec, validation, data pipelines), see `references/patterns.md`.
@@ -536,3 +546,4 @@ Working `.a0` programs in `examples/`:
 - **`examples/bare-return-demo.a0`** — Returning bare values (non-record expressions)
 - **`examples/filter-block-demo.a0`** — Inline filter block with predicate body
 - **`examples/loop-demo.a0`** — Iterative convergence with `loop`
+- **`examples/list-packages.a0`** — Dynamic package discovery with `fs.list`, `for`, `sort`, `math.max`, `reduce`

@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A0 CLI Evolution Explorer</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg2: #161b22;
+  --bg3: #1c2128;
+  --border: #30363d;
+  --text: #c9d1d9;
+  --text2: #8b949e;
+  --a0: #58a6ff;
+  --a0-dim: #1f4068;
+  --node: #f0883e;
+  --node-dim: #5c3d1a;
+  --accent: #3fb950;
+  --red: #f85149;
+  --purple: #bc8cff;
+  --yellow: #e3b341;
+  --cyan: #39d2c0;
+  --kw: #ff7b72;
+  --str: #a5d6ff;
+  --fn: #d2a8ff;
+  --comment: #8b949e;
+  --op: #79c0ff;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+  height: 100vh;
+}
+.layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  grid-template-rows: auto 1fr auto;
+  height: 100vh;
+}
+header {
+  grid-column: 1 / -1;
+  padding: 12px 20px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+header h1 span { color: var(--a0); }
+header .subtitle {
+  font-size: 12px;
+  color: var(--text2);
+}
+.sidebar {
+  grid-row: 2;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 12px;
+}
+.main {
+  grid-row: 2;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+.prompt-bar {
+  grid-column: 1 / -1;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.prompt-text {
+  flex: 1;
+  font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.5;
+  max-height: 60px;
+  overflow-y: auto;
+}
+.copy-btn {
+  background: var(--a0);
+  color: #000;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.copy-btn:hover { opacity: 0.85; }
+.copy-btn.copied { background: var(--accent); }
+
+/* Sidebar controls */
+.section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text2);
+  margin: 12px 0 8px;
+}
+.section-title:first-child { margin-top: 0; }
+
+.exp-list { display: flex; flex-direction: column; gap: 4px; }
+.exp-item {
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  position: relative;
+}
+.exp-item:hover { background: var(--bg3); }
+.exp-item.active {
+  background: var(--a0-dim);
+  border-color: var(--a0);
+}
+.exp-item .exp-num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--a0);
+  display: inline-block;
+  width: 18px;
+}
+.exp-item .exp-name {
+  font-size: 13px;
+  font-weight: 500;
+}
+.exp-item .exp-date {
+  font-size: 10px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+.exp-item .exp-badge {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.badge-breakthrough { background: var(--accent); color: #000; }
+.badge-hybrid { background: var(--yellow); color: #000; }
+.badge-regression { background: var(--red); color: #fff; }
+.badge-first-fn { background: var(--purple); color: #000; }
+
+/* View tabs */
+.view-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 16px;
+  background: var(--bg2);
+  border-radius: 8px;
+  padding: 3px;
+}
+.view-tab {
+  flex: 1;
+  padding: 7px 10px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text2);
+  cursor: pointer;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  transition: all 0.15s;
+}
+.view-tab:hover { color: var(--text); }
+.view-tab.active {
+  background: var(--bg3);
+  color: var(--text);
+}
+
+/* Metric cards */
+.metrics-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.metric-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+.metric-card .label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text2);
+  margin-bottom: 4px;
+}
+.metric-card .values {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+}
+.metric-card .val {
+  font-size: 22px;
+  font-weight: 700;
+  font-family: 'SF Mono', monospace;
+}
+.metric-card .val.a0 { color: var(--a0); }
+.metric-card .val.node { color: var(--node); }
+.metric-card .delta {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.delta-better { background: rgba(63,185,80,0.2); color: var(--accent); }
+.delta-worse { background: rgba(248,81,73,0.2); color: var(--red); }
+.delta-neutral { background: rgba(139,148,158,0.2); color: var(--text2); }
+
+/* Charts */
+.chart-container {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.chart-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.chart-area {
+  position: relative;
+  height: 220px;
+}
+
+/* Bar chart */
+.bar-group {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  position: absolute;
+  bottom: 24px;
+}
+.bar {
+  width: 28px;
+  border-radius: 3px 3px 0 0;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+}
+.bar.a0-bar { background: var(--a0); }
+.bar.node-bar { background: var(--node); }
+.bar:hover { opacity: 0.8; }
+.bar-label {
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--text2);
+  white-space: nowrap;
+}
+.bar-tooltip {
+  display: none;
+  position: absolute;
+  top: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #000;
+  color: #fff;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 10;
+}
+.bar:hover .bar-tooltip { display: block; }
+
+.chart-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  justify-content: center;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text2);
+}
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+/* Feature timeline */
+.feature-timeline {
+  position: relative;
+  padding: 8px 0;
+}
+.ft-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 3px;
+  height: 22px;
+}
+.ft-label {
+  width: 130px;
+  font-size: 11px;
+  color: var(--text2);
+  text-align: right;
+  padding-right: 10px;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ft-track {
+  flex: 1;
+  height: 16px;
+  position: relative;
+  display: flex;
+}
+.ft-cell {
+  flex: 1;
+  border-right: 1px solid var(--bg);
+  position: relative;
+}
+.ft-cell.active {
+  background: var(--a0-dim);
+  border-radius: 2px;
+}
+.ft-cell.first-use {
+  background: var(--a0);
+  border-radius: 2px;
+}
+.ft-header {
+  display: flex;
+  margin-bottom: 6px;
+}
+.ft-header-label {
+  width: 130px;
+  flex-shrink: 0;
+}
+.ft-header-cells {
+  flex: 1;
+  display: flex;
+}
+.ft-header-cell {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  color: var(--text2);
+  font-weight: 600;
+}
+
+/* Code viewer */
+.code-viewer {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.code-header {
+  padding: 8px 14px;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.code-filename {
+  font-family: 'SF Mono', monospace;
+  font-size: 12px;
+  color: var(--a0);
+}
+.code-lines {
+  font-size: 11px;
+  color: var(--text2);
+}
+.code-body {
+  padding: 12px 14px;
+  font-family: 'SF Mono', 'Cascadia Code', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: pre;
+  tab-size: 2;
+}
+.code-body .kw { color: var(--kw); }
+.code-body .str { color: var(--str); }
+.code-body .fn { color: var(--fn); }
+.code-body .cm { color: var(--comment); font-style: italic; }
+.code-body .op { color: var(--op); }
+.code-body .num { color: var(--cyan); }
+.code-body .cap { color: var(--yellow); }
+.code-body .tool { color: var(--accent); }
+
+/* Insights panel */
+.insight-box {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.insight-box h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.insight-box p {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.5;
+}
+.insight-box .tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  margin-right: 4px;
+}
+.tag-gap { background: rgba(248,81,73,0.2); color: var(--red); }
+.tag-feature { background: rgba(88,166,255,0.2); color: var(--a0); }
+.tag-win { background: rgba(63,185,80,0.2); color: var(--accent); }
+
+/* Two-panel charts */
+.dual-chart {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+/* Overview grid */
+.overview-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Responsive canvas chart */
+canvas {
+  width: 100% !important;
+  height: 200px !important;
+}
+
+/* Phase badges in sidebar */
+.phase-divider {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 6px 10px;
+  margin: 8px 0 4px;
+  border-radius: 4px;
+}
+.phase-1 { color: var(--text2); background: rgba(139,148,158,0.1); }
+.phase-2 { color: var(--purple); background: rgba(188,140,255,0.1); }
+.phase-3 { color: var(--yellow); background: rgba(227,179,65,0.1); }
+.phase-4 { color: var(--accent); background: rgba(63,185,80,0.1); }
+.phase-5 { color: var(--cyan); background: rgba(57,210,192,0.1); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+/* Compare line */
+.compare-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.compare-line:last-child { border-bottom: none; }
+.compare-line .cl-label { color: var(--text2); }
+.compare-line .cl-a0 { color: var(--a0); font-weight: 600; font-family: monospace; }
+.compare-line .cl-node { color: var(--node); font-weight: 600; font-family: monospace; }
+
+.new-badge {
+  font-size: 9px;
+  background: var(--accent);
+  color: #000;
+  padding: 1px 5px;
+  border-radius: 8px;
+  font-weight: 700;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <header>
+    <h1><span>A0</span> CLI Evolution Explorer</h1>
+    <div class="subtitle">8 experiments comparing A0 vs Node.js for monorepo analysis tasks</div>
+  </header>
+
+  <div class="sidebar">
+    <div class="section-title">Experiments</div>
+    <div class="exp-list" id="expList"></div>
+  </div>
+
+  <div class="main" id="mainContent"></div>
+
+  <div class="prompt-bar">
+    <div class="prompt-text" id="promptOutput"></div>
+    <button class="copy-btn" id="copyBtn" onclick="copyPrompt()">Copy</button>
+  </div>
+</div>
+
+<script>
+const EXPERIMENTS = [
+  {
+    id: 1, date: "2026-02-17", time: "18:50", name: "Package Analysis",
+    phase: 1, badge: null,
+    task: "Analyze all package.json files, extract metadata, compute dependsOn",
+    a0Approach: "Hardcoded paths, manual get/parse.json, no dynamic iteration",
+    nodeApproach: "Glob + parallel Read + manual JSON assembly",
+    a0Tokens: null, nodeTokens: null,
+    a0ToolCalls: 21, nodeToolCalls: 11,
+    a0Duration: 175, nodeDuration: 66,
+    a0Lines: 131, nodeLines: null,
+    a0ProgramBytes: null, nodeProgramBytes: null,
+    outcome: "Byte-identical output",
+    correct: true, a0Complete: true,
+    gaps: ["No dynamic key iteration", "Hardcoded dependsOn"],
+    features: ["fs.read", "fs.write", "parse.json", "get", "eq", "contains", "if", "for"],
+    newFeatures: ["fs.read", "fs.write", "parse.json", "get", "eq", "contains", "if", "for"],
+    insight: "A0 2.6x slower but produced a reusable, auditable artifact. Node.js logic was ephemeral conversation context.",
+    code: `# Analyze package.json files in the A0 monorepo
+cap { fs.read: true, fs.write: true }
+
+# Read all package.json files
+call? fs.read { path: "packages/core/package.json" } -> core_content
+call? fs.read { path: "packages/cli/package.json" } -> cli_content
+call? fs.read { path: "packages/std/package.json" } -> std_content
+call? fs.read { path: "packages/tools/package.json" } -> tools_content
+
+# Parse all package.json files
+let core_pkg = parse.json { in: core_content }
+let cli_pkg = parse.json { in: cli_content }
+let std_pkg = parse.json { in: std_content }
+let tools_pkg = parse.json { in: tools_content }
+
+# Extract metadata for each package
+let core_name = get { in: core_pkg, path: "name" }
+let core_version = get { in: core_pkg, path: "version" }
+let core_deps = get { in: core_pkg, path: "dependencies" }
+let core_deps_final = if { cond: eq { a: core_deps, b: null },
+                           then: {}, else: core_deps }
+
+let core_entry = {
+  name: core_name, version: core_version,
+  dependencies: core_deps_final, dependsOn: []
+}
+
+# ... repeated for each package (cli, std, tools, root)
+
+let report = [core_entry, std_entry, tools_entry,
+              cli_entry, root_entry]
+
+do fs.write {
+  path: "output.txt", data: report, format: "json"
+} -> output_artifact
+
+return { status: "success", packages_analyzed: 5 }`
+  },
+  {
+    id: 2, date: "2026-02-17", time: "18:59", name: "Build Manifest v1",
+    phase: 1, badge: "hybrid",
+    task: "Build manifest with name, version, main, typesTarget, outDir, module, internalDeps, buildOrder",
+    a0Approach: "HYBRID: A0 orchestrator + Node.js computation via sh.exec",
+    nodeApproach: "Single self-contained Node.js script (149 LOC)",
+    a0Tokens: 38500, nodeTokens: 24500,
+    a0ToolCalls: 30, nodeToolCalls: 13,
+    a0Duration: 252, nodeDuration: 83,
+    a0Lines: 55, nodeLines: 149,
+    a0ProgramBytes: null, nodeProgramBytes: null,
+    outcome: "Identical output",
+    correct: true, a0Complete: true,
+    gaps: ["No arithmetic operators", "No string concatenation", "No array push/sort"],
+    features: ["fs.read", "fs.write", "sh.exec", "parse.json", "eq", "check"],
+    newFeatures: ["sh.exec", "check"],
+    insight: "A0 lacked arithmetic, string concat, and array manipulation \u2014 forced to delegate ALL computation to Node.js via sh.exec. A0 was essentially a shell wrapper.",
+    code: `# Build manifest generator \u2014 A0 as orchestrator
+cap { fs.read: true, fs.write: true, sh.exec: true }
+
+# Read all config files via A0's safe I/O
+call? fs.read { path: "packages/core/package.json" } -> core_pkg
+call? fs.read { path: "packages/std/package.json" } -> std_pkg
+call? fs.read { path: "packages/tools/package.json" } -> tools_pkg
+call? fs.read { path: "packages/cli/package.json" } -> cli_pkg
+
+call? fs.read { path: "tsconfig.base.json" } -> base_ts
+
+# Write temp files for Node.js to process
+do fs.write { path: "temp-core-pkg.json", data: core_pkg } -> t1
+do fs.write { path: "temp-std-pkg.json", data: std_pkg } -> t3
+# ... write 9 temp files total
+
+# Delegate computation to Node.js
+do sh.exec {
+  cmd: "node process-packages.js"
+} -> result
+
+# Verify success via A0's check system
+let success = eq { a: result.exitCode, b: 0 }
+check { that: success, msg: "Node script executed successfully" }
+
+# Capture output
+do fs.write {
+  path: "output.txt", data: result.stdout
+} -> output_file
+
+return { success: true, outputPath: output_file.path }`
+  },
+  {
+    id: 3, date: "2026-02-20", time: "05:34", name: "Build Manifest v2",
+    phase: 2, badge: "first-fn",
+    task: "Same build manifest task \u2014 first self-contained A0 attempt",
+    a0Approach: "Single self-contained A0 program (255 lines) with user-defined functions",
+    nodeApproach: "ESM script with dynamic discovery",
+    a0Tokens: 34842, nodeTokens: 28847,
+    a0ToolCalls: 21, nodeToolCalls: 19,
+    a0Duration: 134, nodeDuration: 180.7,
+    a0Lines: 255, nodeLines: null,
+    a0ProgramBytes: null, nodeProgramBytes: null,
+    outcome: "Nearly identical (main:null vs omitted)",
+    correct: true, a0Complete: true,
+    gaps: ["No fs.list/readdir", "Hardcoded paths", "Manual buildOrder"],
+    features: ["fs.read", "fs.write", "parse.json", "get", "if", "map", "filter", "for", "fn", "keys", "pluck", "eq", "or", "not", "contains"],
+    newFeatures: ["fn", "map", "filter", "keys", "pluck", "or", "not"],
+    insight: "FIRST user-defined functions (fn is_internal). Map/filter pipeline for dependency detection. A0 was actually FASTER than Node.js (134s vs 181s).",
+    code: `cap { fs.read: true, fs.write: true }
+
+# Read all package and tsconfig files
+call? fs.read { path: "packages/core/package.json" } -> core_pkg_raw
+call? fs.read { path: "packages/std/package.json" } -> std_pkg_raw
+# ... read all files, parse with parse.json
+
+# \u2b50 FIRST user-defined function in any experiment!
+fn is_internal { name } {
+  let chk_core = eq { a: name, b: "@a0/core" }
+  let chk_std = eq { a: name, b: "@a0/std" }
+  let chk_tools = eq { a: name, b: "@a0/tools" }
+  let r1 = or { a: chk_core, b: chk_std }
+  let result = or { a: r1, b: chk_tools }
+  return { val: result, name: name }
+}
+
+fn extract_name { item } {
+  return { val: item.name }
+}
+
+# Map/filter pipeline for dependency detection
+let std_tagged = map { in: std_dep_keys, fn: "is_internal" }
+let std_internal = filter { in: std_tagged, by: "val" }
+let std_names = map { in: std_internal, fn: "extract_name" }
+
+# Manually computed buildOrder
+let core_buildOrder = 0
+let std_buildOrder = 1    # depends on core(0) \u2192 1+0
+let cli_buildOrder = 2    # depends on std(1) \u2192 1+1
+
+# Assemble and write
+let result = [core_manifest, scenarios_manifest,
+              std_manifest, tools_manifest, cli_manifest]
+do fs.write { path: "output.txt", data: result, format: "json" }
+return { success: true }`
+  },
+  {
+    id: 4, date: "2026-02-20", time: "05:41", name: "Build Manifest v3",
+    phase: 3, badge: null,
+    task: "Same build manifest \u2014 hardcoded approach, missed a package",
+    a0Approach: "Hardcoded paths, manual extraction, semi-static",
+    nodeApproach: "Dynamic discovery with recursive tsconfig resolution",
+    a0Tokens: 29134, nodeTokens: 26680,
+    a0ToolCalls: 16, nodeToolCalls: 13,
+    a0Duration: 78.6, nodeDuration: 92,
+    a0Lines: 131, nodeLines: 185,
+    a0ProgramBytes: null, nodeProgramBytes: null,
+    outcome: "A0 found only 4 packages (missed @a0/scenarios)",
+    correct: false, a0Complete: false,
+    gaps: ["No fs.list/readdir \u2192 missed a package", "Hardcoded dependency graph"],
+    features: ["fs.read", "fs.write", "parse.json", "get", "if", "keys", "eq", "or", "not", "contains", "filter", "for"],
+    newFeatures: [],
+    insight: "A0's lack of readdir caused INCOMPLETE output \u2014 missed @a0/scenarios entirely. The fundamental limitation: no dynamic filesystem discovery.",
+    code: `cap { fs.read: true, fs.write: true }
+
+# Only 4 packages hardcoded \u2014 missed @a0/scenarios!
+call? fs.read { path: "packages/core/package.json" } -> core_pkg_raw
+call? fs.read { path: "packages/std/package.json" } -> std_pkg_raw
+call? fs.read { path: "packages/tools/package.json" } -> tools_pkg_raw
+call? fs.read { path: "packages/cli/package.json" } -> cli_pkg_raw
+
+# \u274c No dynamic discovery \u2014 agent didn't know about
+# packages/scenarios/ because it wasn't listed in CLAUDE.md
+
+# ... parse, extract fields, hardcode dependencies
+
+# Manual sort by construction
+let result = [core_manifest, std_manifest,
+              tools_manifest, cli_manifest]
+
+do fs.write { path: "output.txt", data: result, format: "json" }
+return { success: true }`
+  },
+  {
+    id: 5, date: "2026-02-20", time: "16:07", name: "Build Manifest v4",
+    phase: 3, badge: null,
+    task: "Same build manifest \u2014 verbose loop unrolling",
+    a0Approach: "Manual loop unrolling for 5 packages \u2014 15 conditionals",
+    nodeApproach: "General-purpose script with loops",
+    a0Tokens: 3780, nodeTokens: 3084,
+    a0ToolCalls: 20, nodeToolCalls: 16,
+    a0Duration: 99.1, nodeDuration: 109.6,
+    a0Lines: null, nodeLines: null,
+    a0ProgramBytes: 7531, nodeProgramBytes: 5492,
+    outcome: "Byte-identical output",
+    correct: true, a0Complete: true,
+    gaps: ["No dynamic iteration \u2192 verbose repetition", "15 conditionals for 3 fields \u00d7 5 packages"],
+    features: ["fs.read", "fs.write", "parse.json", "get", "if", "eq", "keys", "filter", "for"],
+    newFeatures: [],
+    insight: "Language limitation ceiling. A0 program 37% larger than Node.js due to manual loop unrolling. Same features as Exp 3-4 \u2014 no progress on expressiveness.",
+    code: `cap { fs.read: true, fs.write: true }
+
+# Read base tsconfig
+call? fs.read { path: "tsconfig.base.json" } -> base_raw
+let base = parse.json { in: base_raw }
+let baseTarget = get { in: base, path: "compilerOptions.target" }
+
+# \u2b07\ufe0f Repeated 5 times for each package:
+call? fs.read { path: "packages/core/tsconfig.json" } -> core_ts
+let core_ts_parsed = parse.json { in: core_ts }
+let core_local_target = get { in: core_ts_parsed,
+                              path: "compilerOptions.target" }
+# Manual fallback (no coalesce yet!)
+let core_target = if { cond: core_local_target,
+                       then: core_local_target,
+                       else: baseTarget }
+# ... \u00d7 3 fields \u00d7 5 packages = 15 conditionals
+
+# Manual sort by construction
+let result = [core_manifest, scenarios_manifest,
+              std_manifest, tools_manifest, cli_manifest]
+do fs.write { path: "output.txt", data: result, format: "json" }`
+  },
+  {
+    id: 6, date: "2026-02-20", time: "17:28", name: "Build Manifest v5",
+    phase: 3, badge: null,
+    task: "Same build manifest \u2014 two A0 programs needed",
+    a0Approach: "Two A0 programs (main 139 lines + metadata writer), hardcoded everything",
+    nodeApproach: "ESM script (147 lines) fully dynamic",
+    a0Tokens: 3843, nodeTokens: 2413,
+    a0ToolCalls: 20, nodeToolCalls: 12,
+    a0Duration: 106.9, nodeDuration: 91.5,
+    a0Lines: 139, nodeLines: 147,
+    a0ProgramBytes: 8110, nodeProgramBytes: 4188,
+    outcome: "Byte-identical output",
+    correct: true, a0Complete: true,
+    gaps: ["Can't iterate record keys", "No dynamic discovery", "94% larger program"],
+    features: ["fs.read", "fs.write", "parse.json", "get", "if", "eq", "keys", "filter", "for"],
+    newFeatures: [],
+    insight: "Worst relative performance: A0 program 94% larger, 59% more tokens. Two separate programs needed. The ceiling of what's possible without new language features.",
+    code: `# Program 1: build-manifest.a0 (main, 139 lines)
+cap { fs.read: true, fs.write: true }
+
+# Pre-analyzed files, hardcoded dependency graph
+call? fs.read { path: "packages/core/package.json" } -> core_raw
+# ... read all 11 JSON files
+
+# Hardcoded manifest entries with pre-computed values
+let core_manifest = {
+  name: "@a0/core", version: "0.5.2",
+  main: "dist/index.js",
+  typesTarget: "ES2022", outDir: "dist",
+  module: "Node16", internalDeps: [],
+  buildOrder: 0
+}
+# ... 4 more hardcoded manifests
+
+# Program 2: write-meta.a0 (metadata writer)
+# Needed because main program can't efficiently
+# write approach.md, done.txt, tool-calls.log`
+  },
+  {
+    id: 7, date: "2026-02-21", time: "04:45", name: "Build Manifest v6",
+    phase: 4, badge: "breakthrough",
+    task: "Same build manifest \u2014 with NEW language features!",
+    a0Approach: "fs.list for discovery, coalesce for fallback, spread syntax, multi-key sort, iterative buildOrder",
+    nodeApproach: "Standard recursive approach with memoization",
+    a0Tokens: 3402, nodeTokens: 3174,
+    a0ToolCalls: 21, nodeToolCalls: 25,
+    a0Duration: 96, nodeDuration: 83,
+    a0Lines: 143, nodeLines: null,
+    a0ProgramBytes: 6394, nodeProgramBytes: 5283,
+    outcome: "Byte-identical output",
+    correct: true, a0Complete: true,
+    gaps: ["No recursion \u2192 3-pass iterative workaround"],
+    features: ["fs.list", "fs.read", "fs.write", "parse.json", "get", "coalesce", "for", "eq", "filter", "find", "pluck", "not", "and", "contains", "math.max", "sort", "spread", "len"],
+    newFeatures: ["fs.list", "coalesce", "math.max", "spread", "and", "find", "len"],
+    insight: "BREAKTHROUGH! Only 7.2% more output tokens than Node.js \u2014 closest ever. Dynamic discovery via fs.list, clean fallbacks via coalesce, spread syntax for record updates. A0 used FEWER tool calls than Node.js (21 vs 25).",
+    code: `cap { fs.read: true, fs.write: true }
+
+# Read tsconfig base for inherited values
+call? fs.read { path: "tsconfig.base.json" } -> baseConfigStr
+let baseConfig = parse.json { in: baseConfigStr }
+let baseTarget = get { in: baseConfig, path: "compilerOptions.target" }
+
+# \u2b50 NEW: Dynamic package discovery via fs.list!
+call? fs.list { path: "packages" } -> pkgEntries
+let pkgDirsTagged = for { in: pkgEntries, as: "e" } {
+  let isDir = eq { a: e.type, b: "directory" }
+  return { name: e.name, isDir: isDir }
+}
+let pkgDirs = filter { in: pkgDirsTagged, by: "isDir" }
+
+# Dynamic iteration over discovered packages
+let rawPackages = for { in: pkgDirs, as: "dir" } {
+  # \u2b50 NEW: String concatenation with +
+  let pkgJsonPath = "packages/" + dir.name + "/package.json"
+  call? fs.read { path: pkgJsonPath } -> pkgJsonStr
+  let pkgJson = parse.json { in: pkgJsonStr }
+
+  # \u2b50 NEW: coalesce for clean null fallback
+  let typesTarget = coalesce { in: localTarget, default: baseTarget }
+
+  # Filter to internal deps
+  let internalDeps = pluck { in: internalDepsFiltered, key: "name" }
+
+  return { name: pkgName, version: pkgVersion, main: pkgMain,
+           typesTarget: typesTarget, outDir: outDir,
+           module: moduleSetting, internalDeps: internalDeps }
+}
+
+# \u2b50 NEW: 3-pass iterative buildOrder (no recursion needed)
+let step0 = for { in: rawPackages, as: "pkg" } {
+  let hasNoDeps = eq { a: len { in: pkg.internalDeps }, b: 0 }
+  let order = if { cond: hasNoDeps, then: 0, else: -1 }
+  # \u2b50 NEW: Spread syntax for record update
+  return { ...pkg, buildOrder: order }
+}
+
+# Pass 1: resolve packages whose deps have order >= 0
+let step1 = for { in: step0, as: "pkg" } {
+  let depPkg = find { in: step0, key: "name", value: depName }
+  # \u2b50 NEW: math.max for numeric aggregation
+  let maxDep = math.max { in: depOrderNums }
+  let newOrder = if { cond: canResolve, then: 1 + maxDep,
+                      else: pkg.buildOrder }
+  return { ...pkg, buildOrder: newOrder }
+}
+# ... step2, step3 for deeper chains
+
+# \u2b50 NEW: Multi-key sort
+let sorted = sort { in: step3, by: ["buildOrder", "name"] }
+do fs.write { path: "output.txt", data: sorted, format: "json" }
+return { packages: sorted }`
+  },
+  {
+    id: 8, date: "2026-02-21", time: "06:40", name: "Build Manifest v7",
+    phase: 5, badge: "regression",
+    task: "Same build manifest \u2014 using function predicates",
+    a0Approach: "User-defined isInternal function with filter{fn:\"isInternal\"}",
+    nodeApproach: "ESM script, standard approach",
+    a0Tokens: 4156, nodeTokens: 2626,
+    a0ToolCalls: 22, nodeToolCalls: 12,
+    a0Duration: 131.7, nodeDuration: 69.3,
+    a0Lines: 203, nodeLines: null,
+    a0ProgramBytes: 8384, nodeProgramBytes: 5044,
+    outcome: "Byte-identical output",
+    correct: true, a0Complete: true,
+    gaps: ["Reverted to hardcoded paths (didn't use fs.list)", "E_UNKNOWN_FN error on first attempt"],
+    features: ["fn", "filter", "fs.read", "fs.write", "parse.json", "get", "if", "eq", "or", "not", "keys"],
+    newFeatures: ["filter-fn"],
+    insight: "Regression from Exp 7: didn't use fs.list, reverted to hardcoding. But demonstrated filter{fn:\"isInternal\"} pattern and E_UNKNOWN_FN static analysis catching errors before runtime.",
+    code: `cap { fs.read: true, fs.write: true }
+
+# \u2b50 NEW: User-defined predicate function
+fn isInternal { name } {
+  let isCore = eq { a: name, b: "@a0/core" }
+  let isStd = eq { a: name, b: "@a0/std" }
+  let isTools = eq { a: name, b: "@a0/tools" }
+  let isScenarios = eq { a: name, b: "@a0/scenarios" }
+  let isA0 = eq { a: name, b: "a0" }
+  let r1 = or { a: isCore, b: isStd }
+  let r2 = or { a: isTools, b: isScenarios }
+  let r3 = or { a: isA0, b: r1 }
+  let result = or { a: r3, b: r2 }
+  return result   # \u2b50 bare return (not wrapped in record)
+}
+
+# Read files (hardcoded paths \u2014 regression from Exp 7)
+call? fs.read { path: "packages/core/package.json" } -> corePkgRaw
+# ... read all package.json and tsconfig.json files
+
+# \u2b50 NEW: filter with user-defined function predicate
+let coreInternalDeps = filter { in: coreDepsKeys,
+                                fn: "isInternal" }
+let stdInternalDeps = filter { in: stdDepsKeys,
+                               fn: "isInternal" }
+
+# \u26a0\ufe0f First attempt hit E_UNKNOWN_FN
+# (function defined after usage)
+# Caught by \`a0 check\` \u2014 static analysis works!
+
+# ... build manifest entries, sort, write output
+do fs.write { path: "output.txt", data: sorted, format: "json" }
+return { success: true, written: writeResult }`
+  }
+];
+
+// All features tracked across experiments
+const ALL_FEATURES = [
+  "fs.read", "fs.write", "fs.list", "sh.exec",
+  "parse.json", "get", "eq", "contains", "if", "for",
+  "check", "fn", "map", "filter", "filter-fn",
+  "keys", "pluck", "or", "not", "and",
+  "find", "len", "coalesce", "math.max",
+  "sort", "spread"
+];
+
+const FEATURE_FIRST_USE = {};
+ALL_FEATURES.forEach(f => {
+  for (const exp of EXPERIMENTS) {
+    if (exp.features.includes(f)) {
+      if (!FEATURE_FIRST_USE[f]) FEATURE_FIRST_USE[f] = exp.id;
+      break;
+    }
+  }
+});
+
+const state = {
+  selectedExp: 1,
+  view: 'overview' // overview | detail | timeline | code
+};
+
+function init() {
+  renderSidebar();
+  updateAll();
+}
+
+function renderSidebar() {
+  const list = document.getElementById('expList');
+  let html = '';
+  let lastPhase = 0;
+  const phaseNames = {
+    1: 'Phase 1: Basic I/O',
+    2: 'Phase 2: Functions',
+    3: 'Phase 3: Plateau',
+    4: 'Phase 4: Breakthrough',
+    5: 'Phase 5: Predicates'
+  };
+  const phaseClasses = { 1: 'phase-1', 2: 'phase-2', 3: 'phase-3', 4: 'phase-4', 5: 'phase-5' };
+
+  EXPERIMENTS.forEach(exp => {
+    if (exp.phase !== lastPhase) {
+      html += `<div class="phase-divider ${phaseClasses[exp.phase]}">${phaseNames[exp.phase]}</div>`;
+      lastPhase = exp.phase;
+    }
+    let badge = '';
+    if (exp.badge === 'breakthrough') badge = '<span class="exp-badge badge-breakthrough">BREAKTHROUGH</span>';
+    else if (exp.badge === 'hybrid') badge = '<span class="exp-badge badge-hybrid">HYBRID</span>';
+    else if (exp.badge === 'regression') badge = '<span class="exp-badge badge-regression">REGRESSION</span>';
+    else if (exp.badge === 'first-fn') badge = '<span class="exp-badge badge-first-fn">FIRST FN</span>';
+
+    html += `<div class="exp-item ${state.selectedExp === exp.id ? 'active' : ''}" onclick="selectExp(${exp.id})">
+      <span class="exp-num">${exp.id}</span>
+      <span class="exp-name">${exp.name}</span>
+      ${badge}
+      <div class="exp-date">${exp.date} ${exp.time}</div>
+    </div>`;
+  });
+  list.innerHTML = html;
+}
+
+function selectExp(id) {
+  state.selectedExp = id;
+  renderSidebar();
+  updateAll();
+}
+
+function setView(v) {
+  state.view = v;
+  updateAll();
+}
+
+function updateAll() {
+  renderMain();
+  updatePrompt();
+}
+
+function renderMain() {
+  const main = document.getElementById('mainContent');
+  const tabs = `<div class="view-tabs">
+    <button class="view-tab ${state.view==='overview'?'active':''}" onclick="setView('overview')">Overview</button>
+    <button class="view-tab ${state.view==='detail'?'active':''}" onclick="setView('detail')">Experiment Detail</button>
+    <button class="view-tab ${state.view==='timeline'?'active':''}" onclick="setView('timeline')">Feature Timeline</button>
+    <button class="view-tab ${state.view==='code'?'active':''}" onclick="setView('code')">A0 Code</button>
+  </div>`;
+
+  let content = '';
+  switch (state.view) {
+    case 'overview': content = renderOverview(); break;
+    case 'detail': content = renderDetail(); break;
+    case 'timeline': content = renderTimeline(); break;
+    case 'code': content = renderCode(); break;
+  }
+  main.innerHTML = tabs + content;
+}
+
+function renderOverview() {
+  // Summary cards
+  const bestExp = EXPERIMENTS[6]; // Exp 7
+  const worstExp = EXPERIMENTS[1]; // Exp 2
+
+  let html = `
+  <div class="metrics-row">
+    <div class="metric-card">
+      <div class="label">Experiments Run</div>
+      <div class="values"><span class="val a0">8</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Best Token Gap</div>
+      <div class="values">
+        <span class="val" style="color:var(--accent)">+7.2%</span>
+        <span class="delta delta-better">Exp 7</span>
+      </div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Worst Token Gap</div>
+      <div class="values">
+        <span class="val" style="color:var(--red)">+59%</span>
+        <span class="delta delta-worse">Exp 6</span>
+      </div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Correct Output</div>
+      <div class="values">
+        <span class="val" style="color:var(--accent)">7</span>
+        <span style="color:var(--text2);font-size:14px">/ 8</span>
+      </div>
+    </div>
+  </div>`;
+
+  // Duration chart
+  html += `<div class="chart-container">
+    <div class="chart-title">Duration Over Time (seconds)</div>
+    <div class="chart-area" style="display:flex;align-items:flex-end;gap:8px;padding-bottom:28px;">`;
+
+  const maxDur = Math.max(...EXPERIMENTS.map(e => Math.max(e.a0Duration, e.nodeDuration)));
+  EXPERIMENTS.forEach(exp => {
+    const a0H = (exp.a0Duration / maxDur) * 180;
+    const nodeH = (exp.nodeDuration / maxDur) * 180;
+    html += `<div style="flex:1;display:flex;align-items:flex-end;gap:2px;position:relative;">
+      <div class="bar a0-bar" style="flex:1;height:${a0H}px;">
+        <div class="bar-tooltip">${exp.a0Duration}s</div>
+      </div>
+      <div class="bar node-bar" style="flex:1;height:${nodeH}px;">
+        <div class="bar-tooltip">${exp.nodeDuration}s</div>
+      </div>
+      <div class="bar-label" style="position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);">${exp.id}</div>
+    </div>`;
+  });
+  html += `</div>
+    <div class="chart-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--a0)"></div>A0</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--node)"></div>Node.js</div>
+    </div>
+  </div>`;
+
+  // Tool calls chart
+  html += `<div class="chart-container">
+    <div class="chart-title">Tool Calls Per Experiment</div>
+    <div class="chart-area" style="display:flex;align-items:flex-end;gap:8px;padding-bottom:28px;">`;
+
+  const maxTC = Math.max(...EXPERIMENTS.map(e => Math.max(e.a0ToolCalls, e.nodeToolCalls)));
+  EXPERIMENTS.forEach(exp => {
+    const a0H = (exp.a0ToolCalls / maxTC) * 180;
+    const nodeH = (exp.nodeToolCalls / maxTC) * 180;
+    html += `<div style="flex:1;display:flex;align-items:flex-end;gap:2px;position:relative;">
+      <div class="bar a0-bar" style="flex:1;height:${a0H}px;">
+        <div class="bar-tooltip">${exp.a0ToolCalls} calls</div>
+      </div>
+      <div class="bar node-bar" style="flex:1;height:${nodeH}px;">
+        <div class="bar-tooltip">${exp.nodeToolCalls} calls</div>
+      </div>
+      <div class="bar-label" style="position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);">${exp.id}</div>
+    </div>`;
+  });
+  html += `</div>
+    <div class="chart-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--a0)"></div>A0</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--node)"></div>Node.js</div>
+    </div>
+  </div>`;
+
+  // Token gap closing chart (only for experiments with token data)
+  const tokenExps = EXPERIMENTS.filter(e => e.a0Tokens && e.nodeTokens);
+  if (tokenExps.length > 0) {
+    html += `<div class="chart-container">
+      <div class="chart-title">Token Gap: A0 vs Node.js (% overhead)</div>
+      <div style="display:flex;align-items:flex-end;gap:12px;height:160px;padding-bottom:28px;">`;
+    tokenExps.forEach(exp => {
+      const pct = ((exp.a0Tokens - exp.nodeTokens) / exp.nodeTokens * 100);
+      const h = Math.min(Math.abs(pct) / 65 * 140, 140);
+      const color = pct < 15 ? 'var(--accent)' : pct < 30 ? 'var(--yellow)' : 'var(--red)';
+      html += `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;">
+        <div style="font-size:11px;color:${color};font-weight:600;margin-bottom:4px;">+${pct.toFixed(0)}%</div>
+        <div style="width:60%;height:${h}px;background:${color};border-radius:3px 3px 0 0;opacity:0.7;"></div>
+        <div style="font-size:10px;color:var(--text2);margin-top:6px;">Exp ${exp.id}</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Narrative insight
+  html += `<div class="insight-box">
+    <h3>The Closing Gap Narrative</h3>
+    <p>Across 8 experiments, A0 evolved from a <strong>2.6x slower shell wrapper</strong> (Exp 1-2) to <strong>within 7% of Node.js</strong> (Exp 7).
+    The breakthrough came when new language features (fs.list, coalesce, spread, math.max) eliminated the need for hardcoding,
+    enabling truly dynamic programs. Exp 8 showed that without these features, performance regresses \u2014 the language capabilities, not the agent, are the bottleneck.</p>
+  </div>`;
+
+  return html;
+}
+
+function renderDetail() {
+  const exp = EXPERIMENTS.find(e => e.id === state.selectedExp);
+  if (!exp) return '';
+
+  const tokenDelta = (exp.a0Tokens && exp.nodeTokens)
+    ? `+${((exp.a0Tokens - exp.nodeTokens) / exp.nodeTokens * 100).toFixed(1)}%`
+    : 'N/A';
+  const durationDelta = ((exp.a0Duration - exp.nodeDuration) / exp.nodeDuration * 100).toFixed(0);
+  const durationSign = durationDelta > 0 ? '+' : '';
+  const toolDelta = ((exp.a0ToolCalls - exp.nodeToolCalls) / exp.nodeToolCalls * 100).toFixed(0);
+
+  let html = `
+  <div class="metrics-row">
+    <div class="metric-card">
+      <div class="label">Duration</div>
+      <div class="values">
+        <span class="val a0">${exp.a0Duration}s</span>
+        <span class="val node">${exp.nodeDuration}s</span>
+      </div>
+      <div class="delta ${parseInt(durationDelta) <= 0 ? 'delta-better' : 'delta-worse'}">${durationSign}${durationDelta}%</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Tool Calls</div>
+      <div class="values">
+        <span class="val a0">${exp.a0ToolCalls}</span>
+        <span class="val node">${exp.nodeToolCalls}</span>
+      </div>
+      <div class="delta ${parseInt(toolDelta) <= 0 ? 'delta-better' : 'delta-worse'}">${toolDelta > 0 ? '+' : ''}${toolDelta}%</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Tokens</div>
+      <div class="values">
+        <span class="val a0">${exp.a0Tokens ? (exp.a0Tokens/1000).toFixed(1)+'k' : '-'}</span>
+        <span class="val node">${exp.nodeTokens ? (exp.nodeTokens/1000).toFixed(1)+'k' : '-'}</span>
+      </div>
+      <div class="delta ${tokenDelta === 'N/A' ? 'delta-neutral' : parseFloat(tokenDelta) > 10 ? 'delta-worse' : 'delta-better'}">${tokenDelta}</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Output</div>
+      <div class="values">
+        <span class="val ${exp.correct ? '' : ''}" style="color:${exp.correct ? 'var(--accent)' : 'var(--red)'}">${exp.correct ? 'MATCH' : 'DIFF'}</span>
+      </div>
+    </div>
+  </div>`;
+
+  // Task & approaches
+  html += `<div class="insight-box">
+    <h3>Task</h3>
+    <p>${exp.task}</p>
+  </div>`;
+
+  html += `<div class="dual-chart">
+    <div class="insight-box">
+      <h3 style="color:var(--a0)">A0 Approach</h3>
+      <p>${exp.a0Approach}</p>
+    </div>
+    <div class="insight-box">
+      <h3 style="color:var(--node)">Node.js Approach</h3>
+      <p>${exp.nodeApproach}</p>
+    </div>
+  </div>`;
+
+  // Features used
+  html += `<div class="insight-box">
+    <h3>A0 Features Used</h3>
+    <p style="margin-top:6px;">`;
+  exp.features.forEach(f => {
+    const isNew = exp.newFeatures.includes(f);
+    html += `<span class="tag ${isNew ? 'tag-feature' : ''}" style="${isNew ? '' : 'background:rgba(139,148,158,0.15);color:var(--text2)'}">${f}${isNew ? '<span class="new-badge">NEW</span>' : ''}</span> `;
+  });
+  html += `</p></div>`;
+
+  // Language gaps
+  if (exp.gaps.length > 0) {
+    html += `<div class="insight-box">
+      <h3>Language Gaps Exposed</h3>
+      <p style="margin-top:6px;">`;
+    exp.gaps.forEach(g => {
+      html += `<span class="tag tag-gap">${g}</span> `;
+    });
+    html += `</p></div>`;
+  }
+
+  // Key insight
+  html += `<div class="insight-box" style="border-color:var(--a0);">
+    <h3>Key Insight</h3>
+    <p>${exp.insight}</p>
+  </div>`;
+
+  // Comparison table
+  html += `<div class="insight-box">
+    <h3>Side-by-Side Comparison</h3>
+    <div style="margin-top:8px;">
+      <div class="compare-line">
+        <span class="cl-label">Duration</span>
+        <span class="cl-a0">${exp.a0Duration}s</span>
+        <span class="cl-node">${exp.nodeDuration}s</span>
+      </div>
+      <div class="compare-line">
+        <span class="cl-label">Tool Calls</span>
+        <span class="cl-a0">${exp.a0ToolCalls}</span>
+        <span class="cl-node">${exp.nodeToolCalls}</span>
+      </div>
+      ${exp.a0Tokens ? `<div class="compare-line">
+        <span class="cl-label">Total Tokens</span>
+        <span class="cl-a0">${exp.a0Tokens.toLocaleString()}</span>
+        <span class="cl-node">${exp.nodeTokens.toLocaleString()}</span>
+      </div>` : ''}
+      ${exp.a0Lines ? `<div class="compare-line">
+        <span class="cl-label">Program Lines</span>
+        <span class="cl-a0">${exp.a0Lines}</span>
+        <span class="cl-node">${exp.nodeLines || '-'}</span>
+      </div>` : ''}
+      ${exp.a0ProgramBytes ? `<div class="compare-line">
+        <span class="cl-label">Program Size</span>
+        <span class="cl-a0">${(exp.a0ProgramBytes/1024).toFixed(1)} KB</span>
+        <span class="cl-node">${(exp.nodeProgramBytes/1024).toFixed(1)} KB</span>
+      </div>` : ''}
+      <div class="compare-line">
+        <span class="cl-label">Output Identical</span>
+        <span style="color:${exp.correct ? 'var(--accent)' : 'var(--red)'}; font-weight:600">${exp.outcome}</span>
+      </div>
+    </div>
+  </div>`;
+
+  return html;
+}
+
+function renderTimeline() {
+  const featureGroups = [
+    { label: "I/O Tools", features: ["fs.read", "fs.write", "fs.list", "sh.exec"] },
+    { label: "Data", features: ["parse.json", "get", "keys", "pluck", "find", "len"] },
+    { label: "Predicates", features: ["eq", "contains", "or", "not", "and"] },
+    { label: "Control", features: ["if", "for", "fn", "map", "filter", "filter-fn"] },
+    { label: "Transforms", features: ["coalesce", "math.max", "sort", "spread"] },
+    { label: "Evidence", features: ["check"] }
+  ];
+
+  let html = `<div class="chart-container">
+    <div class="chart-title">A0 Feature Adoption Timeline</div>
+    <p style="font-size:11px;color:var(--text2);margin-bottom:12px;">
+      <span style="display:inline-block;width:12px;height:12px;background:var(--a0);border-radius:2px;vertical-align:middle;margin-right:4px;"></span> First use
+      <span style="display:inline-block;width:12px;height:12px;background:var(--a0-dim);border-radius:2px;vertical-align:middle;margin-left:12px;margin-right:4px;"></span> Available
+    </p>`;
+
+  // Header
+  html += `<div class="ft-header">
+    <div class="ft-header-label"></div>
+    <div class="ft-header-cells">`;
+  for (let i = 1; i <= 8; i++) {
+    html += `<div class="ft-header-cell" style="cursor:pointer;" onclick="selectExp(${i})">${i}</div>`;
+  }
+  html += `</div></div>`;
+
+  featureGroups.forEach(group => {
+    html += `<div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin:10px 0 4px 0;">${group.label}</div>`;
+    group.features.forEach(f => {
+      html += `<div class="ft-row">
+        <div class="ft-label" title="${f}">${f}</div>
+        <div class="ft-track">`;
+      for (let i = 1; i <= 8; i++) {
+        const exp = EXPERIMENTS[i-1];
+        const hasFeature = exp.features.includes(f);
+        const isFirst = FEATURE_FIRST_USE[f] === i;
+        const cls = isFirst ? 'first-use' : hasFeature ? 'active' : '';
+        html += `<div class="ft-cell ${cls}" title="${f} ${isFirst ? '(first use)' : hasFeature ? '(used)' : '(not used)'}" style="cursor:pointer;" onclick="selectExp(${i})"></div>`;
+      }
+      html += `</div></div>`;
+    });
+  });
+
+  html += `</div>`;
+
+  // Phase narrative
+  html += `<div class="insight-box">
+    <h3>Evolution Phases</h3>
+    <p style="margin-top:8px;">
+      <strong style="color:var(--text2)">Phase 1 (Exp 1-2):</strong> Basic I/O only. A0 served as a file reader and shell wrapper. No computation capability.<br>
+      <strong style="color:var(--purple)">Phase 2 (Exp 3):</strong> User-defined functions unlocked map/filter pipelines. First self-contained A0 solution.<br>
+      <strong style="color:var(--yellow)">Phase 3 (Exp 4-6):</strong> Plateau. Same features, increasingly verbose workarounds. Language ceiling hit.<br>
+      <strong style="color:var(--accent)">Phase 4 (Exp 7):</strong> Breakthrough! fs.list + coalesce + spread + math.max enabled dynamic, general-purpose programs.<br>
+      <strong style="color:var(--cyan)">Phase 5 (Exp 8):</strong> Function predicates (filter with fn). But regression when new tools not used.
+    </p>
+  </div>`;
+
+  // Token convergence narrative
+  html += `<div class="chart-container">
+    <div class="chart-title">The Convergence Story</div>
+    <div style="display:flex;align-items:center;gap:20px;padding:12px 0;">`;
+
+  const milestones = [
+    { exp: 2, label: "3x slower", color: "var(--red)", pct: 57 },
+    { exp: 3, label: "A0 faster!", color: "var(--accent)", pct: -26 },
+    { exp: 5, label: "+22.6%", color: "var(--yellow)", pct: 22 },
+    { exp: 7, label: "+7.2%", color: "var(--accent)", pct: 7 },
+    { exp: 8, label: "+58%", color: "var(--red)", pct: 58 },
+  ];
+
+  milestones.forEach((m, i) => {
+    html += `<div style="flex:1;text-align:center;cursor:pointer;" onclick="selectExp(${m.exp})">
+      <div style="font-size:20px;font-weight:700;color:${m.color}">${m.label}</div>
+      <div style="font-size:10px;color:var(--text2);margin-top:4px;">Exp ${m.exp}</div>
+      ${i < milestones.length - 1 ? '' : ''}
+    </div>`;
+    if (i < milestones.length - 1) {
+      html += `<div style="color:var(--text2);font-size:18px;">\u2192</div>`;
+    }
+  });
+  html += `</div></div>`;
+
+  return html;
+}
+
+function highlightA0(code) {
+  // Escape HTML
+  let s = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Comments
+  s = s.replace(/(#[^\n]*)/g, '<span class="cm">$1</span>');
+
+  // Strings (double-quoted)
+  s = s.replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, '<span class="str">"$1"</span>');
+
+  // Keywords
+  const keywords = ['cap', 'let', 'return', 'call\\?', 'do', 'assert', 'check', 'if', 'else', 'for', 'fn', 'match', 'try', 'catch', 'filter', 'loop', 'true', 'false', 'null', 'as', 'import', 'budget'];
+  keywords.forEach(kw => {
+    s = s.replace(new RegExp(`\\b(${kw})\\b`, 'g'), '<span class="kw">$1</span>');
+  });
+
+  // Tools and stdlib (after ->)
+  const tools = ['fs\\.read', 'fs\\.write', 'fs\\.list', 'sh\\.exec', 'http\\.get', 'parse\\.json', 'math\\.max', 'math\\.min'];
+  tools.forEach(t => {
+    s = s.replace(new RegExp(`\\b(${t})\\b`, 'g'), '<span class="tool">$1</span>');
+  });
+
+  // Stdlib functions
+  const stdlib = ['get', 'put', 'patch', 'eq', 'contains', 'not', 'and', 'or', 'coalesce', 'typeof', 'len', 'append', 'concat', 'sort', 'filter', 'find', 'range', 'join', 'unique', 'pluck', 'flat', 'map', 'reduce', 'keys', 'values', 'merge', 'entries'];
+  stdlib.forEach(fn => {
+    s = s.replace(new RegExp(`\\b(${fn})\\s*\\{`, 'g'), '<span class="fn">$1</span> {');
+  });
+
+  // Operators
+  s = s.replace(/(-&gt;)/g, '<span class="op">$1</span>');
+  s = s.replace(/(\.\.\.)/g, '<span class="op">$1</span>');
+
+  // Numbers
+  s = s.replace(/\b(\d+)\b/g, '<span class="num">$1</span>');
+
+  return s;
+}
+
+function renderCode() {
+  const exp = EXPERIMENTS.find(e => e.id === state.selectedExp);
+  if (!exp) return '';
+
+  const highlighted = highlightA0(exp.code);
+
+  let html = `<div class="code-viewer">
+    <div class="code-header">
+      <span class="code-filename">Experiment ${exp.id}: ${exp.name}</span>
+      <span class="code-lines">${exp.a0Lines ? exp.a0Lines + ' lines' : ''} ${exp.a0ProgramBytes ? '(' + (exp.a0ProgramBytes/1024).toFixed(1) + ' KB)' : ''}</span>
+    </div>
+    <div class="code-body">${highlighted}</div>
+  </div>`;
+
+  // New features callout
+  if (exp.newFeatures.length > 0) {
+    html += `<div class="insight-box" style="margin-top:12px;">
+      <h3>New Features Introduced</h3>
+      <p style="margin-top:6px;">`;
+    exp.newFeatures.forEach(f => {
+      html += `<span class="tag tag-feature">${f}<span class="new-badge">NEW</span></span> `;
+    });
+    html += `</p></div>`;
+  }
+
+  // Insight
+  html += `<div class="insight-box" style="margin-top:12px;border-color:var(--a0);">
+    <h3>Code Evolution Note</h3>
+    <p>${exp.insight}</p>
+  </div>`;
+
+  // Navigation
+  html += `<div style="display:flex;justify-content:space-between;margin-top:12px;">`;
+  if (exp.id > 1) {
+    html += `<button onclick="selectExp(${exp.id-1})" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12px;">\u2190 Exp ${exp.id-1}</button>`;
+  } else {
+    html += `<div></div>`;
+  }
+  if (exp.id < 8) {
+    html += `<button onclick="selectExp(${exp.id+1})" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:12px;">Exp ${exp.id+1} \u2192</button>`;
+  }
+  html += `</div>`;
+
+  return html;
+}
+
+function updatePrompt() {
+  const exp = EXPERIMENTS.find(e => e.id === state.selectedExp);
+  const parts = [];
+
+  parts.push(`Experiment ${exp.id} ("${exp.name}", ${exp.date}):`);
+
+  if (state.view === 'overview') {
+    parts.push(`A0 evolved across 8 experiments from 2.6x slower (Exp 1) to within 7.2% of Node.js (Exp 7). Key milestones: user-defined functions (Exp 3), dynamic discovery via fs.list (Exp 7). The breakthrough came when language features eliminated hardcoding — fs.list, coalesce, spread syntax, and math.max enabled truly general-purpose A0 programs.`);
+  } else if (state.view === 'detail') {
+    parts.push(`A0 used ${exp.a0ToolCalls} tool calls in ${exp.a0Duration}s vs Node.js ${exp.nodeToolCalls} calls in ${exp.nodeDuration}s.`);
+    if (exp.a0Tokens && exp.nodeTokens) {
+      const pct = ((exp.a0Tokens - exp.nodeTokens) / exp.nodeTokens * 100).toFixed(1);
+      parts.push(`Token overhead: +${pct}% (${exp.a0Tokens.toLocaleString()} vs ${exp.nodeTokens.toLocaleString()}).`);
+    }
+    parts.push(`Approach: ${exp.a0Approach}. Gaps: ${exp.gaps.join(', ')}.`);
+    parts.push(exp.insight);
+  } else if (state.view === 'timeline') {
+    const totalFeatures = new Set(EXPERIMENTS.flatMap(e => e.features)).size;
+    parts.push(`A0 grew from ${EXPERIMENTS[0].features.length} features (Exp 1) to ${totalFeatures} total across all experiments. Phase 4 (Exp 7) added the most impactful features: fs.list, coalesce, math.max, spread. These eliminated the need for hardcoding and closed the gap with Node.js.`);
+  } else if (state.view === 'code') {
+    parts.push(`The A0 code for "${exp.name}" demonstrates ${exp.newFeatures.length > 0 ? 'new features: ' + exp.newFeatures.join(', ') : 'the same feature set as prior experiments'}.`);
+    parts.push(exp.insight);
+  }
+
+  document.getElementById('promptOutput').textContent = parts.join(' ');
+}
+
+function copyPrompt() {
+  const text = document.getElementById('promptOutput').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 1500);
+  });
+}
+
+init();
+</script>
+</body>
+</html>

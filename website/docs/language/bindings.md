@@ -70,7 +70,7 @@ let transformed = get { in: parsed, path: "items" }
 
 ## Scoping
 
-A0 uses **parent-chained scoping**. The top-level program has its own scope. Nested constructs -- `for` bodies, `fn` bodies, and `match` arms -- each create a child scope.
+A0 uses **parent-chained scoping**. The top-level program has its own scope. Nested constructs -- `for` bodies, `fn` bodies, `match` arms, `if`-block branches, `try`/`catch` blocks, `filter` block bodies, and `loop` bodies -- each create a child scope.
 
 A child scope can read names from its parent scope, but names defined in a child scope are not visible outside it:
 

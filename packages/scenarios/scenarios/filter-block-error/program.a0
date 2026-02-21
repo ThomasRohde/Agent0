@@ -1,0 +1,5 @@
+let rec = { a: 1, b: 2 }
+let result = filter { in: rec, as: "x" } {
+  return true
+}
+return result

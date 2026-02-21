@@ -79,7 +79,7 @@ The CST-to-AST conversion failed. This is usually an internal error caused by un
 **Phase**: Validation
 **Exit code**: 2
 
-Every A0 program must end with a `return { ... }` statement.
+Every A0 program (and every block body — `for`, `fn`, `if`, `filter`, `loop`, `try`, `catch`, `match`) must end with a `return` statement. The `return` can be followed by any expression: a record, a bare value, an arithmetic expression, etc.
 
 **Before** (broken):
 ```
@@ -87,11 +87,17 @@ let x = 42
 let y = { value: x }
 ```
 
-**After** (fixed):
+**After** (fixed — record return):
 ```
 let x = 42
 let y = { value: x }
 return { result: y }
+```
+
+**After** (fixed — bare expression return):
+```
+let x = 42
+return x + 1
 ```
 
 ---
@@ -266,7 +272,7 @@ call? fs.read { path: "data.json" } -> content
 
 `call?` was used on an effect-mode tool. Note: using `do` on a read-mode tool is allowed but unconventional — prefer `call?` for read tools to signal read-only intent.
 
-**Read tools** (use `call?`): `fs.read`, `http.get`
+**Read tools** (use `call?`): `fs.read`, `fs.list`, `fs.exists`, `http.get`
 **Effect tools** (use `do`): `fs.write`, `sh.exec`
 
 **Before** (broken):
@@ -424,6 +430,7 @@ A budget limit declared in `budget { ... }` was exceeded during execution.
 - `timeMs` — wall-clock time limit
 - `maxToolCalls` — maximum number of tool invocations
 - `maxBytesWritten` — maximum bytes written via `fs.write`
+- `maxIterations` — maximum cumulative iterations across `for`, `map`, `filter`, `reduce`, and `loop`
 
 **Before** (broken — too many tool calls):
 ```
@@ -450,13 +457,16 @@ return { a: a, b: b }
 **Phase**: Runtime
 **Exit code**: 4
 
-An expression used an operator with incompatible types. Arithmetic operators (`+`, `-`, `*`, `/`, `%`) require numeric operands. Comparison operators (`>`, `<`, `>=`, `<=`) require numbers or strings. Division and modulo by zero are also type errors. Unary minus requires a number.
+An expression used an operator with incompatible types, or a construct received a value of the wrong type. Arithmetic operators (`+`, `-`, `*`, `/`, `%`) require numeric operands. Comparison operators (`>`, `<`, `>=`, `<=`) require numbers or strings. Division and modulo by zero are also type errors. Unary minus requires a number.
 
 **Common causes**:
 - Arithmetic on non-numbers (e.g., string + number)
 - Division or modulo by zero
 - Comparing incompatible types (e.g., number > boolean)
 - Unary minus on a non-number
+- Spreading a non-record (e.g., `{ ...null }`, `{ ...[1,2] }`, `{ ...42 }`)
+- `filter` block `in:` is not a list
+- `loop` `times:` is not a non-negative integer (rejects floats, negatives, non-numbers)
 
 **Before** (broken — arithmetic on non-number):
 ```
@@ -513,6 +523,40 @@ return { x: x }
 ```
 let x = -42
 return { x: x }
+```
+
+**Before** (broken — spreading a non-record):
+```
+let items = [1, 2, 3]
+let rec = { ...items, extra: true }
+return rec
+```
+
+**Error**: `E_TYPE: Spread requires a record, got list.`
+
+**After** (fixed):
+```
+let base = { a: 1, b: 2 }
+let rec = { ...base, extra: true }
+return rec
+```
+
+**Before** (broken — loop with float times):
+```
+let result = loop { in: 0, times: 2.5, as: "x" } {
+  return x + 1
+}
+return result
+```
+
+**Error**: `E_TYPE: loop 'times' must be a non-negative integer`
+
+**After** (fixed):
+```
+let result = loop { in: 0, times: 3, as: "x" } {
+  return x + 1
+}
+return result
 ```
 
 ---

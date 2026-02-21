@@ -1,0 +1,5 @@
+let empty = []
+let result = filter { in: empty, as: "x" } {
+  return x > 0
+}
+return result

@@ -46,7 +46,7 @@ Map exit codes to error categories:
 | `E_LEX` | Invalid token | Check for typos, unclosed strings, invalid characters |
 | `E_PARSE` | Syntax error | Verify statement structure matches A0 grammar |
 | `E_AST` | AST construction failed | Usually an internal error; simplify the expression |
-| `E_NO_RETURN` | Missing `return` | Add `return { ... }` as last statement |
+| `E_NO_RETURN` | Missing `return` | Add `return <expr>` as last statement |
 | `E_RETURN_NOT_LAST` | Statements after `return` | Move `return` to end of program |
 | `E_UNKNOWN_CAP` | Invalid capability name | Use valid caps: `fs.read`, `fs.write`, `http.get`, `sh.exec` |
 | `E_UNDECLARED_CAP` | Tool used without declaring capability | Add the tool's capability to `cap { ... }` |
@@ -71,7 +71,7 @@ Map exit codes to error categories:
 | `E_FOR_NOT_LIST` | `for` `in:` value is not a list | Ensure `in:` evaluates to a list `[...]` |
 | `E_MATCH_NOT_RECORD` | `match` subject is not a record | Ensure subject evaluates to `{ ok: ... }` or `{ err: ... }` |
 | `E_MATCH_NO_ARM` | `match` subject has no `ok`/`err` key | Subject record must contain an `ok` or `err` key |
-| `E_TYPE` | Type error in expression | Ensure arithmetic operands are numbers (or both strings for `+`); avoid division/modulo by zero; compare compatible types; ensure spread targets are records |
+| `E_TYPE` | Type error in expression | Ensure arithmetic operands are numbers (or both strings for `+`); avoid division/modulo by zero; compare compatible types; ensure spread targets are records; `filter` block `in:` must be a list; `loop` `times:` must be a non-negative integer |
 | `E_ASSERT` | `assert` condition is false (fatal — halts immediately) | Fix the condition or the data producing it |
 | `E_CHECK` | `check` condition is false (non-fatal — records evidence, continues) | Fix the condition or upstream data; runner returns exit 5 after execution |
 
@@ -100,7 +100,7 @@ Parse the error output:
 
 Common fix patterns:
 
-- **Missing return**: Add `return { ... }` at end
+- **Missing return**: Add `return <expr>` at end
 - **Wrong tool keyword**: Swap `do` ↔ `call?` based on tool mode
 - **Unbound variable**: Ensure the variable is bound with `let x = ...` or `expr -> x` before use
 - **Duplicate binding**: Rename one variable (A0 has no reassignment)
@@ -150,7 +150,7 @@ When understanding existing A0 programs:
 1. **Start at `cap {}`** — identifies what side effects the program uses
 2. **Follow the data flow** — `let` and `->` bindings create the variable chain
 3. **Identify tool calls** — `call?` (reads data) vs `do` (has effects)
-4. **Check `return`** — the program's output is always the return record
+4. **Check `return`** — the program's output is always the return value (can be any expression, not just a record)
 5. **Note assert/check** — `assert` is fatal (halts on failure), `check` is non-fatal (records evidence, continues)
 
 ## Capability Policy
@@ -192,6 +192,17 @@ Use trace to see the raw tool return value. Common issues:
 The `+` operator works on numbers and strings, but both operands must be the same type. Common issues:
 - `"count: " + 42` -- mixed string + number produces `E_TYPE`. Convert to string first, or use `str.template`.
 - `{ ...x, key: 1 }` where `x` is not a record -- spread of non-record produces `E_TYPE`.
+
+### "E_TYPE on loop times"
+
+The `loop` construct requires `times:` to be a non-negative integer. Common issues:
+- `loop { in: 0, times: 2.5, as: "x" }` -- float produces `E_TYPE`
+- `loop { in: 0, times: -1, as: "x" }` -- negative produces `E_TYPE`
+- `loop { in: 0, times: count, as: "x" }` where `count` is a string -- non-number produces `E_TYPE`
+
+### "E_BUDGET on filter/loop"
+
+Both `filter` blocks and `loop` count against `maxIterations` budget (shared with `for`, `map`, `reduce`). If multiple iterations in the same program, their counts are cumulative.
 
 ### "Unrecoverable error that should be recoverable"
 

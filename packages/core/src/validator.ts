@@ -109,7 +109,7 @@ export function validate(program: AST.Program): Diagnostic[] {
         "E_NO_RETURN",
         "Program must end with a return statement.",
         program.span,
-        "Add a 'return { ... }' statement at the end of your program."
+        "Add a 'return <expr>' statement at the end of your program."
       )
     );
   }
@@ -302,7 +302,7 @@ function validateBlockBindings(
           "E_NO_RETURN",
           `${context} must end with a return statement.`,
           body.length > 0 ? body[body.length - 1].span : undefined,
-          "Add a 'return { ... }' statement at the end of the body."
+          "Add a 'return <expr>' statement at the end of the body."
         )
       );
     }
@@ -561,6 +561,15 @@ function validateExprBindings(
       validateExprBindings(expr.list, bindings, fnNames, diags);
       validateBlockBindings(expr.body, bindings, fnNames, [expr.binding], diags, true, "for body");
       break;
+    case "FilterBlockExpr":
+      validateExprBindings(expr.list, bindings, fnNames, diags);
+      validateBlockBindings(expr.body, bindings, fnNames, [expr.binding], diags, true, "filter body");
+      break;
+    case "LoopExpr":
+      validateExprBindings(expr.init, bindings, fnNames, diags);
+      validateExprBindings(expr.times, bindings, fnNames, diags);
+      validateBlockBindings(expr.body, bindings, fnNames, [expr.binding], diags, true, "loop body");
+      break;
     case "MatchExpr":
       validateExprBindings(expr.subject, bindings, fnNames, diags);
       validateBlockBindings(expr.okArm.body, bindings, fnNames, [expr.okArm.binding], diags, true, "match ok arm");
@@ -645,6 +654,15 @@ function visitExpr(
       break;
     case "ForExpr":
       visitExpr(expr.list, visitor);
+      for (const bodyStmt of expr.body) visitExprInStmt(bodyStmt, visitor);
+      break;
+    case "FilterBlockExpr":
+      visitExpr(expr.list, visitor);
+      for (const bodyStmt of expr.body) visitExprInStmt(bodyStmt, visitor);
+      break;
+    case "LoopExpr":
+      visitExpr(expr.init, visitor);
+      visitExpr(expr.times, visitor);
       for (const bodyStmt of expr.body) visitExprInStmt(bodyStmt, visitor);
       break;
     case "MatchExpr":

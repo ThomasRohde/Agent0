@@ -4,7 +4,7 @@ sidebar_position: 4
 
 # Control Flow
 
-A0 provides control flow constructs: `if` for conditionals (two forms), `for` for iteration, `match` for ok/err discrimination, and `try/catch` for error handling.
+A0 provides control flow constructs: `if` for conditionals (two forms), `for` for iteration, `filter` for inline list filtering, `loop` for iterative convergence, `match` for ok/err discrimination, and `try/catch` for error handling.
 
 ## if -- Conditional Expression
 
@@ -177,7 +177,7 @@ This is useful for batch operations -- fetching multiple resources, processing f
 
 ### Budget Control
 
-The `maxIterations` budget field limits the total number of iterations across all `for` loops, `map`, `reduce`, and `filter` (with `fn:`) calls in a program. If the limit is exceeded, execution stops with `E_BUDGET`:
+The `maxIterations` budget field limits the total number of iterations across all `for` loops, `filter` blocks, `loop` iterations, `map`, `reduce`, and `filter` (with `fn:`) calls in a program. If the limit is exceeded, execution stops with `E_BUDGET`:
 
 ```a0
 budget { maxIterations: 100 }
@@ -359,6 +359,126 @@ let result = try {
 
 return result
 ```
+
+## filter -- Inline List Filtering
+
+`filter` with a block body filters a list inline. The block runs for each element; items where the body returns a truthy value are kept.
+
+```a0
+let nums = [1, -2, 3, -4, 5, 0]
+let positives = filter { in: nums, as: "x" } {
+  return x > 0
+}
+# positives == [1, 3, 5]
+return positives
+```
+
+- `in` -- the list to filter (must be a list)
+- `as` -- the name to bind each element to (a string)
+- The body is a block `{ ... }` that **must end with `return`**
+- Items where the return value is truthy are kept; falsy items are discarded
+- If the body returns a record, the first value is checked for truthiness (for backward compat with `fn:` predicates)
+- Counts against `maxIterations` budget
+
+### Filter Block Examples
+
+Filtering records by field:
+
+```a0
+let users = [
+  { name: "Alice", active: true },
+  { name: "Bob", active: false },
+  { name: "Carol", active: true }
+]
+let active = filter { in: users, as: "u" } {
+  return u.active
+}
+return { active: active }
+```
+
+Complex predicate with multiple conditions:
+
+```a0
+budget { maxIterations: 100 }
+
+let items = [
+  { name: "Widget", price: 25, inStock: true },
+  { name: "Gadget", price: 150, inStock: true },
+  { name: "Gizmo", price: 10, inStock: false }
+]
+let affordable_available = filter { in: items, as: "item" } {
+  let cheap = item.price < 100
+  return and { a: cheap, b: item.inStock }
+}
+return { results: affordable_available }
+```
+
+### Other Filter Forms
+
+A0 also supports two record-style filter forms (without a block):
+
+- `filter { in: list, by: "key" }` -- keep items where field `key` is truthy
+- `filter { in: list, fn: "pred" }` -- keep items where predicate function `pred` returns truthy
+
+The inline block form is preferred for most filtering tasks.
+
+## loop -- Iterative Convergence
+
+`loop` runs a body a fixed number of times, threading a value through each iteration. The result of each iteration becomes the input to the next.
+
+```a0
+let result = loop { in: 0, times: 5, as: "x" } {
+  return x + 1
+}
+# result == 5
+return result
+```
+
+- `in` -- the initial value (any type)
+- `times` -- the number of iterations (must be a non-negative integer; `E_TYPE` otherwise)
+- `as` -- the name to bind the current value to (a string)
+- The body is a block `{ ... }` that **must end with `return`**
+- The return value of each iteration becomes the binding for the next
+- If `times` is 0, the initial value is returned unchanged
+- Counts against `maxIterations` budget
+
+### Loop Examples
+
+Simple counter:
+
+```a0
+let count = loop { in: 0, times: 10, as: "n" } {
+  return n + 1
+}
+return { count: count }
+# count == 10
+```
+
+Record accumulator:
+
+```a0
+let result = loop { in: { total: 0, count: 0 }, times: 3, as: "state" } {
+  return { total: state.total + 10, count: state.count + 1 }
+}
+return result
+# result == { total: 30, count: 3 }
+```
+
+Zero iterations returns the initial value:
+
+```a0
+let result = loop { in: 42, times: 0, as: "x" } {
+  return x + 1
+}
+return result
+# result == 42
+```
+
+### When to Use loop vs for
+
+- Use `for` when iterating over a **list of items** to produce a new list
+- Use `loop` when iterating a **fixed number of times**, threading state through each iteration
+- `loop` is bounded by design (`times:` not `until:`) -- consistent with A0's safety model
 
 ## Record Spread
 

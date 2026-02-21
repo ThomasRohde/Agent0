@@ -205,7 +205,7 @@ describe("A0 Parser", () => {
     assert.equal(result.diagnostics.length, 0);
     assert.ok(result.program);
     const ret = result.program.statements[0];
-    if (ret.kind === "ReturnStmt") {
+    if (ret.kind === "ReturnStmt" && ret.value.kind === "RecordExpr") {
       assert.equal(ret.value.pairs.length, 0);
     }
   });
@@ -495,5 +495,208 @@ describe("A0 Parser", () => {
     assert.ok(result.diagnostics.length > 0);
     assert.equal(result.diagnostics[0].code, "E_PARSE");
     assert.ok(result.diagnostics[0].message.includes("match arm must be 'ok' or 'err'"));
+  });
+
+  // --- v0.5: filter block parsing ---
+
+  it("parses filter block expression", () => {
+    const src = `let result = filter { in: [1, 2, 3], as: "x" } {\n  return x > 0\n}\nreturn result`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const letStmt = result.program.statements[0];
+    assert.equal(letStmt.kind, "LetStmt");
+    if (letStmt.kind === "LetStmt") {
+      assert.equal(letStmt.value.kind, "FilterBlockExpr");
+      if (letStmt.value.kind === "FilterBlockExpr") {
+        assert.equal(letStmt.value.binding, "x");
+        assert.equal(letStmt.value.list.kind, "ListExpr");
+        assert.ok(letStmt.value.body.length > 0);
+      }
+    }
+  });
+
+  it("reports E_PARSE for filter block missing 'as' field", () => {
+    const src = `let result = filter { in: [1, 2, 3] } {\n  return x > 0\n}\nreturn result`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.diagnostics.length > 0);
+    assert.equal(result.diagnostics[0].code, "E_PARSE");
+  });
+
+  it("reports E_PARSE for filter block missing 'in' field", () => {
+    const src = `let result = filter { as: "x" } {\n  return x > 0\n}\nreturn result`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.diagnostics.length > 0);
+    assert.equal(result.diagnostics[0].code, "E_PARSE");
+  });
+
+  // --- v0.5: loop parsing ---
+
+  it("parses loop expression", () => {
+    const src = `let result = loop { in: 0, times: 5, as: "x" } {\n  return x + 1\n}\nreturn result`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const letStmt = result.program.statements[0];
+    assert.equal(letStmt.kind, "LetStmt");
+    if (letStmt.kind === "LetStmt") {
+      assert.equal(letStmt.value.kind, "LoopExpr");
+      if (letStmt.value.kind === "LoopExpr") {
+        assert.equal(letStmt.value.binding, "x");
+        assert.equal(letStmt.value.init.kind, "IntLiteral");
+        assert.equal(letStmt.value.times.kind, "IntLiteral");
+        assert.ok(letStmt.value.body.length > 0);
+      }
+    }
+  });
+
+  it("reports E_PARSE for loop missing required fields", () => {
+    const src = `let result = loop { in: 0, as: "x" } {\n  return x + 1\n}\nreturn result`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.diagnostics.length > 0);
+    assert.equal(result.diagnostics[0].code, "E_PARSE");
+  });
+
+  // --- v0.5: spread parsing ---
+
+  it("parses record spread syntax", () => {
+    const src = `let base = { a: 1 }\nlet ext = { ...base, b: 2 }\nreturn ext`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const letStmt = result.program.statements[1];
+    if (letStmt.kind === "LetStmt" && letStmt.value.kind === "RecordExpr") {
+      const pairs = letStmt.value.pairs;
+      assert.equal(pairs[0].kind, "SpreadPair");
+      assert.equal(pairs[1].kind, "RecordPair");
+    }
+  });
+
+  it("parses multiple spreads in a record", () => {
+    const src = `let a = { x: 1 }\nlet b = { y: 2 }\nlet merged = { ...a, ...b }\nreturn merged`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const letStmt = result.program.statements[2];
+    if (letStmt.kind === "LetStmt" && letStmt.value.kind === "RecordExpr") {
+      const pairs = letStmt.value.pairs;
+      assert.equal(pairs[0].kind, "SpreadPair");
+      assert.equal(pairs[1].kind, "SpreadPair");
+    }
+  });
+
+  it("parses spread mixed with normal keys", () => {
+    const src = `let base = { a: 1 }\nlet ext = { x: 10, ...base, y: 20 }\nreturn ext`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const letStmt = result.program.statements[1];
+    if (letStmt.kind === "LetStmt" && letStmt.value.kind === "RecordExpr") {
+      const pairs = letStmt.value.pairs;
+      assert.equal(pairs.length, 3);
+      assert.equal(pairs[0].kind, "RecordPair");
+      assert.equal(pairs[1].kind, "SpreadPair");
+      assert.equal(pairs[2].kind, "RecordPair");
+    }
+  });
+
+  // --- v0.5: try/catch parsing ---
+
+  it("parses try/catch expression", () => {
+    const src = `let result = try {\n  return 42\n} catch { e } {\n  return e\n}\nreturn result`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const letStmt = result.program.statements[0];
+    assert.equal(letStmt.kind, "LetStmt");
+    if (letStmt.kind === "LetStmt") {
+      assert.equal(letStmt.value.kind, "TryExpr");
+      if (letStmt.value.kind === "TryExpr") {
+        assert.ok(letStmt.value.tryBody.length > 0);
+        assert.equal(letStmt.value.catchBinding, "e");
+        assert.ok(letStmt.value.catchBody.length > 0);
+      }
+    }
+  });
+
+  // --- v0.5: block if/else parsing ---
+
+  it("parses block if/else expression", () => {
+    const src = `let result = if (true) {\n  return "yes"\n} else {\n  return "no"\n}\nreturn result`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const letStmt = result.program.statements[0];
+    assert.equal(letStmt.kind, "LetStmt");
+    if (letStmt.kind === "LetStmt") {
+      assert.equal(letStmt.value.kind, "IfBlockExpr");
+      if (letStmt.value.kind === "IfBlockExpr") {
+        assert.ok(letStmt.value.cond);
+        assert.ok(letStmt.value.thenBody.length > 0);
+        assert.ok(letStmt.value.elseBody.length > 0);
+      }
+    }
+  });
+
+  // --- v0.5: bare return parsing ---
+
+  it("parses bare integer return", () => {
+    const src = `return 42`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const ret = result.program.statements[0];
+    assert.equal(ret.kind, "ReturnStmt");
+    if (ret.kind === "ReturnStmt") {
+      assert.equal(ret.value.kind, "IntLiteral");
+    }
+  });
+
+  it("parses bare string return", () => {
+    const src = `return "hello"`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const ret = result.program.statements[0];
+    assert.equal(ret.kind, "ReturnStmt");
+    if (ret.kind === "ReturnStmt") {
+      assert.equal(ret.value.kind, "StrLiteral");
+    }
+  });
+
+  it("parses bare expression return", () => {
+    const src = `let a = 1\nreturn a + 2`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const ret = result.program.statements[1];
+    assert.equal(ret.kind, "ReturnStmt");
+    if (ret.kind === "ReturnStmt") {
+      assert.equal(ret.value.kind, "BinaryExpr");
+    }
+  });
+
+  it("parses bare list return", () => {
+    const src = `return [1, 2, 3]`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const ret = result.program.statements[0];
+    assert.equal(ret.kind, "ReturnStmt");
+    if (ret.kind === "ReturnStmt") {
+      assert.equal(ret.value.kind, "ListExpr");
+    }
+  });
+
+  it("parses bare variable return", () => {
+    const src = `let x = 42\nreturn x`;
+    const result = parse(src, "test.a0");
+    assert.equal(result.diagnostics.length, 0);
+    assert.ok(result.program);
+    const ret = result.program.statements[1];
+    assert.equal(ret.kind, "ReturnStmt");
+    if (ret.kind === "ReturnStmt") {
+      assert.equal(ret.value.kind, "IdentPath");
+    }
   });
 });

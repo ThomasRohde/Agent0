@@ -211,7 +211,7 @@ call? tool.name { key: value, key2: value2 } -> target
 
 **Symptom:** `E_BUDGET` at runtime.
 
-**Cause:** The program hit a limit set in its `budget { ... }` header.
+**Cause:** The program hit a limit set in its `budget { ... }` header. The `maxIterations` counter is shared across `for` loops, `filter` blocks, `loop` iterations, `map`, `reduce`, and `filter` (with `fn:`) calls.
 
 **Fix:** Either increase the budget limit or optimize the program:
 
@@ -219,7 +219,7 @@ call? tool.name { key: value, key2: value2 } -> target
 budget { maxToolCalls: 10, maxIterations: 100 }
 ```
 
-Use `--trace` to see exactly where the budget was exhausted.
+Use `--trace` to see exactly where the budget was exhausted. Look for `budget_exceeded` events as well as `for_start`/`for_end`, `filter_start`/`filter_end`, and `loop_start`/`loop_end` events to understand iteration counts.
 
 ### Stdlib Function Errors
 

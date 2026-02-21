@@ -29,6 +29,10 @@ export const Match = createToken({ name: "Match", pattern: /match/, longer_alt: 
 export const Try = createToken({ name: "Try", pattern: /try/, longer_alt: undefined });
 export const Catch = createToken({ name: "Catch", pattern: /catch/, longer_alt: undefined });
 
+// v0.5 keywords
+export const Filter = createToken({ name: "Filter", pattern: /filter/, longer_alt: undefined });
+export const Loop = createToken({ name: "Loop", pattern: /loop/, longer_alt: undefined });
+
 // Identifiers (must come after all keywords)
 export const Ident = createToken({ name: "Ident", pattern: /[A-Za-z_][A-Za-z0-9_]*/ });
 
@@ -52,6 +56,8 @@ Fn.LONGER_ALT = Ident;
 Match.LONGER_ALT = Ident;
 Try.LONGER_ALT = Ident;
 Catch.LONGER_ALT = Ident;
+Filter.LONGER_ALT = Ident;
+Loop.LONGER_ALT = Ident;
 
 // Literals (no leading minus — unary minus is now an operator)
 export const FloatLit = createToken({
@@ -137,6 +143,8 @@ export const allTokens = [
   Check,
   Match,
   Catch,
+  Filter,
+  Loop,
   If,
   Else,
   For,

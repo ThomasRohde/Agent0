@@ -1,0 +1,6 @@
+let threshold = 50
+let scores = [10, 60, 30, 80, 45, 90]
+let passing = filter { in: scores, as: "s" } {
+  return s >= threshold
+}
+return passing

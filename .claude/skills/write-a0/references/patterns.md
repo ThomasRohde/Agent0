@@ -419,11 +419,44 @@ let env_file = join { in: env_vals, sep: "\n" }
 return { pairs: pairs, env_file: env_file }
 ```
 
-## Pattern 22: Predicate Filtering with filter + fn
+## Pattern 22: Inline Filter Block
+
+Use `filter` with a block body to filter a list inline. The block body runs for each element; items where the body returns a truthy value are kept.
+
+```
+# inline-filter.a0
+budget { maxIterations: 100 }
+
+let users = [
+  { name: "Alice", age: 30, email: "alice@example.com" },
+  { name: "Bob", age: 15, email: null },
+  { name: "Carol", age: 25, email: "carol@example.com" }
+]
+
+let adults = filter { in: users, as: "u" } {
+  return u.age >= 18
+}
+
+let with_email = filter { in: users, as: "u" } {
+  let t = typeof { in: u.email }
+  return eq { a: t, b: "string" }
+}
+
+return { adults: adults, with_email: with_email }
+```
+
+**Three forms of filter:**
+- `filter { in: list, by: "key" }` — keep items where field `key` is truthy
+- `filter { in: list, fn: "pred" }` — keep items where predicate fn returns truthy
+- `filter { in: list, as: "x" } { body }` — inline block; body returns truthy/falsy value
+
+The inline block form is preferred for most filtering tasks. Use `by:` for simple field-truthiness checks and `fn:` when you need a reusable predicate.
+
+## Pattern 23: Predicate Filtering with filter + fn (Legacy)
 
 Use `filter` with `fn:` to apply a user-defined predicate function. The original items are kept (not the fn return value). Counts against `maxIterations`.
 
-Since A0 `return` requires a record (and records are always truthy), filter checks the truthiness of the **first value** in the returned record, not the record itself. By convention, predicate functions should return `{ ok: expr }`.
+Since filter checks the truthiness of the return value, and records are always truthy, predicate functions with `fn:` should return `{ ok: expr }` (filter checks the first value). With the inline block form, you can simply `return expr` directly.
 
 ```
 # predicate-filter.a0
@@ -452,10 +485,12 @@ let contactable = filter { in: adults, fn: "hasEmail" }
 return { adults: adults, with_email: with_email, contactable: contactable }
 ```
 
-**When to use `filter` by: vs fn:**
+**When to use `filter` by: vs fn: vs inline block:**
 - Use `by:` when filtering by a single boolean/truthy field already on the record
-- Use `fn:` when the filter condition requires computation, comparison, or multi-field logic
-- Predicate functions must return `{ ok: expr }` -- filter checks the truthiness of the first value in the returned record
+- Use `fn:` when the filter condition requires a reusable predicate function
+- Use inline block `filter { in: list, as: "x" } { ... }` for most filtering (preferred)
+- With `fn:`, predicate functions must return `{ ok: expr }` — filter checks the first value
+- With inline blocks, just `return expr` — bare values are checked directly
 
 ## Anti-Patterns to Avoid
 
@@ -497,7 +532,46 @@ let x = 2
 return { result: y }
 ```
 
-## Pattern 23: Closure-Based Filtering
+## Pattern 24: Loop / Iterative Convergence
+
+Use `loop` for iterative computation where each iteration transforms a value. The body runs `times` iterations, threading the result through each one.
+
+```
+# counter.a0
+let result = loop { in: 0, times: 5, as: "x" } {
+  return x + 1
+}
+return result
+# result == 5
+```
+
+```
+# accumulator.a0
+let items = [10, 20, 30]
+let count = len { in: items }
+let sum = loop { in: 0, times: count, as: "acc" } {
+  let indices = range { from: 0, to: count }
+  return acc + 1
+}
+return sum
+```
+
+```
+# record-threading.a0
+let result = loop { in: { total: 0, count: 0 }, times: 3, as: "state" } {
+  return { total: state.total + 10, count: state.count + 1 }
+}
+return result
+# result == { total: 30, count: 3 }
+```
+
+**When to use `loop` vs `for`:**
+- Use `for` when iterating over a list of items
+- Use `loop` when iterating a fixed number of times, threading state through each iteration
+- `loop` is bounded by design (uses `times:` not `until:`) — consistent with A0's safety model
+- Both count against `maxIterations` budget
+
+## Pattern 26: Closure-Based Filtering
 
 Use closures to capture outer variables in filter predicates, avoiding hardcoded values inside functions.
 
@@ -523,7 +597,7 @@ return { permitted: permitted }
 
 The function `isAllowed` captures `allowed_roles` from the outer scope. This pattern is useful when the filter criteria come from configuration or earlier computation.
 
-## Pattern 24: Dynamic File Discovery
+## Pattern 27: Dynamic File Discovery
 
 Use `fs.list` to discover files, then `for` with tool calls to read and process each one.
 
@@ -555,7 +629,7 @@ return { files: results }
 
 This pattern combines `fs.list`, `for` with tool calls inside the loop body, string `+` for path building, and block `if/else` for conditional processing.
 
-## Pattern 25: Error Recovery with try/catch
+## Pattern 28: Error Recovery with try/catch
 
 Use `try/catch` to gracefully handle failures from tool calls or stdlib functions.
 
@@ -585,7 +659,7 @@ return { port: port.val, config_loaded: result.ok }
 
 The `try` body runs normally. If any statement throws (file not found, invalid JSON, etc.), the `catch` body runs with `e` bound to `{ code: "E_...", message: "..." }`. This avoids fatal errors and lets the program provide defaults or alternative behavior.
 
-## Pattern 26: Record Composition with Spread
+## Pattern 29: Record Composition with Spread
 
 Use spread syntax to compose records from a base, applying overrides or extensions.
 
@@ -617,7 +691,7 @@ return { config: config, tagged: tagged }
 
 Spread is useful for merging defaults with overrides, extending records inside loops, and building composite records without manually listing every key.
 
-## Pattern 27: String Building with + Operator
+## Pattern 30: String Building with + Operator
 
 Use the `+` operator for simple string concatenation instead of `str.concat` when combining two values.
 

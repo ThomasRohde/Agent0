@@ -64,7 +64,7 @@ This binds a **record** (a key-value structure, similar to a JSON object) to the
 return { greeting: greeting, data: data }
 ```
 
-Every A0 program **must** end with a `return` statement. The return value must be a record. This is the program's output -- it gets serialized as JSON.
+Every A0 program **must** end with a `return` statement. The return value can be any expression -- a record, a list, a string, a number, a boolean, or `null`. This is the program's output -- it gets serialized as JSON.
 
 The record here references the previously bound names `greeting` and `data`. A0 evaluates these references and substitutes their values into the output.
 

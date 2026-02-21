@@ -1,0 +1,14 @@
+# Validate that check passes on all v0.5 syntax features
+let base = { x: 1 }
+let spread = { ...base, y: 2 }
+
+let items = [1, 2, 3, 4, 5]
+let evens = filter { in: items, as: "n" } {
+  return n % 2 == 0
+}
+
+let total = loop { in: 0, times: 3, as: "acc" } {
+  return acc + 10
+}
+
+return total

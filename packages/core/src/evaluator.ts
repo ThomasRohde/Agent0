@@ -27,7 +27,7 @@ export interface Evidence {
 }
 
 // --- Trace events ---
-export type TraceEventType = "run_start" | "run_end" | "stmt_start" | "stmt_end" | "tool_start" | "tool_end" | "evidence" | "budget_exceeded" | "for_start" | "for_end" | "fn_call_start" | "fn_call_end" | "match_start" | "match_end" | "map_start" | "map_end" | "reduce_start" | "reduce_end";
+export type TraceEventType = "run_start" | "run_end" | "stmt_start" | "stmt_end" | "tool_start" | "tool_end" | "evidence" | "budget_exceeded" | "for_start" | "for_end" | "fn_call_start" | "fn_call_end" | "match_start" | "match_end" | "map_start" | "map_end" | "reduce_start" | "reduce_end" | "filter_start" | "filter_end" | "loop_start" | "loop_end";
 
 export interface TraceEvent {
   ts: string;
@@ -981,6 +981,90 @@ async function evalExpr(
         }
         return executeBlock(expr.catchBody, catchEnv, options, evidence, emitTrace, budget, tracker, userFns);
       }
+    }
+
+    case "FilterBlockExpr": {
+      const listVal = await evalExpr(expr.list, env, options, evidence, emitTrace, budget, tracker, userFns);
+      if (!Array.isArray(listVal)) {
+        throw new A0RuntimeError(
+          "E_TYPE",
+          `filter 'in' must be a list, got ${listVal === null ? "null" : typeof listVal}.`,
+          expr.list.span
+        );
+      }
+
+      emitTrace("filter_start", expr.span, { listLength: listVal.length, as: expr.binding });
+
+      const results: A0Value[] = [];
+      for (const item of listVal) {
+        tracker.iterations++;
+        if (budget.maxIterations !== undefined && tracker.iterations > budget.maxIterations) {
+          emitTrace("budget_exceeded", expr.span, { budget: "maxIterations", limit: budget.maxIterations, actual: tracker.iterations });
+          throw new A0RuntimeError(
+            "E_BUDGET",
+            `Budget exceeded: maxIterations limit of ${budget.maxIterations} reached.`,
+            expr.span,
+            { budget: "maxIterations", limit: budget.maxIterations, actual: tracker.iterations }
+          );
+        }
+
+        const iterEnv = env.child();
+        iterEnv.set(expr.binding, item);
+        const predResult = await executeBlock(expr.body, iterEnv, options, evidence, emitTrace, budget, tracker, userFns);
+
+        // Same truthiness check as existing fn: filter — unwrap record if needed
+        let checkValue: A0Value = predResult;
+        if (predResult !== null && typeof predResult === "object" && !Array.isArray(predResult)) {
+          const vals = Object.values(predResult as A0Record);
+          if (vals.length > 0) {
+            checkValue = vals[0] ?? null;
+          } else {
+            checkValue = null;
+          }
+        }
+        if (isTruthy(checkValue)) {
+          results.push(item);
+        }
+      }
+
+      emitTrace("filter_end", expr.span, { iterations: listVal.length });
+      return results;
+    }
+
+    case "LoopExpr": {
+      const initVal = await evalExpr(expr.init, env, options, evidence, emitTrace, budget, tracker, userFns);
+      const timesVal = await evalExpr(expr.times, env, options, evidence, emitTrace, budget, tracker, userFns);
+
+      if (typeof timesVal !== "number" || !Number.isInteger(timesVal) || timesVal < 0) {
+        throw new A0RuntimeError(
+          "E_TYPE",
+          `loop 'times' must be a non-negative integer, got ${timesVal === null ? "null" : JSON.stringify(timesVal)}.`,
+          expr.span
+        );
+      }
+
+      emitTrace("loop_start", expr.span, { times: timesVal, as: expr.binding });
+
+      let current: A0Value = initVal;
+      for (let i = 0; i < timesVal; i++) {
+        tracker.iterations++;
+        if (budget.maxIterations !== undefined && tracker.iterations > budget.maxIterations) {
+          emitTrace("budget_exceeded", expr.span, { budget: "maxIterations", limit: budget.maxIterations, actual: tracker.iterations });
+          throw new A0RuntimeError(
+            "E_BUDGET",
+            `Budget exceeded: maxIterations limit of ${budget.maxIterations} reached.`,
+            expr.span,
+            { budget: "maxIterations", limit: budget.maxIterations, actual: tracker.iterations }
+          );
+        }
+
+        const iterEnv = env.child();
+        iterEnv.set(expr.binding, current);
+        current = await executeBlock(expr.body, iterEnv, options, evidence, emitTrace, budget, tracker, userFns);
+      }
+
+      emitTrace("loop_end", expr.span, { iterations: timesVal });
+      return current;
     }
 
     case "BinaryExpr": {

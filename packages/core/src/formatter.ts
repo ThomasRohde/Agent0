@@ -69,7 +69,7 @@ function formatStmt(s: AST.Stmt, depth: number = 0): string {
       return out;
     }
     case "ReturnStmt":
-      return `${prefix}return ${formatRecord(s.value, depth)}`;
+      return `${prefix}return ${formatExpr(s.value, depth)}`;
     case "FnDecl": {
       const params = s.params.join(", ");
       const bodyLines = formatBlock(s.body, depth);
@@ -136,6 +136,14 @@ function formatExpr(e: AST.Expr, depth: number): string {
         ? formatExpr(e.subject, depth)
         : `(${formatExpr(e.subject, depth)})`;
       return `match ${subjectStr} {\n${inner}ok { ${e.okArm.binding} } {\n${okBody}\n${inner}}\n${inner}err { ${e.errArm.binding} } {\n${errBody}\n${inner}}\n${INDENT.repeat(depth)}}`;
+    }
+    case "FilterBlockExpr": {
+      const bodyLines = formatBlock(e.body, depth);
+      return `filter { in: ${formatExpr(e.list, depth + 1)}, as: ${JSON.stringify(e.binding)} } {\n${bodyLines}\n${INDENT.repeat(depth)}}`;
+    }
+    case "LoopExpr": {
+      const bodyLines = formatBlock(e.body, depth);
+      return `loop { in: ${formatExpr(e.init, depth + 1)}, times: ${formatExpr(e.times, depth + 1)}, as: ${JSON.stringify(e.binding)} } {\n${bodyLines}\n${INDENT.repeat(depth)}}`;
     }
     case "BinaryExpr": {
       let leftStr = formatExpr(e.left, depth);

@@ -34,13 +34,13 @@ Each line in the trace file is a JSON object with these fields:
 |---------|--------|-------------|
 | `ts`    | string | ISO 8601 timestamp |
 | `runId` | string | Unique identifier for the run |
-| `event` | string | One of the 16 event types |
+| `event` | string | One of the 22 event types |
 | `span`  | object | Source location (line/column range) |
 | `data`  | object | Event-specific payload |
 
 ## Event types
 
-A0 emits 16 trace event types:
+A0 emits 22 trace event types:
 
 ### Program lifecycle
 
@@ -87,6 +87,12 @@ A0 emits 16 trace event types:
 | `match_end` | A `match` expression completes |
 | `map_start` | A `map` operation begins |
 | `map_end` | A `map` operation completes |
+| `reduce_start` | A `reduce` operation begins |
+| `reduce_end` | A `reduce` operation completes |
+| `filter_start` | A `filter` block begins iterating |
+| `filter_end` | A `filter` block finishes all iterations |
+| `loop_start` | A `loop` begins iterating |
+| `loop_end` | A `loop` finishes all iterations |
 
 ## Summarizing traces
 
@@ -127,7 +133,7 @@ Traces are especially useful for:
 - **Tool failures**: `tool_start`/`tool_end` events show exact arguments passed and whether the tool succeeded or failed
 - **Assertion/check failures**: `evidence` events show which `assert` (fatal -- halts) or `check` (non-fatal -- continues) failed and why
 - **Budget overruns**: `budget_exceeded` events show which limit was hit
-- **Loop issues**: `for_start`/`for_end` events show iteration counts
+- **Loop issues**: `for_start`/`for_end`, `filter_start`/`filter_end`, and `loop_start`/`loop_end` events show iteration counts
 - **Function call chains**: `fn_call_start`/`fn_call_end` events show the call stack
 
 Since A0 programs are designed for autonomous agents, traces provide the machine-readable audit trail needed to verify that a program did what it was supposed to do.

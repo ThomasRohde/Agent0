@@ -1,0 +1,5 @@
+let nums = [1, -2, 3, -4, 5, 0]
+let positives = filter { in: nums, as: "x" } {
+  return x > 0
+}
+return positives

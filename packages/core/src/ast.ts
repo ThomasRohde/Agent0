@@ -146,6 +146,23 @@ export interface SpreadPair extends BaseNode {
   expr: Expr;
 }
 
+// --- v0.5: filter block, loop ---
+
+export interface FilterBlockExpr extends BaseNode {
+  kind: "FilterBlockExpr";
+  list: Expr;
+  binding: string;
+  body: Stmt[];
+}
+
+export interface LoopExpr extends BaseNode {
+  kind: "LoopExpr";
+  init: Expr;
+  times: Expr;
+  binding: string;
+  body: Stmt[];
+}
+
 // --- v0.35: Arithmetic & comparison expressions ---
 
 export type BinaryOp = "+" | "-" | "*" | "/" | "%" | ">" | "<" | ">=" | "<=" | "==" | "!=";
@@ -181,7 +198,9 @@ export type Expr =
   | MatchExpr
   | BinaryExpr
   | UnaryExpr
-  | TryExpr;
+  | TryExpr
+  | FilterBlockExpr
+  | LoopExpr;
 
 // --- Statements ---
 export interface LetStmt extends BaseNode {
@@ -198,7 +217,7 @@ export interface ExprStmt extends BaseNode {
 
 export interface ReturnStmt extends BaseNode {
   kind: "ReturnStmt";
-  value: RecordExpr;
+  value: Expr;
 }
 
 export interface FnDecl extends BaseNode {

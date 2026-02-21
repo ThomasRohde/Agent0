@@ -12,7 +12,7 @@ The validator performs semantic checks on the AST before execution. It catches e
 
 ### Return placement
 
-- Every program and every block body (`fn`, `for`, `match` arm) must end with a `return` statement (`E_NO_RETURN`)
+- Every program and every block body (`fn`, `for`, `match` arm, `if`-block branch, `try`/`catch` block, `filter` block, `loop`) must end with a `return` statement (`E_NO_RETURN`)
 - `return` must be the last statement -- no statements may follow it (`E_RETURN_NOT_LAST`)
 
 ### Binding uniqueness
@@ -51,7 +51,7 @@ The validator performs semantic checks on the AST before execution. It catches e
 ### Known functions and tools
 
 - Stdlib function calls must reference known stdlib names (`E_UNKNOWN_FN`)
-- `map` callback names (when provided as string literals) must refer to user-defined functions declared earlier (`E_UNKNOWN_FN`)
+- `map`, `reduce`, and `filter` callback names (when provided as string literals) must refer to user-defined functions declared earlier (`E_UNKNOWN_FN`)
 - Tool calls must reference known tool names (`E_UNKNOWN_TOOL`)
 - User-defined function names must be unique (`E_FN_DUP`)
 
@@ -62,6 +62,10 @@ The validator uses `validateBlockBindings` for nested scopes:
 - **`fn` bodies**: Function parameters are added to the scope. The body is validated independently.
 - **`for` bodies**: The loop variable (from `as`) is added to the scope. The body is validated independently.
 - **`match` arms**: The bound variable from the arm pattern is added to the scope. Each arm body is validated independently.
+- **`if`-block branches**: Each branch (`if` and `else`) is validated as a separate child scope.
+- **`try`/`catch` blocks**: The `try` body is a child scope; the `catch` body is a child scope with the catch binding added.
+- **`filter` block bodies**: The loop variable (from `as`) is added to the scope. The body is validated independently.
+- **`loop` bodies**: The loop variable (from `as`) is added to the scope. Both `init` and `times` are validated in the outer scope.
 
 In all cases, bindings from parent scopes are visible (closures), but child scope bindings do not leak out.
 

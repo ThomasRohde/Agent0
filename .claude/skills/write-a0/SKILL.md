@@ -5,7 +5,7 @@ description: This skill should be used when the user asks to "write an A0 progra
 
 # Writing A0 Programs
 
-A0 is a line-oriented scripting language for automation agents. Programs are sequences of statements producing a JSON result. Every program must end with `return { ... }`.
+A0 is a line-oriented scripting language for automation agents. Programs are sequences of statements producing a JSON result. Every program must end with `return <expr>` (any expression: record, literal, variable, arithmetic, list, etc.).
 
 ## Core Syntax
 
@@ -14,7 +14,7 @@ A0 is a line-oriented scripting language for automation agents. Programs are seq
 cap { fs.read: true }        # capability declaration (top of file)
 let name = expr              # bind a value
 expr -> name                 # bind result of expression statement
-return { key: val }          # required, must be last statement
+return expr                  # required, must be last statement (any expression)
 ```
 
 ## Types
@@ -290,7 +290,49 @@ let result = reduce { in: items, fn: "addScore", init: { val: 0 } }
 # result.val contains the sum
 ```
 
-The callback must accept exactly 2 parameters. Budget-aware via `maxIterations` (shared counter with `for`, `map`, and `filter` (fn:)).
+The callback must accept exactly 2 parameters. Budget-aware via `maxIterations` (shared counter with `for`, `map`, `filter`, `loop`).
+
+### filter block — Inline predicate filtering (v0.5)
+
+Filter a list with an inline predicate body. More concise than `filter { fn: ... }` when the predicate is simple.
+
+```
+let positives = filter { in: nums, as: "x" } {
+  return x > 0
+}
+```
+
+The body runs once per element. If the return value is truthy, the original item is kept. Uses the same truthiness unwrapping as `filter { fn: ... }` — if a record is returned, checks the first value; if a bare value is returned, checks it directly.
+
+Backward compatible: `filter { in: list, by: "key" }` and `filter { in: list, fn: "pred" }` still work (no block = old behavior).
+
+Budget-aware via `maxIterations` (shared counter with `for`, `map`, `reduce`, `loop`).
+
+### loop — Iterative convergence (v0.5)
+
+Run a body a fixed number of times, threading state through each iteration. The body receives the current value and returns the next value.
+
+```
+let result = loop { in: 0, times: 5, as: "x" } {
+  return x + 1
+}
+# result == 5
+```
+
+Complex state with records:
+
+```
+let result = loop { in: { sum: 0, count: 0 }, times: 3, as: "acc" } {
+  return { sum: acc.sum + acc.count + 1, count: acc.count + 1 }
+}
+```
+
+- `in:` — initial value (any type)
+- `times:` — number of iterations (must be a non-negative integer, else `E_TYPE`)
+- `as:` — binding name for current value in each iteration
+- 0 iterations returns the `in:` value unchanged
+
+Budget-aware via `maxIterations` (shared counter with `for`, `map`, `filter`, `reduce`).
 
 ### fn — User-defined functions
 
@@ -376,7 +418,7 @@ budget { timeMs: 30000, maxToolCalls: 10, maxBytesWritten: 1048576, maxIteration
 | `timeMs` | int | Maximum wall-clock time in milliseconds |
 | `maxToolCalls` | int | Maximum number of tool invocations |
 | `maxBytesWritten` | int | Maximum bytes written via `fs.write` |
-| `maxIterations` | int | Maximum `for`, `map`, `filter` (fn:), and `reduce` iterations (cumulative) |
+| `maxIterations` | int | Maximum `for`, `map`, `filter`, `reduce`, and `loop` iterations (cumulative) |
 
 Only declare budget fields the program needs. Unknown fields produce `E_UNKNOWN_BUDGET` at validation time.
 
@@ -386,20 +428,20 @@ Dot notation on bound variables: `response.body`, `result.exitCode`, `data.items
 
 ## Program Rules
 
-1. `return { ... }` is **required** and must be the **last** statement.
+1. `return <expr>` is **required** and must be the **last** statement. Can return any expression (record, literal, variable, arithmetic, list, etc.).
 2. Variables must be bound with `let` or `->` before use.
 3. No duplicate `let` bindings in the same scope.
 4. `call?` for read-mode tools only; `do` for effect-mode tools only.
 5. Tool and function args are always records `{ ... }`.
-6. Reserved words cannot be variable names: `cap`, `let`, `return`, `do`, `assert`, `check`, `true`, `false`, `null`, `import`, `as`, `budget`, `if`, `else`, `for`, `fn`, `match`, `try`, `catch`.
-7. `fn` bodies, `for` bodies, and `match` arms must each end with `return`.
+6. Reserved words cannot be variable names: `cap`, `let`, `return`, `do`, `assert`, `check`, `true`, `false`, `null`, `import`, `as`, `budget`, `if`, `else`, `for`, `fn`, `match`, `try`, `catch`, `filter`, `loop`.
+7. `fn` bodies, `for` bodies, `match` arms, `filter` block bodies, and `loop` bodies must each end with `return`.
 8. `fn` must be defined before use (no hoisting).
 
 ## Common Mistakes
 
 Avoid these frequent errors:
 
-- **Forgetting `return`** → `E_NO_RETURN`. Every program must end with `return { ... }`.
+- **Forgetting `return`** → `E_NO_RETURN`. Every program must end with `return <expr>`.
 - **`return` not last** → `E_RETURN_NOT_LAST`. No statements after return.
 - **Using `call?` for an effect tool** → `E_CALL_EFFECT`. Use `do` for `fs.write` and `sh.exec`.
 - **Using `do` for a read tool** — allowed but unconventional. Prefer `call?` for `fs.read` and `http.get` to signal read-only intent.
@@ -415,6 +457,10 @@ Avoid these frequent errors:
 - **`reduce` with unknown function** → `E_UNKNOWN_FN`. The named function must be defined with `fn` before the `reduce` call.
 - **`filter` with unknown function** → `E_UNKNOWN_FN`. When using `fn:`, the named function must be defined with `fn` before the `filter` call.
 - **`filter` with neither `by` nor `fn`** → `E_FN`. Must provide either `by:` (key name) or `fn:` (predicate function name).
+- **`filter` with both `by` and `fn`** → `E_FN`. Provide exactly one of `by:` or `fn:`, not both.
+- **`filter` block on non-list** → `E_TYPE`. The `in:` value must evaluate to a list.
+- **`loop` with non-integer `times`** → `E_TYPE`. The `times:` value must be a non-negative integer (floats like 2.5 also rejected).
+- **`loop` with negative `times`** → `E_TYPE`. Use 0 or positive integers.
 - **`for` on non-list** → `E_FOR_NOT_LIST`. The `in:` value must evaluate to a list.
 - **`match` on non-record** → `E_MATCH_NOT_RECORD`. The subject must be a record with `ok` or `err` key.
 - **`match` missing arm** → `E_MATCH_NO_ARM`. Subject record must have `ok` or `err` key.
@@ -487,3 +533,6 @@ Working `.a0` programs in `examples/`:
 - **`examples/fn-demo.a0`** — User-defined functions with `fn`
 - **`examples/match-demo.a0`** — ok/err discrimination with `match`
 - **`examples/map-demo.a0`** — Higher-order list transformation with `map`
+- **`examples/bare-return-demo.a0`** — Returning bare values (non-record expressions)
+- **`examples/filter-block-demo.a0`** — Inline filter block with predicate body
+- **`examples/loop-demo.a0`** — Iterative convergence with `loop`

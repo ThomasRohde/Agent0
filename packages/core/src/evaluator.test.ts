@@ -1568,6 +1568,267 @@ return { from_loop: from_loop }`;
     assert.equal(ok["ok"], 1);
   });
 
+  // --- bare expression returns ---
+
+  it("return 42 (bare integer)", async () => {
+    const src = `return 42`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, 42);
+  });
+
+  it('return "hello" (bare string)', async () => {
+    const src = `return "hello"`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, "hello");
+  });
+
+  it("return true (bare boolean)", async () => {
+    const src = `return true`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, true);
+  });
+
+  it("return null (bare null)", async () => {
+    const src = `return null`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, null);
+  });
+
+  it("return [1, 2, 3] (bare list)", async () => {
+    const src = `return [1, 2, 3]`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.deepEqual(result.value, [1, 2, 3]);
+  });
+
+  it("return a + b (bare expression)", async () => {
+    const src = `let a = 10\nlet b = 20\nreturn a + b`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, 30);
+  });
+
+  it("return { ok: true } (record backward compat)", async () => {
+    const src = `return { ok: true }`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["ok"], true);
+  });
+
+  it("for body with bare return", async () => {
+    const src = `let result = for { in: [1, 2, 3], as: "x" } {\n  return x * 2\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.deepEqual(result.value, [2, 4, 6]);
+  });
+
+  it("fn body with bare return", async () => {
+    const src = `fn double { x } {\n  return x * 2\n}\nlet result = double { x: 5 }\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, 10);
+  });
+
+  it("filter fn: predicate with bare return", async () => {
+    const src = `fn isPositive { x } {\n  return x > 0\n}\nlet nums = [-1, 0, 1, 2, -3, 4]\nlet result = filter { in: nums, fn: "isPositive" }\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.deepEqual(result.value, [1, 2, 4]);
+  });
+
+  // --- filter block expression ---
+
+  it("filter block: basic inline predicate", async () => {
+    const src = `let nums = [-1, 0, 1, 2, -3, 4]\nlet result = filter { in: nums, as: "x" } {\n  return x > 0\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.deepEqual(result.value, [1, 2, 4]);
+  });
+
+  it("filter block: filter records by field", async () => {
+    const src = `let people = [{ name: "Alice", age: 25 }, { name: "Bob", age: 15 }, { name: "Charlie", age: 30 }]\nlet result = filter { in: people, as: "p" } {\n  return p.age >= 18\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const filtered = result.value as A0Record[];
+    assert.equal(filtered.length, 2);
+    assert.equal(filtered[0]["name"], "Alice");
+    assert.equal(filtered[1]["name"], "Charlie");
+  });
+
+  it("filter block: empty list returns empty result", async () => {
+    const src = `let result = filter { in: [], as: "x" } {\n  return x > 0\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.deepEqual(result.value, []);
+  });
+
+  it("filter block: budget enforcement (maxIterations)", async () => {
+    const src = `budget { maxIterations: 2 }\nlet result = filter { in: [1, 2, 3], as: "x" } {\n  return x > 0\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_BUDGET");
+        assert.ok(err.message.includes("maxIterations"));
+        return true;
+      }
+    );
+  });
+
+  it("filter block: trace events (filter_start, filter_end)", async () => {
+    const events: import("./evaluator.js").TraceEvent[] = [];
+    const src = `let result = filter { in: [1, 2, 3], as: "x" } {\n  return x > 1\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await execute(pr.program, makeOptions({ trace: (ev) => events.push(ev) }));
+    const eventNames = events.map((e) => e.event);
+    assert.ok(eventNames.includes("filter_start"));
+    assert.ok(eventNames.includes("filter_end"));
+  });
+
+  it("filter { in: list, by: key } backward compat still works", async () => {
+    const filterStdlib: StdlibFn = {
+      name: "filter",
+      execute(args: A0Record): A0Value {
+        const input = args["in"] as A0Value[];
+        const by = args["by"] as string;
+        return input.filter((el) => {
+          if (el !== null && typeof el === "object" && !Array.isArray(el)) {
+            const rec = el as A0Record;
+            return rec[by] !== null && rec[by] !== false && rec[by] !== 0 && rec[by] !== "";
+          }
+          return false;
+        });
+      },
+    };
+    const stdlib = new Map([["filter", filterStdlib]]);
+    const src = `let items = [{ name: "a", active: true }, { name: "b", active: false }]\nlet result = filter { in: items, by: "active" }\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program!, makeOptions({ stdlib }));
+    const filtered = result.value as A0Record[];
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0]["name"], "a");
+  });
+
+  it("filter { in: list, fn: pred } backward compat still works", async () => {
+    const src = `fn isPositive { x } {\n  return x > 0\n}\nlet result = filter { in: [-1, 0, 1, 2], fn: "isPositive" }\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.deepEqual(result.value, [1, 2]);
+  });
+
+  // --- loop expression ---
+
+  it("loop: 0 iterations returns init value", async () => {
+    const src = `let result = loop { in: 42, times: 0, as: "x" } {\n  return x + 1\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, 42);
+  });
+
+  it("loop: simple counter", async () => {
+    const src = `let result = loop { in: 0, times: 5, as: "x" } {\n  return x + 1\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, 5);
+  });
+
+  it("loop: complex state (record accumulator)", async () => {
+    const src = `let result = loop { in: { sum: 0, count: 0 }, times: 3, as: "acc" } {\n  return { sum: acc.sum + acc.count + 1, count: acc.count + 1 }\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["sum"], 6); // 0+0+1=1, 1+1+1=3, 3+2+1=6
+    assert.equal(val["count"], 3);
+  });
+
+  it("loop: budget enforcement (maxIterations)", async () => {
+    const src = `budget { maxIterations: 3 }\nlet result = loop { in: 0, times: 10, as: "x" } {\n  return x + 1\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_BUDGET");
+        assert.ok(err.message.includes("maxIterations"));
+        return true;
+      }
+    );
+  });
+
+  it("loop: E_TYPE for non-integer times", async () => {
+    const src = `let result = loop { in: 0, times: 2.5, as: "x" } {\n  return x + 1\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        assert.ok(err.message.includes("non-negative integer"));
+        return true;
+      }
+    );
+  });
+
+  it("loop: E_TYPE for negative times", async () => {
+    const src = `let result = loop { in: 0, times: -1, as: "x" } {\n  return x + 1\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        return true;
+      }
+    );
+  });
+
+  it("loop: trace events (loop_start, loop_end)", async () => {
+    const events: import("./evaluator.js").TraceEvent[] = [];
+    const src = `let result = loop { in: 0, times: 3, as: "x" } {\n  return x + 1\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await execute(pr.program, makeOptions({ trace: (ev) => events.push(ev) }));
+    const eventNames = events.map((e) => e.event);
+    assert.ok(eventNames.includes("loop_start"));
+    assert.ok(eventNames.includes("loop_end"));
+  });
+
+  it("loop: nested loops", async () => {
+    const src = `let result = loop { in: 0, times: 3, as: "outer" } {\n  let inner = loop { in: outer, times: 2, as: "x" } {\n    return x + 1\n  }\n  return inner\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    // outer iter 1: inner starts at 0, +1, +1 = 2
+    // outer iter 2: inner starts at 2, +1, +1 = 4
+    // outer iter 3: inner starts at 4, +1, +1 = 6
+    assert.equal(result.value, 6);
+  });
+
   it("tool_start trace includes mode", async () => {
     const mockTool: import("./evaluator.js").ToolDef = {
       name: "test.read",
@@ -1588,5 +1849,218 @@ return { from_loop: from_loop }`;
     assert.ok(toolStart);
     assert.ok(toolStart!.data);
     assert.equal(toolStart!.data!["mode"], "read");
+  });
+
+  // --- Additional v0.5 edge case tests ---
+
+  // --- filter block edge cases ---
+
+  it("filter block: multi-statement body with let bindings", async () => {
+    const src = `let nums = [1, 2, 3, 4, 5]\nlet result = filter { in: nums, as: "x" } {\n  let threshold = 3\n  return x > threshold\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.deepEqual(result.value, [4, 5]);
+  });
+
+  it("filter block: E_TYPE when 'in' is not a list", async () => {
+    const src = `let result = filter { in: 42, as: "x" } {\n  return x > 0\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        assert.ok(err.message.includes("list"));
+        return true;
+      }
+    );
+  });
+
+  it("filter block: access outer scope variables", async () => {
+    const src = `let min = 2\nlet nums = [1, 2, 3, 4]\nlet result = filter { in: nums, as: "x" } {\n  return x >= min\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.deepEqual(result.value, [2, 3, 4]);
+  });
+
+  it("filter block: all items filtered out returns empty list", async () => {
+    const src = `let result = filter { in: [1, 2, 3], as: "x" } {\n  return x > 100\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.deepEqual(result.value, []);
+  });
+
+  it("filter block: single element kept", async () => {
+    const src = `let result = filter { in: [5], as: "x" } {\n  return x == 5\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.deepEqual(result.value, [5]);
+  });
+
+  // --- loop edge cases ---
+
+  it("loop: E_TYPE for string times value", async () => {
+    const src = `let result = loop { in: 0, times: "five", as: "x" } {\n  return x + 1\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    await assert.rejects(
+      () => execute(pr.program!, makeOptions()),
+      (err: A0RuntimeError) => {
+        assert.equal(err.code, "E_TYPE");
+        assert.ok(err.message.includes("non-negative integer"));
+        return true;
+      }
+    );
+  });
+
+  it("loop: access outer scope variables", async () => {
+    const src = `let step = 10\nlet result = loop { in: 0, times: 3, as: "x" } {\n  return x + step\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, 30);
+  });
+
+  it("loop: body with multiple statements and let bindings", async () => {
+    const src = `let result = loop { in: 0, times: 3, as: "acc" } {\n  let increment = acc + 1\n  let doubled = increment * 2\n  return doubled\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    // iter 1: acc=0, increment=1, doubled=2
+    // iter 2: acc=2, increment=3, doubled=6
+    // iter 3: acc=6, increment=7, doubled=14
+    assert.equal(result.value, 14);
+  });
+
+  it("loop: with stdlib calls in body", async () => {
+    const lenFn: StdlibFn = {
+      name: "len",
+      execute(args: A0Record): A0Value {
+        const input = args["in"] as A0Value[];
+        return input.length;
+      },
+    };
+    const appendFn: StdlibFn = {
+      name: "append",
+      execute(args: A0Record): A0Value {
+        const list = args["in"] as A0Value[];
+        const item = args["item"] as A0Value;
+        return [...list, item];
+      },
+    };
+    const stdlib = new Map([["len", lenFn], ["append", appendFn]]);
+
+    const src = `let result = loop { in: [], times: 3, as: "acc" } {\n  let size = len { in: acc }\n  return append { in: acc, item: size }\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions({ stdlib }));
+    assert.deepEqual(result.value, [0, 1, 2]);
+  });
+
+  // --- spread edge cases ---
+
+  it("record spread: empty record spread", async () => {
+    const src = `let empty = {}\nlet ext = { ...empty, a: 1 }\nreturn ext`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["a"], 1);
+    assert.equal(Object.keys(val).length, 1);
+  });
+
+  it("record spread: spread with nested records", async () => {
+    const src = `let base = { inner: { x: 1 } }\nlet ext = { ...base, y: 2 }\nreturn ext`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    const inner = val["inner"] as A0Record;
+    assert.equal(inner["x"], 1);
+    assert.equal(val["y"], 2);
+  });
+
+  // --- try/catch edge cases ---
+
+  it("try/catch: catches assert failure", async () => {
+    const src = `let result = try {\n  assert { that: false, msg: "boom" }\n  return "ok"\n} catch { e } {\n  return e\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    const val = result.value as A0Record;
+    assert.equal(val["code"], "E_ASSERT");
+    assert.ok(typeof val["message"] === "string");
+  });
+
+  it("try/catch: error record contains code and message fields", async () => {
+    const brokenFn: StdlibFn = {
+      name: "broken.fn",
+      execute(): A0Value {
+        throw new Error("custom error message");
+      },
+    };
+    const stdlib = new Map([["broken.fn", brokenFn]]);
+
+    const src = `let result = try {\n  let x = broken.fn { in: "hello" }\n  return x\n} catch { e } {\n  return e\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions({ stdlib }));
+    const val = result.value as A0Record;
+    assert.equal(val["code"], "E_FN");
+    assert.ok((val["message"] as string).includes("custom error message"));
+  });
+
+  it("try/catch: catch body can access outer scope variables", async () => {
+    const src = `let fallback = "default"\nlet result = try {\n  assert { that: false, msg: "fail" }\n  return "ok"\n} catch { e } {\n  return fallback\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, "default");
+  });
+
+  // --- bare return edge cases ---
+
+  it("return 3.14 (bare float)", async () => {
+    const src = `return 3.14`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, 3.14);
+  });
+
+  it("return x (bare variable)", async () => {
+    const src = `let x = 99\nreturn x`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, 99);
+  });
+
+  it("match body with bare return", async () => {
+    const src = `let x = match ({ ok: 42 }) {\n  ok { v } {\n    return v * 2\n  }\n  err { e } {\n    return 0\n  }\n}\nreturn x`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, 84);
+  });
+
+  it("block if/else body with bare return", async () => {
+    const src = `let x = 10\nlet result = if (x > 5) {\n  return x * 2\n} else {\n  return x\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, 20);
+  });
+
+  it("try/catch body with bare return", async () => {
+    const src = `let result = try {\n  return 42 + 8\n} catch { e } {\n  return 0\n}\nreturn result`;
+    const pr = parse(src, "test.a0");
+    assert.ok(pr.program);
+    const result = await execute(pr.program, makeOptions());
+    assert.equal(result.value, 50);
   });
 });

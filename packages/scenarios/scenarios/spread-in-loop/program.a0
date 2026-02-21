@@ -1,0 +1,6 @@
+# Use spread inside a loop to progressively build up a record
+let result = loop { in: { count: 0 }, times: 3, as: "state" } {
+  let next = state.count + 1
+  return { ...state, count: next }
+}
+return result

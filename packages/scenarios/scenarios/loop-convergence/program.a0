@@ -1,0 +1,12 @@
+# Build a string by repeated concatenation
+let result = loop { in: "", times: 4, as: "acc" } {
+  return acc + "ab"
+}
+
+# Accumulate into a list-like record
+let tally = loop { in: { sum: 0, n: 0 }, times: 5, as: "s" } {
+  let next_n = s.n + 1
+  return { sum: s.sum + next_n, n: next_n }
+}
+
+return { repeated: result, tally: tally }

@@ -263,6 +263,51 @@ return { data: data, content: content }`;
     assert.ok(formatted.includes("let x = -42"));
   });
 
+  // --- bare expression returns ---
+
+  it("formats bare integer return", () => {
+    const src = `return 42`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("return 42"));
+  });
+
+  it("formats bare string return", () => {
+    const src = `return "hello"`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes('return "hello"'));
+  });
+
+  it("formats bare expression return", () => {
+    const src = `let a = 1\nreturn a + 2`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("return a + 2"));
+  });
+
+  it("formats bare list return", () => {
+    const src = `return [1, 2, 3]`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("return [1, 2, 3]"));
+  });
+
+  it("bare return is idempotent", () => {
+    const src = `let x = 10\nreturn x * 2`;
+    const r1 = parse(src, "test.a0");
+    assert.ok(r1.program);
+    const fmt1 = format(r1.program);
+    const r2 = parse(fmt1, "test.a0");
+    assert.ok(r2.program);
+    const fmt2 = format(r2.program);
+    assert.equal(fmt1, fmt2, "Bare return formatting should be idempotent");
+  });
+
   it("is idempotent for arithmetic expressions", () => {
     const src = `let x = (2 + 3) * 4\nlet y = -x\nlet z = x > 10\nreturn { x: x, y: y, z: z }`;
     const r1 = parse(src, "test.a0");
@@ -272,5 +317,118 @@ return { data: data, content: content }`;
     assert.ok(r2.program);
     const fmt2 = format(r2.program);
     assert.equal(fmt1, fmt2, "Arithmetic formatting should be idempotent");
+  });
+
+  // --- filter block formatting ---
+
+  it("formats filter block expression", () => {
+    const src = `let result = filter { in: nums, as: "x" } {\n  return x > 0\n}\nreturn result`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes('filter { in: nums, as: "x" } {'));
+    assert.ok(formatted.includes("return x > 0"));
+  });
+
+  it("filter block is idempotent", () => {
+    const src = `let result = filter { in: nums, as: "x" } {\n  return x > 0\n}\nreturn result`;
+    const r1 = parse(src, "test.a0");
+    assert.ok(r1.program);
+    const fmt1 = format(r1.program);
+    const r2 = parse(fmt1, "test.a0");
+    assert.ok(r2.program);
+    const fmt2 = format(r2.program);
+    assert.equal(fmt1, fmt2, "Filter block formatting should be idempotent");
+  });
+
+  // --- loop formatting ---
+
+  it("formats loop expression", () => {
+    const src = `let result = loop { in: 0, times: 5, as: "x" } {\n  return x + 1\n}\nreturn result`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes('loop { in: 0, times: 5, as: "x" } {'));
+    assert.ok(formatted.includes("return x + 1"));
+  });
+
+  it("loop is idempotent", () => {
+    const src = `let result = loop { in: 0, times: 5, as: "x" } {\n  return x + 1\n}\nreturn result`;
+    const r1 = parse(src, "test.a0");
+    assert.ok(r1.program);
+    const fmt1 = format(r1.program);
+    const r2 = parse(fmt1, "test.a0");
+    assert.ok(r2.program);
+    const fmt2 = format(r2.program);
+    assert.equal(fmt1, fmt2, "Loop formatting should be idempotent");
+  });
+
+  // --- record spread formatting ---
+
+  it("formats record spread", () => {
+    const src = `let base = { a: 1 }\nlet ext = { ...base, b: 2 }\nreturn ext`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("{ ...base, b: 2 }"));
+  });
+
+  it("spread formatting is idempotent", () => {
+    const src = `let base = { a: 1 }\nlet ext = { ...base, c: 3 }\nreturn ext`;
+    const r1 = parse(src, "test.a0");
+    assert.ok(r1.program);
+    const fmt1 = format(r1.program);
+    const r2 = parse(fmt1, "test.a0");
+    assert.ok(r2.program);
+    const fmt2 = format(r2.program);
+    assert.equal(fmt1, fmt2, "Spread formatting should be idempotent");
+  });
+
+  // --- try/catch formatting ---
+
+  it("formats try/catch expression", () => {
+    const src = `let result = try {\n  return 42\n} catch { e } {\n  return e\n}\nreturn result`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("try {"));
+    assert.ok(formatted.includes("} catch { e } {"));
+    assert.ok(formatted.includes("return 42"));
+    assert.ok(formatted.includes("return e"));
+  });
+
+  it("try/catch formatting is idempotent", () => {
+    const src = `let result = try {\n  return 42\n} catch { e } {\n  return e\n}\nreturn result`;
+    const r1 = parse(src, "test.a0");
+    assert.ok(r1.program);
+    const fmt1 = format(r1.program);
+    const r2 = parse(fmt1, "test.a0");
+    assert.ok(r2.program);
+    const fmt2 = format(r2.program);
+    assert.equal(fmt1, fmt2, "Try/catch formatting should be idempotent");
+  });
+
+  // --- block if/else formatting ---
+
+  it("formats block if/else expression", () => {
+    const src = `let result = if (true) {\n  return "yes"\n} else {\n  return "no"\n}\nreturn result`;
+    const result = parse(src, "test.a0");
+    assert.ok(result.program);
+    const formatted = format(result.program);
+    assert.ok(formatted.includes("if (true) {"));
+    assert.ok(formatted.includes("} else {"));
+    assert.ok(formatted.includes('return "yes"'));
+    assert.ok(formatted.includes('return "no"'));
+  });
+
+  it("block if/else formatting is idempotent", () => {
+    const src = `let result = if (true) {\n  return "yes"\n} else {\n  return "no"\n}\nreturn result`;
+    const r1 = parse(src, "test.a0");
+    assert.ok(r1.program);
+    const fmt1 = format(r1.program);
+    const r2 = parse(fmt1, "test.a0");
+    assert.ok(r2.program);
+    const fmt2 = format(r2.program);
+    assert.equal(fmt1, fmt2, "Block if/else formatting should be idempotent");
   });
 });

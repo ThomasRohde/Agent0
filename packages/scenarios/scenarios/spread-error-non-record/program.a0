@@ -1,0 +1,3 @@
+let items = [1, 2, 3]
+let bad = { ...items, extra: true }
+return bad

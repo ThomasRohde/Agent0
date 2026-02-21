@@ -351,17 +351,18 @@ let multiKey = sort { in: items, by: ["group", "name"] }
 
 Keep elements of a list by key truthiness or a user-defined predicate function.
 
-Two forms:
+Three forms:
 
 - **By key**: `{ in: list, by: str }` — keep elements where `element[by]` is truthy
-- **By function**: `{ in: list, fn: str }` — keep elements where the named predicate function returns a record whose **first value** is truthy. By convention, predicate functions should return `{ ok: expr }`. The original item is kept (not the fn return value).
+- **By function**: `{ in: list, fn: str }` — keep elements where the named predicate function returns a truthy value. By convention, predicate functions should return `{ ok: expr }` — filter unwraps record returns and checks the first value. The original item is kept (not the fn return value).
+- **Inline block** (v0.5): `filter { in: list, as: "x" } { body }` — the body runs per element; if the return value is truthy, the item is kept. Return can be any expression (bare value or record).
 
-Since A0 `return` requires a record (and records are always truthy), filter checks the truthiness of the **first value** in the returned record, not the record itself.
+Filter checks truthiness of the return value. If the return is a record, the first value in the record is checked. If the return is a bare value (e.g., a boolean from a comparison), it is checked directly.
 
 - **Args**: `{ in: list, by?: str, fn?: str }` (exactly one of `by` or `fn` required)
 - **Returns**: `list` — filtered elements
 - **Error**: `E_FN` if `in` is not a list or neither `by`/`fn` provided; `E_UNKNOWN_FN` if `fn` names an undefined function
-- **Budget**: `fn:` form counts each invocation against `maxIterations`
+- **Budget**: `fn:` and inline block forms count each invocation against `maxIterations`
 
 ```
 # By key

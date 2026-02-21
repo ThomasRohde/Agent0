@@ -25,6 +25,8 @@ import {
   Match,
   Try,
   Catch,
+  Filter,
+  Loop,
   DotDotDot,
   Ident,
   FloatLit,
@@ -117,7 +119,7 @@ class A0CstParser extends CstParser {
 
   returnStmt = this.RULE("returnStmt", () => {
     this.CONSUME(Return);
-    this.SUBRULE(this.record);
+    this.SUBRULE(this.expr);
   });
 
   exprStmt = this.RULE("exprStmt", () => {
@@ -180,6 +182,8 @@ class A0CstParser extends CstParser {
       { ALT: () => this.SUBRULE(this.assertExpr) },
       { ALT: () => this.SUBRULE(this.checkExpr) },
       { ALT: () => this.SUBRULE(this.tryExpr) },
+      { ALT: () => this.SUBRULE(this.filterExpr) },
+      { ALT: () => this.SUBRULE(this.loopExpr) },
       { ALT: () => this.SUBRULE(this.comparison) },
     ]);
   });
@@ -340,6 +344,22 @@ class A0CstParser extends CstParser {
     this.SUBRULE2(this.block);
   });
 
+  // v0.5: filter { in: list, as: "x" } { body } OR filter { in: list, by: "key" }
+  filterExpr = this.RULE("filterExpr", () => {
+    this.CONSUME(Filter);
+    this.SUBRULE(this.record);
+    this.OPTION(() => {
+      this.SUBRULE(this.block);
+    });
+  });
+
+  // v0.5: loop { in: init, times: N, as: "x" } { body }
+  loopExpr = this.RULE("loopExpr", () => {
+    this.CONSUME(Loop);
+    this.SUBRULE(this.record);
+    this.SUBRULE(this.block);
+  });
+
   // ident that might be followed by a record (function call)
   identOrFnCall = this.RULE("identOrFnCall", () => {
     this.SUBRULE(this.identPath);
@@ -425,6 +445,8 @@ class A0CstParser extends CstParser {
       { ALT: () => this.CONSUME(Check) },
       { ALT: () => this.CONSUME(Try) },
       { ALT: () => this.CONSUME(Catch) },
+      { ALT: () => this.CONSUME(Filter) },
+      { ALT: () => this.CONSUME(Loop) },
     ]);
   });
 
@@ -594,8 +616,8 @@ function visitLetStmt(cst: CstNode, file: string): AST.LetStmt {
 }
 
 function visitReturnStmt(cst: CstNode, file: string): AST.ReturnStmt {
-  const rec = visitRecord((cst.children["record"] as CstNode[])[0], file);
-  return { kind: "ReturnStmt", span: cstSpan(cst, file), value: rec };
+  const value = visitExpr((cst.children["expr"] as CstNode[])[0], file);
+  return { kind: "ReturnStmt", span: cstSpan(cst, file), value };
 }
 
 function visitExprStmt(cst: CstNode, file: string): AST.ExprStmt {
@@ -660,6 +682,8 @@ function visitExpr(cst: CstNode, file: string): AST.Expr {
   if (children["assertExpr"]) return visitAssertExpr((children["assertExpr"] as CstNode[])[0], file);
   if (children["checkExpr"]) return visitCheckExpr((children["checkExpr"] as CstNode[])[0], file);
   if (children["tryExpr"]) return visitTryExpr((children["tryExpr"] as CstNode[])[0], file);
+  if (children["filterExpr"]) return visitFilterExpr((children["filterExpr"] as CstNode[])[0], file);
+  if (children["loopExpr"]) return visitLoopExpr((children["loopExpr"] as CstNode[])[0], file);
   if (children["comparison"]) return visitComparison((children["comparison"] as CstNode[])[0], file);
   throw new Error("Unknown expression type");
 }
@@ -925,6 +949,77 @@ function visitTryExpr(cst: CstNode, file: string): AST.TryExpr {
     tryBody: visitBlock(blocks[0], file),
     catchBinding: binding,
     catchBody: visitBlock(blocks[1], file),
+  };
+}
+
+function visitFilterExpr(cst: CstNode, file: string): AST.Expr {
+  const rec = visitRecord((cst.children["record"] as CstNode[])[0], file);
+
+  // If no block follows, synthesize FnCallExpr for backward compat (filter { in: ..., by: ... })
+  if (!cst.children["block"]) {
+    return {
+      kind: "FnCallExpr",
+      span: cstSpan(cst, file),
+      name: { kind: "IdentPath", span: cstSpan(cst, file), parts: ["filter"] },
+      args: rec,
+    };
+  }
+
+  // Block form: filter { in: list, as: "x" } { body }
+  const blockNode = (cst.children["block"] as CstNode[])[0];
+
+  let list: AST.Expr | undefined;
+  let binding: string | undefined;
+  for (const p of rec.pairs as AST.RecordPair[]) {
+    if (p.key === "in") list = p.value;
+    if (p.key === "as" && p.value.kind === "StrLiteral") binding = p.value.value;
+  }
+  if (!list || !binding) {
+    throw new AstBuildError(
+      "E_PARSE",
+      "filter block requires 'in' and 'as' fields",
+      cstSpan(cst, file),
+      "Use syntax: filter { in: <list>, as: \"name\" } { ... }."
+    );
+  }
+
+  return {
+    kind: "FilterBlockExpr",
+    span: cstSpan(cst, file),
+    list,
+    binding,
+    body: visitBlock(blockNode, file),
+  };
+}
+
+function visitLoopExpr(cst: CstNode, file: string): AST.LoopExpr {
+  const rec = visitRecord((cst.children["record"] as CstNode[])[0], file);
+  const blockNode = (cst.children["block"] as CstNode[])[0];
+
+  let init: AST.Expr | undefined;
+  let times: AST.Expr | undefined;
+  let binding: string | undefined;
+  for (const p of rec.pairs as AST.RecordPair[]) {
+    if (p.key === "in") init = p.value;
+    if (p.key === "times") times = p.value;
+    if (p.key === "as" && p.value.kind === "StrLiteral") binding = p.value.value;
+  }
+  if (!init || !times || !binding) {
+    throw new AstBuildError(
+      "E_PARSE",
+      "loop requires 'in', 'times', and 'as' fields",
+      cstSpan(cst, file),
+      "Use syntax: loop { in: <init>, times: <N>, as: \"name\" } { ... }."
+    );
+  }
+
+  return {
+    kind: "LoopExpr",
+    span: cstSpan(cst, file),
+    init,
+    times,
+    binding,
+    body: visitBlock(blockNode, file),
   };
 }
 

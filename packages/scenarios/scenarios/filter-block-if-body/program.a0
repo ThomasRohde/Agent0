@@ -1,0 +1,19 @@
+# Filter with if-block logic in the body
+let items = [
+  { name: "alpha", score: 80, bonus: true },
+  { name: "beta", score: 40, bonus: false },
+  { name: "gamma", score: 55, bonus: true },
+  { name: "delta", score: 30, bonus: false }
+]
+
+let selected = filter { in: items, as: "item" } {
+  let effective = if (item.bonus) {
+    return item.score + 20
+  } else {
+    return item.score
+  }
+  return effective >= 60
+}
+
+let names = pluck { in: selected, key: "name" }
+return names

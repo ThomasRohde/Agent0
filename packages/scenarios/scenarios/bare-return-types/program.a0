@@ -1,0 +1,5 @@
+let flag = true
+let nothing = null
+let items = [1, 2, 3]
+let nested = { a: items, b: flag, c: nothing }
+return nested

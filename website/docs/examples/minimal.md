@@ -47,7 +47,7 @@ Records are key-value structures written with `{ key: value }` syntax. Keys are 
 return { greeting: greeting, data: data }
 ```
 
-Every A0 program must end with a `return` statement. The return value is a record containing the program's output. It must be the last statement in the program -- placing statements after `return` is a validation error (`E_RETURN_NOT_LAST`).
+Every A0 program must end with a `return` statement. The return value can be any expression -- records are most common, but strings, numbers, lists, booleans, and `null` are also valid. It must be the last statement in the program -- placing statements after `return` is a validation error (`E_RETURN_NOT_LAST`).
 
 ## Running it
 

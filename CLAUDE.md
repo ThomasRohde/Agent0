@@ -47,8 +47,8 @@ All packages are ESM (`"type": "module"`) targeting ES2022, with TypeScript comp
 ## Architecture: How a Program Executes
 
 1. **Lexer** (`core/src/lexer.ts`) — Chevrotain tokenizer. Token order matters: keywords before `Ident`, `FloatLit` before `IntLit`.
-2. **Parser** (`core/src/parser.ts`) — Chevrotain CST parser → CST-to-AST visitor functions produce typed AST nodes. Includes arithmetic/comparison expression rules with standard precedence. AST node types include `BinaryExpr` (for `+`, `-`, `*`, `/`, `%`, `>`, `<`, `>=`, `<=`, `==`, `!=` — `+` also concatenates strings), `UnaryExpr` (for unary `-`), `IfBlockExpr` (block `if/else` with statement bodies), `TryExpr` (`try/catch` error handling), and `SpreadPair` (record spread `{ ...base, key: val }`). Parenthesized grouping `( )` is supported for controlling precedence.
-3. **Validator** (`core/src/validator.ts`) — Semantic checks: `return` required and last, known capabilities, unique bindings, no unbound variables, declared capabilities match used tools, known budget fields. Scoped validation for `fn`/`for`/`match`/`if-block`/`try-catch` block bodies via `validateBlockBindings`.
+2. **Parser** (`core/src/parser.ts`) — Chevrotain CST parser → CST-to-AST visitor functions produce typed AST nodes. Includes arithmetic/comparison expression rules with standard precedence. AST node types include `BinaryExpr` (for `+`, `-`, `*`, `/`, `%`, `>`, `<`, `>=`, `<=`, `==`, `!=` — `+` also concatenates strings), `UnaryExpr` (for unary `-`), `IfBlockExpr` (block `if/else` with statement bodies), `TryExpr` (`try/catch` error handling), `SpreadPair` (record spread `{ ...base, key: val }`), `FilterBlockExpr` (inline filter `filter { in: list, as: "x" } { body }`), and `LoopExpr` (iterative convergence `loop { in: init, times: N, as: "x" } { body }`). Parenthesized grouping `( )` is supported for controlling precedence.
+3. **Validator** (`core/src/validator.ts`) — Semantic checks: `return` required and last, known capabilities, unique bindings, no unbound variables, declared capabilities match used tools, known budget fields. Scoped validation for `fn`/`for`/`match`/`if-block`/`try-catch`/`filter-block`/`loop` block bodies via `validateBlockBindings`.
 4. **Evaluator** (`core/src/evaluator.ts`) — Step-by-step async execution. `Env` class with parent-chained scoping. Tool calls go through `ExecOptions.tools` map; stdlib through `ExecOptions.stdlib` map; user-defined functions through `userFns` map. Functions support closures (capture variables from their defining scope). `try/catch` blocks catch runtime errors and bind a `{ code, message }` record to the catch variable. Emits trace events via callback.
 5. **Capabilities** (`core/src/capabilities.ts`) — Policy loaded from `.a0policy.json` (project) → `~/.a0/policy.json` (user) → deny-all default. `--unsafe-allow-all` overrides for dev.
 
@@ -72,9 +72,11 @@ Stable string codes: `E_LEX`, `E_PARSE`, `E_AST`, `E_NO_RETURN`, `E_RETURN_NOT_L
 
 ## Keywords
 
-Reserved keywords (lexer tokens): `cap`, `budget`, `import`, `as`, `let`, `return`, `call?`, `do`, `assert`, `check`, `true`, `false`, `null`, `if`, `else`, `for`, `fn`, `match`, `try`, `catch`.
+Reserved keywords (lexer tokens): `cap`, `budget`, `import`, `as`, `let`, `return`, `call?`, `do`, `assert`, `check`, `true`, `false`, `null`, `if`, `else`, `for`, `fn`, `match`, `try`, `catch`, `filter`, `loop`.
 
 Note: `ok`, `err`, `in`, `cond`, `then` are NOT keywords — they are parsed as identifiers or record keys.
+
+**v0.5 changes:** `return` accepts any expression (not just records). `filter` keyword for inline filter blocks. `loop` keyword for iterative convergence.
 
 **New token:** `...` (`DotDotDot`) for record spread syntax `{ ...base, key: val }`.
 
@@ -82,7 +84,7 @@ Note: `ok`, `err`, `in`, `cond`, `then` are NOT keywords — they are parsed as 
 
 ## Trace Events
 
-`run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `tool_end`, `evidence`, `budget_exceeded`, `for_start`, `for_end`, `fn_call_start`, `fn_call_end`, `match_start`, `match_end`, `map_start`, `map_end`, `reduce_start`, `reduce_end`, `try_start`, `try_end`.
+`run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `tool_end`, `evidence`, `budget_exceeded`, `for_start`, `for_end`, `fn_call_start`, `fn_call_end`, `match_start`, `match_end`, `map_start`, `map_end`, `reduce_start`, `reduce_end`, `try_start`, `try_end`, `filter_start`, `filter_end`, `loop_start`, `loop_end`.
 
 ## Budget Fields
 

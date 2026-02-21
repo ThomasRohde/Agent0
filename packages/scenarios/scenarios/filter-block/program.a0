@@ -1,0 +1,15 @@
+let nums = [1, -2, 3, -4, 5, 0]
+let positives = filter { in: nums, as: "x" } {
+  return x > 0
+}
+
+let users = [
+  { name: "Alice", age: 30 },
+  { name: "Bob", age: 15 },
+  { name: "Carol", age: 25 }
+]
+let adults = filter { in: users, as: "u" } {
+  return u.age >= 18
+}
+
+return { positives: positives, adults: adults }

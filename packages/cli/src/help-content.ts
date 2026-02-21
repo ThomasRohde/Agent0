@@ -12,7 +12,7 @@ PROGRAM STRUCTURE
   budget { timeMs: 30000, maxToolCalls: 10 }  # resource limits (optional)
   let x = expr                                # bind value
   expr -> name                                # bind result of statement
-  return { key: val }                         # required, must be last
+  return expr                                  # required, must be last (any expression)
 
 TYPES
   int: 42   float: 3.14   bool: true/false   str: "hello"   null
@@ -42,9 +42,11 @@ STDLIB (pure, no cap needed)
 
 CONTROL FLOW
   let x = if { cond: expr, then: val, else: val }
-  let results = for { in: list, as: "item" } { ... return { } }
-  fn name { params } { ... return { } }               # define before use
-  let x = match ident { ok {v} { return {} } err {e} { return {} } }
+  let results = for { in: list, as: "item" } { ... return expr }
+  let filtered = filter { in: list, as: "x" } { return x > 0 }   # inline filter
+  let result = loop { in: init, times: N, as: "x" } { return expr }  # iterative
+  fn name { params } { ... return expr }               # define before use
+  let x = match ident { ok {v} { return v } err {e} { return e } }
   let out = map { in: list, fn: "fnName" }            # apply fn to each element
   let val = reduce { in: list, fn: "add", init: 0 }   # accumulate to single value
   let f = filter { in: list, fn: "pred" }             # keep where fn is truthy
@@ -101,7 +103,7 @@ STATEMENTS
   fn name { params } { body }            # define a function
   assert { that: expr, msg?: "str" }     # fatal: halt immediately if falsy (exit 5)
   check { that: expr, msg?: "str" }      # non-fatal: record evidence, continue; exit 5 if any failed
-  return { key: val, ... }               # required, must be last statement
+  return expr                              # required, must be last (any expression)
 
 EXPRESSIONS
   42  3.14  true  false  null  "str"     # literals
@@ -111,6 +113,8 @@ EXPRESSIONS
   name.field                             # property access (dot notation)
   if { cond: x, then: y, else: z }       # conditional (lazy evaluation)
   for { in: list, as: "v" } { body }     # iteration (produces list)
+  filter { in: list, as: "v" } { body }  # inline filter (keeps truthy)
+  loop { in: init, times: N, as: "v" } { body }  # iterative convergence
   match ident { ok {v} {body} err {e} {body} }  # ok/err discrimination
   match ( expr ) { ok {v} {body} err {e} {body} }  # match on expression
   fn_name { key: val }                   # function/stdlib call
@@ -121,7 +125,8 @@ BINDING FORMS
 
 RESERVED KEYWORDS (cannot be used as variable names)
   cap  budget  import  as  let  return  call?  do
-  assert  check  true  false  null  if  for  fn  match
+  assert  check  true  false  null  if  else  for  fn  match
+  try  catch  filter  loop
 
 LINE RULES
   - Statements are typically one per line; multiple per line work
@@ -131,7 +136,7 @@ LINE RULES
 
 SCOPING
   - Top-level: cap/budget headers must come first; fn and other statements may be interleaved
-  - fn/for/match bodies have their own scope (parent-chained)
+  - fn/for/filter/loop/match bodies have their own scope (parent-chained)
   - Functions use lexical scope (definition-site), not caller scope
   - No variable reassignment in the same scope — each let/-> creates a new binding
   - Shadowing is allowed in nested scopes (for/fn/match bodies)
@@ -489,7 +494,7 @@ FIELDS
   timeMs            int    Maximum wall-clock time in milliseconds
   maxToolCalls      int    Maximum number of tool invocations
   maxBytesWritten   int    Maximum bytes written via fs.write
-  maxIterations     int    Maximum for/map/filter(fn:)/reduce iterations (cumulative)
+  maxIterations     int    Maximum for/filter/loop/map/filter(fn:)/reduce iterations (cumulative)
 
 RULES
   - Only declare fields the program needs
@@ -497,7 +502,7 @@ RULES
   - Unknown fields produce E_UNKNOWN_BUDGET at validation time (exit 2)
   - Budget fields must be integer literals (E_BUDGET_TYPE)
   - timeMs is enforced during expression and statement evaluation
-  - maxToolCalls/maxIterations are checked during tool calls and for/map/filter(fn:)/reduce iterations
+  - maxToolCalls/maxIterations are checked during tool calls and for/filter/loop/map/filter(fn:)/reduce iterations
   - maxBytesWritten is enforced after each write completes (post-effect);
     the write side effect occurs before the limit is checked
   - budget can appear before or after cap, but both must precede statements
@@ -529,7 +534,7 @@ for — List iteration
   Syntax: for { in: list_expr, as: "var_name" } { body }
   - Iterates each element, producing a list of results
   - Loop variable is scoped to the body
-  - Body MUST end with return { ... }
+  - Body MUST end with return
   - Subject to maxIterations budget (cumulative)
   - E_FOR_NOT_LIST if in: value is not a list
   Example:
@@ -538,13 +543,41 @@ for — List iteration
       return { data: parsed }
     }
 
+filter — Inline list filtering (block form)
+  Syntax: filter { in: list_expr, as: "var_name" } { body }
+  - Runs body for each element; keeps items where return is truthy
+  - If body returns a record, checks first value for truthiness
+  - Loop variable is scoped to the body
+  - Body MUST end with return
+  - Subject to maxIterations budget (cumulative)
+  Example:
+    let positives = filter { in: nums, as: "x" } {
+      return x > 0
+    }
+  Note: filter { in: list, by: "key" } and filter { in: list, fn: "pred" } still work
+
+loop — Iterative convergence
+  Syntax: loop { in: init_expr, times: int_expr, as: "var_name" } { body }
+  - Runs body N times, threading the result through each iteration
+  - Initial value is bound to the variable on first iteration
+  - Each iteration's return value becomes the next iteration's input
+  - times: 0 returns the initial value unchanged
+  - times must be a non-negative integer (E_TYPE otherwise)
+  - Body MUST end with return
+  - Subject to maxIterations budget (cumulative)
+  Example:
+    let count = loop { in: 0, times: 5, as: "x" } {
+      return x + 1
+    }
+    # count == 5
+
 fn — User-defined functions
   Syntax: fn name { param1, param2 } { body }
   - Must be defined BEFORE use (no hoisting)
   - Called with record-style args: name { param1: val, param2: val }
   - Params are destructured from caller's record
   - Missing params default to null
-  - Body MUST end with return { ... }
+  - Body MUST end with return
   - Lexical scoping: fn reads outer bindings from where it was defined (not from caller scope)
   - Direct recursion allowed
   - Duplicate fn names produce E_FN_DUP
@@ -559,7 +592,7 @@ match — ok/err discrimination
           match ( expr ) { ok {var} { body } err {var} { body } }
   - Subject must be a record with an ok or err key
   - The inner value is bound to the named variable
-  - Both arms MUST end with return { ... }
+  - Both arms MUST end with return
   - E_MATCH_NOT_RECORD if subject is not a record
   - E_MATCH_NO_ARM if subject has neither ok nor err key
   Example:
@@ -635,7 +668,7 @@ COMPILE-TIME ERRORS (exit 2) — caught by a0 check
   E_LEX                  Invalid token; check quotes, escapes, special chars
   E_PARSE                Syntax error; verify statement structure and braces
   E_AST                  AST construction failed; report bug with minimal repro
-  E_NO_RETURN            Missing return; add return { ... } as last stmt
+  E_NO_RETURN            Missing return; add return <expr> as last stmt
   E_RETURN_NOT_LAST      Statements after return; move return to end
   E_UNKNOWN_CAP          Invalid capability name; use: fs.read fs.write http.get sh.exec
   E_IMPORT_UNSUPPORTED   Import reserved; remove import headers for now
@@ -790,6 +823,27 @@ A0 EXAMPLE PROGRAMS
   let names = pluck { in: packages, key: "name" }
   do fs.write { path: "summary.json", data: { packages: packages, names: names }, format: "json" } -> out
   return { artifact: out }
+
+11. INLINE FILTER BLOCK
+  let nums = [1, -2, 3, -4, 5, 0]
+  let positives = filter { in: nums, as: "x" } {
+    return x > 0
+  }
+  return positives
+  # -> [1, 3, 5]
+
+12. LOOP — ITERATIVE CONVERGENCE
+  let result = loop { in: 0, times: 5, as: "x" } {
+    return x + 1
+  }
+  return result
+  # -> 5
+
+13. BARE EXPRESSION RETURN
+  let x = 10
+  let y = 20
+  return x + y
+  # -> 30
 
 CLI USAGE
   a0 run file.a0                        # execute (deny-by-default)

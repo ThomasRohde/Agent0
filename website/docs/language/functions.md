@@ -182,7 +182,9 @@ If the function throws an error on any element, `map` stops immediately. There a
 
 ### filter with fn: -- Predicate-Based Filtering
 
-`filter` with a `fn:` argument calls a user-defined predicate function on each element. Since A0 `return` requires a record (and records are always truthy), filter checks the truthiness of the **first value** in the returned record, not the record itself. By convention, predicate functions should return `{ ok: expr }`. Items where the `ok` value is truthy are kept; the rest are discarded. The **original items** are preserved in the result (not the predicate's return value).
+`filter` with a `fn:` argument calls a user-defined predicate function on each element. If the predicate returns a record, filter checks the truthiness of the **first value** in the record (not the record itself). By convention, predicate functions return `{ ok: expr }`, and items where the `ok` value is truthy are kept. If the predicate returns a non-record value (e.g., a boolean), its truthiness is checked directly. The **original items** are preserved in the result (not the predicate's return value).
+
+For most filtering tasks, the inline [filter block](./control-flow.md#filter----inline-list-filtering) form is preferred over `filter` with `fn:`.
 
 ```a0
 fn isLong { s } {

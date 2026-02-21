@@ -19,6 +19,8 @@ A0 is a small, structured scripting language with a CLI interpreter built for co
 
 ## Quickstart
 
+### TypeScript (reference implementation)
+
 **Requirements:** Node.js >= 18
 
 ```bash
@@ -26,20 +28,23 @@ git clone https://github.com/ThomasRohde/Agent0.git
 cd Agent0
 npm install
 npm run build
-```
-
-Run a program:
-
-```bash
-npx a0 run examples/hello.a0
-```
-
-Or install the CLI globally:
-
-```bash
 npm install -g ./packages/cli
 a0 run examples/hello.a0
 ```
+
+### Go (native binary)
+
+**Requirements:** Go 1.22+
+
+The Go implementation is a standalone native binary with zero dependencies — no Node.js required at runtime. It passes the full conformance suite (125/125 scenarios) and is ~15x faster than the TypeScript version.
+
+```bash
+cd go
+go build -o $(go env GOPATH)/bin/a0go$(go env GOEXE) ./cmd/a0
+a0go run examples/hello.a0
+```
+
+Both CLIs are fully compatible and support the same commands, flags, and language features.
 
 ## CLI Commands
 
@@ -265,26 +270,40 @@ Trace events: `run_start`, `run_end`, `stmt_start`, `stmt_end`, `tool_start`, `t
 
 ## Project Structure
 
-npm workspaces monorepo:
-
 ```
-packages/
-  core/       — Lexer, parser, AST, validator, evaluator, formatter, capabilities
-  std/        — Pure stdlib functions (parse.json, get/put, patch, predicates)
-  tools/      — Built-in tools (fs, http, sh) with Zod schema validation
-  cli/        — The a0 CLI (run, check, fmt, trace)
-  scenarios/  — Black-box CLI scenario tests (data-driven, subprocess-based)
-examples/     — Sample A0 programs
+packages/              TypeScript monorepo (npm workspaces)
+  core/                  Lexer, parser, AST, validator, evaluator, formatter, capabilities
+  std/                   Pure stdlib functions (parse.json, get/put, patch, predicates)
+  tools/                 Built-in tools (fs, http, sh) with Zod schema validation
+  cli/                   The a0 CLI (run, check, fmt, trace)
+  scenarios/             Black-box CLI scenario tests (shared with Go)
+go/                    Native Go implementation
+  cmd/a0/                CLI entry point
+  pkg/                   Core packages (lexer, parser, evaluator, stdlib, tools, etc.)
+examples/              Sample A0 programs
 ```
 
 ## Testing
 
 ```bash
+# TypeScript
 npm test                    # build + run all tests (unit + scenarios)
 npm run test:scenarios      # build + run only scenario tests
+
+# Go
+cd go && go test ./...      # unit tests + conformance scenarios
 ```
 
-Scenario tests exercise the compiled CLI as a subprocess. Each scenario is a folder with a `scenario.json` config and `.a0` source files. See [`packages/scenarios/README.md`](packages/scenarios/README.md) for details on adding scenarios.
+Both implementations share the same scenario test suite (`packages/scenarios/`). Each scenario is a folder with a `scenario.json` config and `.a0` source files. See [`packages/scenarios/README.md`](packages/scenarios/README.md) for details.
+
+### Benchmarking
+
+Compare TypeScript vs Go performance (requires both CLIs installed):
+
+```bash
+bash benchmark.sh           # default 5 rounds per scenario
+bash benchmark.sh --rounds 10
+```
 
 ## Contributing
 

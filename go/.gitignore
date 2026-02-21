@@ -1,11 +1,6 @@
 # Binaries
-a0
-a0.exe
-a0.wasm
-a0-wasi.wasm
-
-# WASM output
-*.wasm
+/a0
+/a0.exe
 
 # Test binary
 *.test

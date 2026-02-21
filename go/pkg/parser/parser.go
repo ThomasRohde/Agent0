@@ -1002,7 +1002,11 @@ func (p *parser) parsePrimary() ast.Expr {
 		return rec
 
 	case lexer.TokLBracket:
-		return p.parseListExpr()
+		list := p.parseListExpr()
+		if list == nil {
+			return nil
+		}
+		return list
 
 	case lexer.TokIntLit:
 		tok := p.advance()

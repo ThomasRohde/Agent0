@@ -1,14 +1,23 @@
 # A0 Go Runtime
 
-Native Go implementation of the A0 language runtime, targeting both native binaries and WebAssembly (WASM).
-
-This is a work-in-progress reimplementation of the TypeScript reference runtime found in `../packages/core/`.
+Native Go implementation of the A0 language runtime, producing standalone binaries with zero external dependencies.
 
 ## Status
 
-**Phase 0: Project Bootstrap** — scaffold, types, and CI are in place. No runtime logic yet.
+**Feature-complete** — the native runtime passes the full conformance suite (125/125 scenarios) shared with the TypeScript reference implementation.
 
-See [`../plan-native/`](../plan-native/) for the full implementation roadmap.
+### What's implemented
+
+- **Lexer** — full tokenizer with all A0 v0.5 tokens
+- **Parser** — complete grammar including arithmetic, comparisons, spread syntax, filter blocks, and loops
+- **Validator** — semantic checks (scoping, capabilities, budgets, return placement, duplicate bindings)
+- **Evaluator** — async execution with parent-chained scoping, closures, try/catch, trace events
+- **Formatter** — canonical source code formatting
+- **Stdlib** — 36 pure functions (data, predicates, lists, math, strings, records, higher-order)
+- **Tools** — 6 built-in tools (fs.read, fs.list, fs.exists, fs.write, http.get, sh.exec)
+- **Capabilities** — deny-by-default policy with project/user/override loading
+- **Diagnostics** — structured error codes with spans and hints
+- **CLI** — `run`, `check`, `fmt`, `trace`, `help`, `policy` commands with progressive-discovery help system
 
 ## Prerequisites
 
@@ -33,18 +42,11 @@ go test -race ./...
 go vet ./...
 ```
 
-## WASM Build
-
-```bash
-GOOS=js GOARCH=wasm go build -o a0.wasm ./cmd/a0-wasm
-```
-
 ## Project Structure
 
 ```
 cmd/
   a0/           Native CLI entry point
-  a0-wasm/      WASM entry point
 pkg/
   ast/          AST node types
   lexer/        Tokenizer
@@ -54,7 +56,8 @@ pkg/
   formatter/    Source code formatter
   stdlib/       Standard library functions
   tools/        Built-in tools (fs, http, sh)
-  runtime/      Top-level orchestrator
+  runtime/      Top-level orchestrator (Run/Check/Format API)
+  help/         Progressive-discovery help system
   capabilities/ Capability policy loading
   diagnostics/  Error codes and formatting
 internal/

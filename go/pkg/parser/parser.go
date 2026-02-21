@@ -557,10 +557,44 @@ func (p *parser) parseFor() ast.Expr {
 	}
 }
 
+// parseMatchSubject parses the subject expression for a match.
+// For identifiers, this avoids consuming the opening '{' as a function call arg.
+// For other expressions (records, parens, literals), parses normally.
+func (p *parser) parseMatchSubject() ast.Expr {
+	switch p.peek() {
+	case lexer.TokIdent:
+		// Parse ident path but don't let it consume '{' as function call
+		ip := p.parseIdentPath()
+		return ip
+	case lexer.TokLParen:
+		// Grouped expression
+		p.advance()
+		expr := p.parseExpr()
+		if expr == nil {
+			return nil
+		}
+		if _, ok := p.expect(lexer.TokRParen); !ok {
+			return nil
+		}
+		return expr
+	case lexer.TokLBrace:
+		// Record literal
+		return p.parseRecordExpr()
+	case lexer.TokIntLit, lexer.TokFloatLit, lexer.TokStringLit, lexer.TokTrue, lexer.TokFalse, lexer.TokNull:
+		return p.parsePrimary()
+	default:
+		tok := p.current()
+		p.addError(fmt.Sprintf("unexpected token '%s' as match subject", tok.Value), &tok.Span)
+		return nil
+	}
+}
+
 func (p *parser) parseMatch() ast.Expr {
 	start := p.advance() // consume 'match'
 
-	subject := p.parseExpr()
+	// Parse match subject as an ident path only (not a full expr that would
+	// greedily consume the following '{' as a function call).
+	subject := p.parseMatchSubject()
 	if subject == nil {
 		return nil
 	}
@@ -694,9 +728,19 @@ func (p *parser) parseTryExpr() ast.Expr {
 	if _, ok := p.expect(lexer.TokCatch); !ok {
 		return nil
 	}
-	// Catch binding can be a string literal or an identifier
+	// Catch binding: { name } or just a bare identifier
 	var binding string
-	if p.peek() == lexer.TokStringLit {
+	if p.peek() == lexer.TokLBrace {
+		p.advance() // consume '{'
+		bTok, ok := p.expect(lexer.TokIdent)
+		if !ok {
+			return nil
+		}
+		binding = bTok.Value
+		if _, ok := p.expect(lexer.TokRBrace); !ok {
+			return nil
+		}
+	} else if p.peek() == lexer.TokStringLit {
 		tok := p.advance()
 		binding = tok.Value
 	} else if p.peek() == lexer.TokIdent {

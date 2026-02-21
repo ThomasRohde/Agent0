@@ -41,3 +41,13 @@ func (r *Registry) Get(name string) *Def {
 func (r *Registry) All() map[string]*Def {
 	return r.tools
 }
+
+// RegisterDefaults adds all built-in tools.
+func RegisterDefaults(r *Registry) {
+	r.Register(fsReadTool())
+	r.Register(fsWriteTool())
+	r.Register(fsListTool())
+	r.Register(fsExistsTool())
+	r.Register(httpGetTool())
+	r.Register(shExecTool())
+}

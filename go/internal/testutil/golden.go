@@ -38,19 +38,32 @@ type ScenarioMeta struct {
 	Tags []string `json:"tags,omitempty"`
 }
 
+// FileExpect describes expected file state after execution.
+type FileExpect struct {
+	Path   string `json:"path"`
+	Text   string `json:"text,omitempty"`
+	Absent bool   `json:"absent,omitempty"`
+}
+
 // ExpectedResult describes the expected outcome of running a scenario.
 type ExpectedResult struct {
-	ExitCode           int              `json:"exitCode"`
-	StdoutJSON         json.RawMessage  `json:"stdoutJson,omitempty"`
-	StdoutJSONSubset   json.RawMessage  `json:"stdoutJsonSubset,omitempty"`
-	StdoutText         string           `json:"stdoutText,omitempty"`
-	StdoutContains     string           `json:"stdoutContains,omitempty"`
-	StderrJSON         json.RawMessage  `json:"stderrJson,omitempty"`
-	StderrJSONSubset   json.RawMessage  `json:"stderrJsonSubset,omitempty"`
-	StderrText         string           `json:"stderrText,omitempty"`
-	StderrContains     string           `json:"stderrContains,omitempty"`
-	EvidenceJSON       json.RawMessage  `json:"evidenceJson,omitempty"`
-	EvidenceJSONSubset json.RawMessage  `json:"evidenceJsonSubset,omitempty"`
+	ExitCode            int              `json:"exitCode"`
+	StdoutJSON          json.RawMessage  `json:"stdoutJson,omitempty"`
+	StdoutJSONSubset    json.RawMessage  `json:"stdoutJsonSubset,omitempty"`
+	StdoutText          string           `json:"stdoutText,omitempty"`
+	StdoutContains      string           `json:"stdoutContains,omitempty"`
+	StdoutContainsAll   []string         `json:"stdoutContainsAll,omitempty"`
+	StdoutRegex         string           `json:"stdoutRegex,omitempty"`
+	StderrJSON          json.RawMessage  `json:"stderrJson,omitempty"`
+	StderrJSONSubset    json.RawMessage  `json:"stderrJsonSubset,omitempty"`
+	StderrText          string           `json:"stderrText,omitempty"`
+	StderrContains      string           `json:"stderrContains,omitempty"`
+	StderrContainsAll   []string         `json:"stderrContainsAll,omitempty"`
+	StderrRegex         string           `json:"stderrRegex,omitempty"`
+	EvidenceJSON        json.RawMessage  `json:"evidenceJson,omitempty"`
+	EvidenceJSONSubset  json.RawMessage  `json:"evidenceJsonSubset,omitempty"`
+	TraceSummarySubset  json.RawMessage  `json:"traceSummarySubset,omitempty"`
+	Files               []FileExpect     `json:"files,omitempty"`
 }
 
 // LoadScenario loads a scenario from a directory containing scenario.json.
@@ -90,6 +103,9 @@ func ReadProgramFile(scenarioDir string, cmd []string) (string, string, error) {
 		return "", "", nil
 	}
 	filename := cmd[1]
+	if filename == "-" {
+		return "", "-", nil
+	}
 	source, err := os.ReadFile(filepath.Join(scenarioDir, filename))
 	if err != nil {
 		return "", "", err

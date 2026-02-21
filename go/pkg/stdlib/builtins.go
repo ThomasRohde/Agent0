@@ -6,12 +6,70 @@ import (
 	"github.com/thomasrohde/agent0/go/pkg/evaluator"
 )
 
-// RegisterDefaults adds the minimum stdlib functions needed for Phase 1.
+// RegisterDefaults adds all stdlib functions.
 func RegisterDefaults(r *Registry) {
+	// Predicates
 	r.Register(Fn{Name: "eq", Execute: stdlibEq})
 	r.Register(Fn{Name: "not", Execute: stdlibNot})
-	r.Register(Fn{Name: "range", Execute: stdlibRange})
+	r.Register(Fn{Name: "contains", Execute: stdlibContains})
+	r.Register(Fn{Name: "and", Execute: stdlibAnd})
+	r.Register(Fn{Name: "or", Execute: stdlibOr})
+	r.Register(Fn{Name: "coalesce", Execute: stdlibCoalesce})
+	r.Register(Fn{Name: "typeof", Execute: stdlibTypeof})
+
+	// List ops
 	r.Register(Fn{Name: "len", Execute: stdlibLen})
+	r.Register(Fn{Name: "append", Execute: stdlibAppend})
+	r.Register(Fn{Name: "concat", Execute: stdlibConcat})
+	r.Register(Fn{Name: "sort", Execute: stdlibSort})
+	r.Register(Fn{Name: "filter", Execute: stdlibFilter})
+	r.Register(Fn{Name: "find", Execute: stdlibFind})
+	r.Register(Fn{Name: "range", Execute: stdlibRange})
+	r.Register(Fn{Name: "join", Execute: stdlibJoin})
+	r.Register(Fn{Name: "unique", Execute: stdlibUnique})
+	r.Register(Fn{Name: "pluck", Execute: stdlibPluck})
+	r.Register(Fn{Name: "flat", Execute: stdlibFlat})
+
+	// String ops
+	r.Register(Fn{Name: "str.concat", Execute: stdlibStrConcat})
+	r.Register(Fn{Name: "str.split", Execute: stdlibStrSplit})
+	r.Register(Fn{Name: "str.starts", Execute: stdlibStrStarts})
+	r.Register(Fn{Name: "str.ends", Execute: stdlibStrEnds})
+	r.Register(Fn{Name: "str.replace", Execute: stdlibStrReplace})
+	r.Register(Fn{Name: "str.template", Execute: stdlibStrTemplate})
+
+	// Record ops
+	r.Register(Fn{Name: "keys", Execute: stdlibKeys})
+	r.Register(Fn{Name: "values", Execute: stdlibValues})
+	r.Register(Fn{Name: "merge", Execute: stdlibMerge})
+	r.Register(Fn{Name: "entries", Execute: stdlibEntries})
+
+	// Path ops
+	r.Register(Fn{Name: "get", Execute: stdlibGet})
+	r.Register(Fn{Name: "put", Execute: stdlibPut})
+
+	// Parse
+	r.Register(Fn{Name: "parse.json", Execute: stdlibParseJSON})
+
+	// Math
+	r.Register(Fn{Name: "math.max", Execute: stdlibMathMax})
+	r.Register(Fn{Name: "math.min", Execute: stdlibMathMin})
+
+	// Patch
+	r.Register(Fn{Name: "patch", Execute: stdlibPatch})
+
+	// Map & reduce are registered but handled specially by the evaluator
+	r.Register(Fn{Name: "map", Execute: stdlibMapStub})
+	r.Register(Fn{Name: "reduce", Execute: stdlibReduceStub})
+}
+
+// map and reduce stubs — the evaluator intercepts these for special handling
+func stdlibMapStub(args *evaluator.A0Record) (evaluator.A0Value, error) {
+	return nil, fmt.Errorf("map must be called through evaluator")
+}
+
+func stdlibReduceStub(args *evaluator.A0Record) (evaluator.A0Value, error) {
+	return nil, fmt.Errorf("reduce must be called through evaluator")
 }
 
 // eq { a, b } → deep equality → bool
@@ -27,9 +85,9 @@ func stdlibEq(args *evaluator.A0Record) (evaluator.A0Value, error) {
 	return evaluator.NewBool(evaluator.DeepEqual(a, b)), nil
 }
 
-// not { value } → negate truthiness → bool
+// not { in } → negate truthiness → bool
 func stdlibNot(args *evaluator.A0Record) (evaluator.A0Value, error) {
-	val, _ := args.Get("value")
+	val, _ := args.Get("in")
 	if val == nil {
 		val = evaluator.NewNull()
 	}
@@ -67,15 +125,9 @@ func stdlibRange(args *evaluator.A0Record) (evaluator.A0Value, error) {
 	return evaluator.NewList(items), nil
 }
 
-// len { list } → length of list or record
+// len { in } → length of list, record, or string
 func stdlibLen(args *evaluator.A0Record) (evaluator.A0Value, error) {
-	listVal, _ := args.Get("list")
-	if listVal == nil {
-		// Try first positional arg
-		if len(args.Pairs) > 0 {
-			listVal = args.Pairs[0].Value
-		}
-	}
+	listVal, _ := args.Get("in")
 	if listVal == nil {
 		return evaluator.NewNumber(0), nil
 	}

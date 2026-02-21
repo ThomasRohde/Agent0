@@ -37,6 +37,7 @@ const (
 	EMatchNotRecord = "E_MATCH_NOT_RECORD"
 	EMatchNoArm     = "E_MATCH_NO_ARM"
 	EType           = "E_TYPE"
+	EIO             = "E_IO"
 )
 
 // Diagnostic represents a parse, validation, or runtime diagnostic.

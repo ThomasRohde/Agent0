@@ -893,12 +893,12 @@ func TestStdlib_Eq_False(t *testing.T) {
 }
 
 func TestStdlib_Not(t *testing.T) {
-	res := mustRun(t, `return not { value: false }`)
+	res := mustRun(t, `return not { in: false }`)
 	expectBool(t, res.Value, true)
 }
 
 func TestStdlib_Not_Truthy(t *testing.T) {
-	res := mustRun(t, `return not { value: "hello" }`)
+	res := mustRun(t, `return not { in: "hello" }`)
 	expectBool(t, res.Value, false)
 }
 
@@ -922,12 +922,12 @@ func TestStdlib_Range_Empty(t *testing.T) {
 }
 
 func TestStdlib_Len_List(t *testing.T) {
-	res := mustRun(t, `return len { list: [1, 2, 3] }`)
+	res := mustRun(t, `return len { in: [1, 2, 3] }`)
 	expectNumber(t, res.Value, 3)
 }
 
 func TestStdlib_Len_Empty(t *testing.T) {
-	res := mustRun(t, `return len { list: [] }`)
+	res := mustRun(t, `return len { in: [] }`)
 	expectNumber(t, res.Value, 0)
 }
 
@@ -1201,7 +1201,8 @@ return matched
 
 func TestMatch_NonRecordError(t *testing.T) {
 	_, err := run(t, `
-return match 42 {
+let x = 42
+return match x {
   ok v { return v }
   err e { return e }
 }
@@ -1267,7 +1268,7 @@ return filter { in: "not a list", as: "n" } {
   return true
 }
 `)
-	expectRuntimeError(t, err, diagnostics.EForNotList)
+	expectRuntimeError(t, err, diagnostics.EType)
 }
 
 // --- Loop expression ---
@@ -1402,7 +1403,7 @@ func TestMap_UserFunction(t *testing.T) {
 fn double { value } {
   return value * 2
 }
-return map { list: [1, 2, 3], fn: "double" }
+return map { in: [1, 2, 3], fn: "double" }
 `)
 	list := res.Value.(evaluator.A0List)
 	if len(list.Items) != 3 {
@@ -1420,7 +1421,7 @@ func TestReduce_Sum(t *testing.T) {
 fn adder { acc, value } {
   return acc + value
 }
-return reduce { list: [1, 2, 3, 4], init: 0, fn: "adder" }
+return reduce { in: [1, 2, 3, 4], init: 0, fn: "adder" }
 `)
 	expectNumber(t, res.Value, 10)
 }

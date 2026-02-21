@@ -42,6 +42,8 @@ const (
 	TraceMapEnd         TraceEventType = "map_end"
 	TraceReduceStart    TraceEventType = "reduce_start"
 	TraceReduceEnd      TraceEventType = "reduce_end"
+	TraceTryStart       TraceEventType = "try_start"
+	TraceTryEnd         TraceEventType = "try_end"
 	TraceFilterStart    TraceEventType = "filter_start"
 	TraceFilterEnd      TraceEventType = "filter_end"
 	TraceLoopStart      TraceEventType = "loop_start"
@@ -123,6 +125,27 @@ func (ev *evaluator) emit(event TraceEventType, span *ast.Span) {
 			RunID:     ev.opts.RunID,
 			Event:     event,
 			Span:      span,
+		})
+	}
+}
+
+func (ev *evaluator) emitWithData(event TraceEventType, span *ast.Span, data map[string]string) {
+	if ev.opts.Trace != nil {
+		var dataRec *A0Record
+		if data != nil {
+			pairs := make([]KeyValue, 0, len(data))
+			for k, v := range data {
+				pairs = append(pairs, KeyValue{Key: k, Value: NewString(v)})
+			}
+			r := NewRecord(pairs).(A0Record)
+			dataRec = &r
+		}
+		ev.opts.Trace(TraceEvent{
+			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+			RunID:     ev.opts.RunID,
+			Event:     event,
+			Span:      span,
+			Data:      dataRec,
 		})
 	}
 }
@@ -510,7 +533,7 @@ func (ev *evaluator) evalBinaryOp(e *ast.BinaryExpr, env *Env) (A0Value, error) 
 		}
 		return nil, &A0RuntimeError{
 			Code:    diagnostics.EType,
-			Message: "'+' requires two numbers or two strings",
+			Message: fmt.Sprintf("Operator '+' requires two numbers or two strings, got %s and %s.", typeNameOf(left), typeNameOf(right)),
 			Span:    &span,
 		}
 
@@ -714,7 +737,7 @@ func (ev *evaluator) evalMatchExpr(e *ast.MatchExpr, env *Env) (A0Value, error) 
 
 func (ev *evaluator) evalTryExpr(e *ast.TryExpr, env *Env) (A0Value, error) {
 	span := e.Span
-	ev.emit(TraceStmtStart, &span)
+	ev.emit(TraceTryStart, &span)
 
 	tryEnv := env.Child()
 	val, err := ev.executeBlock(e.TryBody, tryEnv)
@@ -727,10 +750,14 @@ func (ev *evaluator) evalTryExpr(e *ast.TryExpr, env *Env) (A0Value, error) {
 				{Key: "message", Value: NewString(rtErr.Message)},
 			})
 			catchEnv.Set(e.CatchBinding, errRec)
-			return ev.executeBlock(e.CatchBody, catchEnv)
+			result, catchErr := ev.executeBlock(e.CatchBody, catchEnv)
+			ev.emit(TraceTryEnd, &span)
+			return result, catchErr
 		}
+		ev.emit(TraceTryEnd, &span)
 		return nil, err
 	}
+	ev.emit(TraceTryEnd, &span)
 	return val, nil
 }
 
@@ -743,7 +770,7 @@ func (ev *evaluator) evalFilterBlockExpr(e *ast.FilterBlockExpr, env *Env) (A0Va
 	if !ok {
 		span := e.Span
 		return nil, &A0RuntimeError{
-			Code:    diagnostics.EForNotList,
+			Code:    diagnostics.EType,
 			Message: "filter block requires a list",
 			Span:    &span,
 		}
@@ -797,6 +824,15 @@ func (ev *evaluator) evalLoopExpr(e *ast.LoopExpr, env *Env) (A0Value, error) {
 		}
 		if num, ok := timesVal.(A0Number); ok {
 			times = int64(num.Value)
+		}
+	}
+
+	if times < 0 {
+		span := e.Span
+		return nil, &A0RuntimeError{
+			Code:    diagnostics.EType,
+			Message: "loop times must be non-negative",
+			Span:    &span,
 		}
 	}
 
@@ -963,7 +999,7 @@ func (ev *evaluator) evalCallExpr(e *ast.CallExpr, env *Env) (A0Value, error) {
 	ev.tracker.ToolCalls++
 
 	span := e.Span
-	ev.emit(TraceToolStart, &span)
+	ev.emitWithData(TraceToolStart, &span, map[string]string{"tool": toolName})
 
 	result, err := tool.Execute(ev.ctx, &argsRec)
 
@@ -975,6 +1011,10 @@ func (ev *evaluator) evalCallExpr(e *ast.CallExpr, env *Env) (A0Value, error) {
 			Message: fmt.Sprintf("tool '%s' error: %s", toolName, err.Error()),
 			Span:    &span,
 		}
+	}
+
+	if bErr := ev.trackBytesWritten(result); bErr != nil {
+		return nil, bErr
 	}
 
 	return result, nil
@@ -1016,7 +1056,7 @@ func (ev *evaluator) evalDoExpr(e *ast.DoExpr, env *Env) (A0Value, error) {
 	ev.tracker.ToolCalls++
 
 	span := e.Span
-	ev.emit(TraceToolStart, &span)
+	ev.emitWithData(TraceToolStart, &span, map[string]string{"tool": toolName})
 
 	result, err := tool.Execute(ev.ctx, &argsRec)
 
@@ -1028,6 +1068,10 @@ func (ev *evaluator) evalDoExpr(e *ast.DoExpr, env *Env) (A0Value, error) {
 			Message: fmt.Sprintf("tool '%s' error: %s", toolName, err.Error()),
 			Span:    &span,
 		}
+	}
+
+	if bErr := ev.trackBytesWritten(result); bErr != nil {
+		return nil, bErr
 	}
 
 	return result, nil
@@ -1076,12 +1120,20 @@ func (ev *evaluator) evalFnCallExpr(e *ast.FnCallExpr, env *Env) (A0Value, error
 
 	// Check stdlib
 	if stdFn, ok := ev.opts.Stdlib[fnName]; ok {
-		// Special handling for map/reduce which take function args
+		// Special handling for map/reduce/filter which take function args
 		if fnName == "map" {
 			return ev.evalMapCall(&argsRec, env, e)
 		}
 		if fnName == "reduce" {
 			return ev.evalReduceCall(&argsRec, env, e)
+		}
+		if fnName == "filter" {
+			// Check if fn: or by: args are present — if fn:, dispatch specially
+			_, hasFn := argsRec.Get("fn")
+			_, hasBy := argsRec.Get("by")
+			if hasFn || hasBy {
+				return ev.evalFilterFnCall(&argsRec, env, e)
+			}
 		}
 
 		span := e.Span
@@ -1110,7 +1162,7 @@ func (ev *evaluator) evalMapCall(args *A0Record, env *Env, e *ast.FnCallExpr) (A
 	span := e.Span
 	ev.emit(TraceMapStart, &span)
 
-	listVal, _ := args.Get("list")
+	listVal, _ := args.Get("in")
 	fnName := ""
 	if fnVal, ok := args.Get("fn"); ok {
 		if s, ok := fnVal.(A0String); ok {
@@ -1127,6 +1179,15 @@ func (ev *evaluator) evalMapCall(args *A0Record, env *Env, e *ast.FnCallExpr) (A
 		}
 	}
 
+	uf, found := ev.userFns[fnName]
+	if !found {
+		return nil, &A0RuntimeError{
+			Code:    diagnostics.EUnknownFn,
+			Message: fmt.Sprintf("unknown function '%s'", fnName),
+			Span:    &span,
+		}
+	}
+
 	results := make([]A0Value, 0, len(list.Items))
 	for _, item := range list.Items {
 		if err := ev.checkIterationBudget(); err != nil {
@@ -1134,29 +1195,12 @@ func (ev *evaluator) evalMapCall(args *A0Record, env *Env, e *ast.FnCallExpr) (A
 		}
 		ev.tracker.Iterations++
 
-		// Call the named function with the item
-		itemRec := A0Record{Pairs: []KeyValue{{Key: "value", Value: item}}}
-		if uf, ok := ev.userFns[fnName]; ok {
-			childEnv := uf.closure.Child()
-			for _, param := range uf.decl.Params {
-				val, found := itemRec.Get(param)
-				if !found {
-					val = NewNull()
-				}
-				childEnv.Set(param, val)
-			}
-			result, err := ev.executeBlock(uf.decl.Body, childEnv)
-			if err != nil {
-				return nil, err
-			}
-			results = append(results, result)
-		} else {
-			return nil, &A0RuntimeError{
-				Code:    diagnostics.EUnknownFn,
-				Message: fmt.Sprintf("unknown function '%s'", fnName),
-				Span:    &span,
-			}
+		childEnv := ev.bindFnParams(uf, item)
+		result, err := ev.executeBlock(uf.decl.Body, childEnv)
+		if err != nil {
+			return nil, err
 		}
+		results = append(results, result)
 	}
 
 	ev.emit(TraceMapEnd, &span)
@@ -1167,7 +1211,7 @@ func (ev *evaluator) evalReduceCall(args *A0Record, env *Env, e *ast.FnCallExpr)
 	span := e.Span
 	ev.emit(TraceReduceStart, &span)
 
-	listVal, _ := args.Get("list")
+	listVal, _ := args.Get("in")
 	initVal, _ := args.Get("init")
 	fnName := ""
 	if fnVal, ok := args.Get("fn"); ok {
@@ -1185,6 +1229,15 @@ func (ev *evaluator) evalReduceCall(args *A0Record, env *Env, e *ast.FnCallExpr)
 		}
 	}
 
+	uf, found := ev.userFns[fnName]
+	if !found {
+		return nil, &A0RuntimeError{
+			Code:    diagnostics.EUnknownFn,
+			Message: fmt.Sprintf("unknown function '%s'", fnName),
+			Span:    &span,
+		}
+	}
+
 	acc := initVal
 	if acc == nil {
 		acc = NewNull()
@@ -1196,38 +1249,211 @@ func (ev *evaluator) evalReduceCall(args *A0Record, env *Env, e *ast.FnCallExpr)
 		}
 		ev.tracker.Iterations++
 
-		itemRec := A0Record{Pairs: []KeyValue{
-			{Key: "acc", Value: acc},
-			{Key: "value", Value: item},
-		}}
-		if uf, ok := ev.userFns[fnName]; ok {
-			childEnv := uf.closure.Child()
-			for _, param := range uf.decl.Params {
-				val, found := itemRec.Get(param)
-				if !found {
-					val = NewNull()
-				}
-				childEnv.Set(param, val)
-			}
-			result, err := ev.executeBlock(uf.decl.Body, childEnv)
-			if err != nil {
-				return nil, err
-			}
-			acc = result
-		} else {
-			return nil, &A0RuntimeError{
-				Code:    diagnostics.EUnknownFn,
-				Message: fmt.Sprintf("unknown function '%s'", fnName),
-				Span:    &span,
-			}
+		// Bind positionally: params[0]=acc, params[1]=item
+		childEnv := uf.closure.Child()
+		if len(uf.decl.Params) >= 1 {
+			childEnv.Set(uf.decl.Params[0], acc)
 		}
+		if len(uf.decl.Params) >= 2 {
+			childEnv.Set(uf.decl.Params[1], item)
+		}
+
+		result, err := ev.executeBlock(uf.decl.Body, childEnv)
+		if err != nil {
+			return nil, err
+		}
+		acc = result
 	}
 
 	ev.emit(TraceReduceEnd, &span)
 	return acc, nil
 }
 
+func (ev *evaluator) evalFilterFnCall(args *A0Record, env *Env, e *ast.FnCallExpr) (A0Value, error) {
+	span := e.Span
+
+	listVal, _ := args.Get("in")
+	_, hasFn := args.Get("fn")
+	_, hasBy := args.Get("by")
+
+	// Both fn and by present → error
+	if hasFn && hasBy {
+		return nil, &A0RuntimeError{
+			Code:    diagnostics.EFn,
+			Message: "filter: cannot specify both 'fn' and 'by'",
+			Span:    &span,
+		}
+	}
+
+	list, ok := listVal.(A0List)
+	if !ok {
+		return nil, &A0RuntimeError{
+			Code:    diagnostics.EType,
+			Message: "filter: 'in' must be a list",
+			Span:    &span,
+		}
+	}
+
+	ev.emit(TraceFilterStart, &span)
+
+	if hasBy {
+		// by: mode — keep record items where item[by] is truthy
+		byVal, _ := args.Get("by")
+		byStr, ok := byVal.(A0String)
+		if !ok {
+			return nil, &A0RuntimeError{
+				Code:    diagnostics.EFn,
+				Message: "filter: 'by' must be a string",
+				Span:    &span,
+			}
+		}
+
+		var results []A0Value
+		for _, item := range list.Items {
+			if err := ev.checkIterationBudget(); err != nil {
+				return nil, err
+			}
+			ev.tracker.Iterations++
+
+			rec, ok := item.(A0Record)
+			if !ok {
+				continue // discard non-records
+			}
+			val, found := rec.Get(byStr.Value)
+			if found && Truthiness(val) {
+				results = append(results, item)
+			}
+		}
+
+		ev.emit(TraceFilterEnd, &span)
+		return NewList(results), nil
+	}
+
+	// fn: mode — call named user function per item
+	fnVal, _ := args.Get("fn")
+	fnStr, ok := fnVal.(A0String)
+	if !ok {
+		return nil, &A0RuntimeError{
+			Code:    diagnostics.EFn,
+			Message: "filter: 'fn' must be a string",
+			Span:    &span,
+		}
+	}
+
+	uf, found := ev.userFns[fnStr.Value]
+	if !found {
+		return nil, &A0RuntimeError{
+			Code:    diagnostics.EUnknownFn,
+			Message: fmt.Sprintf("unknown function '%s'", fnStr.Value),
+			Span:    &span,
+		}
+	}
+
+	var results []A0Value
+	for _, item := range list.Items {
+		if err := ev.checkIterationBudget(); err != nil {
+			return nil, err
+		}
+		ev.tracker.Iterations++
+
+		childEnv := ev.bindFnParams(uf, item)
+		result, err := ev.executeBlock(uf.decl.Body, childEnv)
+		if err != nil {
+			return nil, err
+		}
+		// Check the first value of the result record for truthiness
+		// (fn returns { ok: bool }, filter checks the first value)
+		keep := false
+		if rec, ok := result.(A0Record); ok && len(rec.Pairs) > 0 {
+			keep = Truthiness(rec.Pairs[0].Value)
+		} else {
+			keep = Truthiness(result)
+		}
+		if keep {
+			results = append(results, item)
+		}
+	}
+
+	ev.emit(TraceFilterEnd, &span)
+	return NewList(results), nil
+}
+
+// bindFnParams creates a child env from a user function's closure and binds item to parameters.
+// Single param: bind item directly. Multi-param + record item: destructure fields.
+// Multi-param + non-record: E_TYPE error.
+func (ev *evaluator) bindFnParams(uf *userFn, item A0Value) *Env {
+	childEnv := uf.closure.Child()
+	if len(uf.decl.Params) == 1 {
+		// Single param: bind item directly
+		childEnv.Set(uf.decl.Params[0], item)
+	} else if rec, ok := item.(A0Record); ok {
+		// Multi-param + record: destructure fields
+		for _, param := range uf.decl.Params {
+			val, found := rec.Get(param)
+			if !found {
+				val = NewNull()
+			}
+			childEnv.Set(param, val)
+		}
+	} else {
+		// Multi-param + non-record: bind first param to item, rest to null
+		for i, param := range uf.decl.Params {
+			if i == 0 {
+				childEnv.Set(param, item)
+			} else {
+				childEnv.Set(param, NewNull())
+			}
+		}
+	}
+	return childEnv
+}
+
+// trackBytesWritten checks tool result for bytes field and tracks it against budget.
+func (ev *evaluator) trackBytesWritten(result A0Value) error {
+	if result == nil {
+		return nil
+	}
+	rec, ok := result.(A0Record)
+	if !ok {
+		return nil
+	}
+	bytesVal, found := rec.Get("bytes")
+	if !found {
+		return nil
+	}
+	if num, ok := bytesVal.(A0Number); ok {
+		ev.tracker.BytesWritten += int64(num.Value)
+		if ev.budget.MaxBytesWritten != nil && ev.tracker.BytesWritten > *ev.budget.MaxBytesWritten {
+			return &A0RuntimeError{
+				Code:    diagnostics.EBudget,
+				Message: fmt.Sprintf("bytes written budget exceeded (max %d)", *ev.budget.MaxBytesWritten),
+			}
+		}
+	}
+	return nil
+}
+
 // DeepEqual recursively compares two A0 values.
+// typeNameOf returns the A0 type name for error messages.
+func typeNameOf(v A0Value) string {
+	switch v.(type) {
+	case A0Null:
+		return "null"
+	case A0Bool:
+		return "boolean"
+	case A0Number:
+		return "number"
+	case A0String:
+		return "string"
+	case A0List:
+		return "list"
+	case A0Record:
+		return "record"
+	default:
+		return "unknown"
+	}
+}
+
 func DeepEqual(a, b A0Value) bool {
 	if a == nil && b == nil {
 		return true
